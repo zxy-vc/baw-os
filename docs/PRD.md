@@ -7,7 +7,7 @@
 **Fecha:** Marzo 2026  
 **Owner:** Fran Durán (ZXY Ventures)  
 **Tech Lead:** Andrés (ZXY Agent OS)  
-**Operaciones:** Hugo Sánchez, Alicia (ZXY Agent OS)
+**Operaciones:** Alicia (COO BaW)
 
 ---
 
@@ -72,7 +72,7 @@ ZXY aporta:
 | Multi-tenant desde inicio | N/A | N/A | N/A | N/A | ✅ |
 | Operador real como laboratorio | ❌ | ❌ | ❌ | ❌ | ✅ |
 | CCTV integration | ❌ | ❌ | ❌ | ❌ | ✅ (Tier 3) |
-| Open source / hackeable | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Código propio / 100% personalizable | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 **Haven (YC W25)** es la validación más relevante: YC está apostando en propiedad + IA. Pero Haven resuelve solo mantenimiento y vende a operadoras. BaW OS resuelve el stack completo y *es* la operadora.
 
@@ -80,13 +80,19 @@ ZXY aporta:
 
 ## 4. Usuarios del Sistema
 
-### Operadores primarios (agentes IA)
-- **Hugo Sánchez** — Chief of Staff. Consulta contratos, estado de unidades, reportes vía API. No usa UI.
-- **Alicia** — Operaciones BaW. Primer usuario real del dashboard. Gestiona incidencias, pagos, comunicación con inquilinos.
-- **Emily** — Comunicación y relación con huéspedes/inquilinos. Accede vía API para contexto de conversaciones.
+> **Principio clave:** BaW OS debe funcionar de forma autónoma. No depende de que un agente esté presente para operar. Los agentes son una capa de conveniencia encima de un sistema que ya corre solo.
+
+### Operadora del sistema
+- **Alicia (COO BaW)** — Único operador humano/agente del sistema. Gestiona unidades, contratos, pagos, incidencias y comunicación con inquilinos. Usa el dashboard diariamente.
+
+### Servicios compartidos ZXY (consultan vía API, no operan el sistema)
+- **Andrés** — Tech Lead. Desarrollo, mantenimiento y evolución del sistema.
+- **Beto** — Finanzas. Consulta reportes de ingresos y pagos para contabilidad de BaW.
+- **Maribel** — Legal. Accede a contratos para revisión legal cuando se requiere.
+- **Rafa** — Research. Valida datos operativos para análisis de mercado.
 
 ### Supervisión
-- **Fran Durán** — CEO. Ve el dashboard ejecutivo: occupancy rate, ingresos del mes, alertas críticas. No opera, supervisa.
+- **Fran Durán** — CEO. Dashboard ejecutivo: occupancy rate, ingresos del mes, alertas críticas. No opera, supervisa.
 
 ### Usuarios externos
 - **Inquilinos LTR/MTR** — Portal para ver contrato, estado de pago, reportar incidencias.
