@@ -195,6 +195,42 @@ ZXY aporta:
 
 ---
 
+## 5b. Principios de Autonomía del Sistema
+
+> **BaW OS debe funcionar de forma autónoma. No depende de que un agente esté presente para operar.**
+
+El sistema tiene dos capas independientes:
+
+### Capa 1 — Operación autónoma (sin agentes)
+El núcleo de BaW OS corre solo mediante automatizaciones y reglas:
+
+| Evento | Acción automática | Quién lo ejecuta |
+|--------|------------------|-----------------|
+| Pago vencido (+3 días) | Alerta a Alicia + notificación a inquilino | Sistema (cron job) |
+| Contrato vence en < 30 días | Notificación a inquilino + tarea para Alicia | Sistema (cron job) |
+| Nueva reserva STR confirmada | Confirmación + instrucciones de acceso al huésped | Sistema (webhook Stripe) |
+| Pago STR recibido | Estado actualizado + recibo enviado | Sistema (webhook Stripe) |
+| Incidencia sin respuesta +24h | Escalamiento automático | Sistema (cron job) |
+
+**Si todos los agentes se desconectan, BaW OS sigue operando.**
+
+### Capa 2 — Amplificación por agentes (opcional)
+Los agentes de ZXY Agent OS se conectan encima del sistema para añadir inteligencia:
+
+| Agente | Cómo se integra | Valor que agrega |
+|--------|----------------|-----------------|
+| **Alicia** | Recibe webhooks + opera vía API | Decisiones operativas contextuales |
+| **Beto** | Consulta API de ingresos/pagos | Contabilidad BaW automática |
+| **Maribel** | Alerta de contratos por vencer | Renovaciones y addendums legales |
+| **Rafa** | Consulta datos de ocupación | Validación de mercado / benchmarks |
+
+Los agentes **amplifican** el sistema, no lo sostienen. Para un cliente externo sin Agent OS, BaW OS igual funciona — los agentes son el diferenciador premium de BaW como operador.
+
+### Analogía
+> BaW OS es como un edificio con electricidad, seguridad y servicios automatizados. Funciona solo. Los agentes son el equipo que vive adentro y lo opera con inteligencia — pero si el equipo no está, el edificio sigue en pie.
+
+---
+
 ## 6. Stack Técnico
 
 ```
