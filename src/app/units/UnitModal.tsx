@@ -122,12 +122,19 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-1">Baños</label>
-              <input
-                type="number"
+              <select
                 value={form.bathrooms}
                 onChange={(e) => setForm({ ...form, bathrooms: e.target.value })}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
-              />
+              >
+                <option value="">—</option>
+                <option value="1">1 baño</option>
+                <option value="1.5">1.5 baños</option>
+                <option value="2">2 baños</option>
+                <option value="2.5">2.5 baños</option>
+                <option value="3">3 baños</option>
+                <option value="3.5">3.5 baños</option>
+              </select>
             </div>
           </div>
           <div>
