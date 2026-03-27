@@ -18,29 +18,42 @@ export async function middleware(request: NextRequest) {
           )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options as Parameters<typeof supabaseResponse.cookies.set>[2])
           )
         },
       },
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // IMPORTANT: must call getUser() to refresh session cookies
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Redirect unauthenticated users to /login (except if already on /login)
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  const isLoginPage = request.nextUrl.pathname.startsWith('/login')
+  const isPublicPath = isLoginPage ||
+    request.nextUrl.pathname.startsWith('/api/auth') ||
+    request.nextUrl.pathname === '/favicon.ico'
+
+  // Redirect unauthenticated users to /login
+  if (!user && !isPublicPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    // Copy cookies from supabaseResponse to redirect response
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value)
+    })
+    return redirectResponse
   }
 
   // Redirect authenticated users away from /login
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
+  if (user && isLoginPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value)
+    })
+    return redirectResponse
   }
 
   return supabaseResponse
