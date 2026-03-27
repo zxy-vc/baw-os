@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Sidebar from '@/components/Sidebar'
+import AuthGuard from '@/components/AuthGuard'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,10 +19,12 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={inter.className}>
-        <Sidebar />
-        <main className="pl-64 min-h-screen">
-          <div className="p-8">{children}</div>
-        </main>
+        <AuthGuard>
+          <Sidebar />
+          <main className="pl-64 min-h-screen">
+            <div className="p-8">{children}</div>
+          </main>
+        </AuthGuard>
       </body>
     </html>
   )
