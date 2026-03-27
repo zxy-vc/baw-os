@@ -21,8 +21,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthGuard>
           <Sidebar />
-          <main className="pl-64 min-h-screen">
-            <div className="p-8">{children}</div>
+          <main className="min-h-screen md:pl-64">
+            <div className="p-4 pt-16 md:p-8 md:pt-8">{children}</div>
           </main>
         </AuthGuard>
       </body>

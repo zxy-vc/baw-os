@@ -1,8 +1,9 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 
@@ -16,6 +17,12 @@ const navigation = [
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [open, setOpen] = useState(false)
+
+  // Close drawer on route change
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -24,51 +31,86 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-800">
-        <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm">
-          B
-        </div>
-        <div>
-          <h1 className="text-base font-semibold text-white">BaW OS</h1>
-          <p className="text-[11px] text-gray-500">v0.1 · ALM809P</p>
-        </div>
-      </div>
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-white md:hidden"
+        aria-label="Abrir menú"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navigation.map((item) => {
-          const isActive =
-            item.href === '/'
-              ? pathname === '/'
-              : pathname.startsWith(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.name}
-            </Link>
-          )
-        })}
-      </nav>
+      {/* Overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 md:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
 
-      <div className="px-3 py-3 border-t border-gray-800 space-y-2">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors w-full"
-        >
-          <LogOut className="w-5 h-5" />
-          Cerrar sesión
-        </button>
-        <p className="text-[11px] text-gray-600 px-3">BaW Design Lab · ZXY Ventures</p>
-      </div>
-    </aside>
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 flex flex-col transition-transform duration-200 ease-in-out',
+          'md:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm">
+              B
+            </div>
+            <div>
+              <h1 className="text-base font-semibold text-white">BaW OS</h1>
+              <p className="text-[11px] text-gray-500">v0.1 · ALM809P</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="p-1 text-gray-400 hover:text-white md:hidden"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {navigation.map((item) => {
+            const isActive =
+              item.href === '/'
+                ? pathname === '/'
+                : pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                )}
+              >
+                <item.icon className="w-5 h-5" />
+                {item.name}
+              </Link>
+            )
+          })}
+        </nav>
+
+        <div className="px-3 py-3 border-t border-gray-800 space-y-2">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors w-full"
+          >
+            <LogOut className="w-5 h-5" />
+            Cerrar sesión
+          </button>
+          <p className="text-[11px] text-gray-600 px-3">BaW Design Lab · ZXY Ventures</p>
+        </div>
+      </aside>
+    </>
   )
 }

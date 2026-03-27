@@ -102,7 +102,7 @@ export default function ContractDetailPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card space-y-3">
           <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
             Inquilino
@@ -174,6 +174,7 @@ export default function ContractDetailPage() {
         {payments.length === 0 ? (
           <p className="text-gray-500 text-sm">No hay pagos registrados para este contrato.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-800">
@@ -206,6 +207,7 @@ export default function ContractDetailPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

@@ -93,14 +93,14 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Pagos</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Pagos</h1>
           <p className="text-gray-400 mt-1 capitalize">{monthName}</p>
         </div>
         <Link
           href="/payments/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Registrar pago
@@ -133,7 +133,7 @@ export default function PaymentsPage() {
           <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">
             Ingresos por tipo
           </h3>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-4 sm:gap-6">
             {Object.entries(byType).map(([type, amount]) => (
               <div key={type}>
                 <p className="text-xs text-gray-500">{type}</p>
@@ -155,7 +155,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           type="month"
           value={selectedMonth}
