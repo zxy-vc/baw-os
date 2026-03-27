@@ -35,8 +35,8 @@ export default function ContractDetailPage() {
     fetch()
   }, [params.id])
 
-  if (loading) return <div className="text-gray-500">Cargando contrato...</div>
-  if (!contract) return <div className="text-gray-500">Contrato no encontrado.</div>
+  if (loading) return <div className="text-gray-400 dark:text-gray-500">Cargando contrato...</div>
+  if (!contract) return <div className="text-gray-400 dark:text-gray-500">Contrato no encontrado.</div>
 
   const unit = contract.unit as { number: string; floor: number; type: string } | null
   const occupant = contract.occupant as { name: string; phone?: string; email?: string } | null
@@ -76,15 +76,15 @@ export default function ContractDetailPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/contracts"
-          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors"
+          className="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Contrato — {occupant?.name || 'Sin inquilino'}
           </h1>
-          <p className="text-gray-400 mt-1">
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             Unidad {unit?.number || '—'} · {statusLabels[contract.status]}
           </p>
         </div>
@@ -104,36 +104,36 @@ export default function ContractDetailPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card space-y-3">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Inquilino
           </h3>
-          <p className="text-white font-medium">{occupant?.name || '—'}</p>
-          {occupant?.phone && <p className="text-sm text-gray-400">{occupant.phone}</p>}
-          {occupant?.email && <p className="text-sm text-gray-400">{occupant.email}</p>}
+          <p className="text-gray-900 dark:text-white font-medium">{occupant?.name || '—'}</p>
+          {occupant?.phone && <p className="text-sm text-gray-500 dark:text-gray-400">{occupant.phone}</p>}
+          {occupant?.email && <p className="text-sm text-gray-500 dark:text-gray-400">{occupant.email}</p>}
         </div>
         <div className="card space-y-3">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Unidad
           </h3>
-          <p className="text-white font-medium">
+          <p className="text-gray-900 dark:text-white font-medium">
             {unit?.number || '—'} — Piso {unit?.floor ?? '—'}
           </p>
-          <p className="text-sm text-gray-400">Tipo: {unit?.type || '—'}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Tipo: {unit?.type || '—'}</p>
         </div>
       </div>
 
       <div className="card">
-        <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-4">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
           Detalles del contrato
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs text-gray-500">Renta mensual</p>
-            <p className="text-lg font-semibold text-white">{formatCurrency(contract.monthly_amount)}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Renta mensual</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(contract.monthly_amount)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Depósito</p>
-            <p className="text-lg font-semibold text-white">
+            <p className="text-xs text-gray-400 dark:text-gray-500">Depósito</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">
               {contract.deposit_amount ? formatCurrency(contract.deposit_amount) : '—'}
             </p>
             {contract.deposit_amount && (
@@ -143,55 +143,55 @@ export default function ContractDetailPage() {
             )}
           </div>
           <div>
-            <p className="text-xs text-gray-500">Período</p>
-            <p className="text-sm text-white">{formatDate(contract.start_date)}</p>
-            <p className="text-sm text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-gray-500">Período</p>
+            <p className="text-sm text-gray-900 dark:text-white">{formatDate(contract.start_date)}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {contract.end_date ? formatDate(contract.end_date) : 'Indefinido'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Día de pago</p>
-            <p className="text-lg font-semibold text-white">{contract.payment_day}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Día de pago</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">{contract.payment_day}</p>
           </div>
         </div>
         {contract.notes && (
-          <div className="mt-4 pt-4 border-t border-gray-800">
-            <p className="text-xs text-gray-500 mb-1">Notas</p>
-            <p className="text-sm text-gray-300">{contract.notes}</p>
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Notas</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">{contract.notes}</p>
           </div>
         )}
       </div>
 
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Historial de pagos
           </h3>
-          <div className="text-sm text-gray-400">
-            Total cobrado: <span className="text-white font-medium">{formatCurrency(totalPaid)}</span>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Total cobrado: <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(totalPaid)}</span>
           </div>
         </div>
         {payments.length === 0 ? (
-          <p className="text-gray-500 text-sm">No hay pagos registrados para este contrato.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">No hay pagos registrados para este contrato.</p>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Vencimiento</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Monto</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Pagado</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Estado</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Fecha pago</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase py-2">Método</th>
+              <tr className="border-b border-gray-200 dark:border-gray-800">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Vencimiento</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Monto</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Pagado</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Estado</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Fecha pago</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Método</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
               {payments.map((p) => (
                 <tr key={p.id}>
-                  <td className="py-2 text-sm text-gray-300">{formatDate(p.due_date)}</td>
-                  <td className="py-2 text-sm text-white">{formatCurrency(p.amount)}</td>
-                  <td className="py-2 text-sm text-white">
+                  <td className="py-2 text-sm text-gray-700 dark:text-gray-300">{formatDate(p.due_date)}</td>
+                  <td className="py-2 text-sm text-gray-900 dark:text-white">{formatCurrency(p.amount)}</td>
+                  <td className="py-2 text-sm text-gray-900 dark:text-white">
                     {p.amount_paid ? formatCurrency(p.amount_paid) : '—'}
                   </td>
                   <td className="py-2">
@@ -199,10 +199,10 @@ export default function ContractDetailPage() {
                       {paymentStatusLabels[p.status] || p.status}
                     </span>
                   </td>
-                  <td className="py-2 text-sm text-gray-400">
+                  <td className="py-2 text-sm text-gray-500 dark:text-gray-400">
                     {p.paid_date ? formatDate(p.paid_date) : '—'}
                   </td>
-                  <td className="py-2 text-sm text-gray-400">{p.method || '—'}</td>
+                  <td className="py-2 text-sm text-gray-500 dark:text-gray-400">{p.method || '—'}</td>
                 </tr>
               ))}
             </tbody>

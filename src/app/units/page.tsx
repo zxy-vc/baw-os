@@ -89,8 +89,8 @@ export default function UnitsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Registro de Unidades</h1>
-          <p className="text-gray-400 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Registro de Unidades</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             {units.length} unidades · ALM809P
           </p>
         </div>
@@ -104,11 +104,11 @@ export default function UnitsPage() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Filter className="w-4 h-4 text-gray-500" />
+        <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as UnitType | 'all')}
-          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="input-field w-auto"
         >
           <option value="all">Todos los tipos</option>
           {(Object.keys(typeLabels) as UnitType[]).map((t) => (
@@ -118,7 +118,7 @@ export default function UnitsPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as UnitStatus | 'all')}
-          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="input-field w-auto"
         >
           <option value="all">Todos los estados</option>
           {(Object.keys(statusLabels) as UnitStatus[]).map((s) => (
@@ -131,7 +131,7 @@ export default function UnitsPage() {
             onChange={(e) =>
               setFilterFloor(e.target.value === 'all' ? 'all' : Number(e.target.value))
             }
-            className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="input-field w-auto"
           >
             <option value="all">Todos los pisos</option>
             {floors.map((f) => (
@@ -142,11 +142,11 @@ export default function UnitsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-500">Cargando unidades...</div>
+        <div className="text-gray-400 dark:text-gray-500">Cargando unidades...</div>
       ) : units.length === 0 ? (
         <div className="card text-center py-12">
-          <Building2 className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-400">No hay unidades registradas</p>
+          <Building2 className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">No hay unidades registradas</p>
           <button
             onClick={handleNew}
             className="mt-4 text-indigo-400 hover:text-indigo-300 text-sm font-medium"
@@ -158,45 +158,45 @@ export default function UnitsPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+              <tr className="border-b border-gray-200 dark:border-gray-800">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Unidad
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Piso
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Tipo
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Estado
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Detalles
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Acciones
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
               {units.map((unit) => (
-                <tr key={unit.id} className="hover:bg-gray-900/50 transition-colors">
+                <tr key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                   <td className="py-3 px-4">
-                    <span className="font-medium text-white">{unit.number}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{unit.number}</span>
                   </td>
-                  <td className="py-3 px-4 text-gray-400">
+                  <td className="py-3 px-4 text-gray-500 dark:text-gray-400">
                     {unit.floor ?? '—'}
                   </td>
                   <td className="py-3 px-4">
-                    <span className="text-sm text-gray-300">{unit.type}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{unit.type}</span>
                   </td>
                   <td className="py-3 px-4">
                     <span className={statusBadgeClass[unit.status]}>
                       {statusLabels[unit.status]}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-sm text-gray-400">
+                  <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {[
                       unit.bedrooms && `${unit.bedrooms} rec`,
                       unit.bathrooms && `${unit.bathrooms} baño(s)`,
@@ -218,7 +218,7 @@ export default function UnitsPage() {
                         onChange={(e) =>
                           handleStatusChange(unit.id, e.target.value as UnitStatus)
                         }
-                        className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-2 py-1"
+                        className="bg-gray-100 border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300"
                       >
                         {(Object.keys(statusLabels) as UnitStatus[]).map((s) => (
                           <option key={s} value={s}>{statusLabels[s]}</option>

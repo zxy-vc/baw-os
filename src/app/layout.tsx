@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import Sidebar from '@/components/Sidebar'
 import AuthGuard from '@/components/AuthGuard'
+import ThemeProvider from '@/components/ThemeProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,14 +18,28 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es" className="dark" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                var t = localStorage.getItem('baw-theme');
+                if (t === 'light') document.documentElement.classList.remove('dark');
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
-        <AuthGuard>
-          <Sidebar />
-          <main className="min-h-screen md:pl-64">
-            <div className="p-4 pt-16 md:p-8 md:pt-8">{children}</div>
-          </main>
-        </AuthGuard>
+        <ThemeProvider>
+          <AuthGuard>
+            <Sidebar />
+            <main className="min-h-screen md:pl-64">
+              <div className="p-4 pt-16 md:p-8 md:pt-8">{children}</div>
+            </main>
+          </AuthGuard>
+        </ThemeProvider>
       </body>
     </html>
   )

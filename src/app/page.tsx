@@ -83,23 +83,23 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-gray-400 mt-1">ALM809P — Vista general de operación</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">ALM809P — Vista general de operación</p>
       </div>
 
       {loading ? (
-        <div className="text-gray-500">Cargando datos...</div>
+        <div className="text-gray-400 dark:text-gray-500">Cargando datos...</div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Link href="/units" className="card hover:border-gray-700 transition-colors">
+            <Link href="/units" className="card hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Unidades</p>
-                  <p className="text-2xl font-bold text-white mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Unidades</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                     {stats.occupiedUnits}/{stats.totalUnits}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Ocupación: {occupancyRate}%
                   </p>
                 </div>
@@ -107,11 +107,11 @@ export default function Dashboard() {
               </div>
             </Link>
 
-            <Link href="/contracts" className="card hover:border-gray-700 transition-colors">
+            <Link href="/contracts" className="card hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Contratos activos</p>
-                  <p className="text-2xl font-bold text-white mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Contratos activos</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                     {stats.activeContracts}
                   </p>
                   {stats.expiringContracts > 0 && (
@@ -124,14 +124,14 @@ export default function Dashboard() {
               </div>
             </Link>
 
-            <Link href="/payments" className="card hover:border-gray-700 transition-colors">
+            <Link href="/payments" className="card hover:border-gray-300 dark:hover:border-gray-700 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Ingresos del mes</p>
-                  <p className="text-2xl font-bold text-white mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Ingresos del mes</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                     {formatCurrency(stats.monthlyReceived)}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Esperado: {formatCurrency(stats.monthlyExpected)}
                   </p>
                 </div>
@@ -142,8 +142,8 @@ export default function Dashboard() {
             <div className="card">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400">Alertas</p>
-                  <p className="text-2xl font-bold text-white mt-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Alertas</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                     {stats.latePayments + stats.expiringContracts}
                   </p>
                   <div className="text-xs mt-1 space-y-0.5">
@@ -168,7 +168,7 @@ export default function Dashboard() {
                       ? 'text-red-500'
                       : stats.expiringContracts > 0
                       ? 'text-amber-500'
-                      : 'text-gray-700'
+                      : 'text-gray-300 dark:text-gray-700'
                   }`}
                 />
               </div>
@@ -183,7 +183,7 @@ export default function Dashboard() {
                   <p className="text-sm font-medium text-amber-400">
                     {stats.pendingPayments} pago(s) pendientes este mes
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                     Revisa la sección de pagos para registrar cobros recibidos.
                   </p>
                 </div>

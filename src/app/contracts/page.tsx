@@ -50,8 +50,8 @@ export default function ContractsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Contratos LTR / MTR</h1>
-          <p className="text-gray-400 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Contratos LTR / MTR</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             {contracts.length} contrato(s) registrado(s)
           </p>
         </div>
@@ -68,7 +68,7 @@ export default function ContractsPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+          className="input-field w-auto"
         >
           <option value="all">Todos los estados</option>
           {Object.entries(statusLabels).map(([key, label]) => (
@@ -78,11 +78,11 @@ export default function ContractsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-500">Cargando contratos...</div>
+        <div className="text-gray-400 dark:text-gray-500">Cargando contratos...</div>
       ) : contracts.length === 0 ? (
         <div className="card text-center py-12">
-          <FileText className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-400">No hay contratos registrados</p>
+          <FileText className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">No hay contratos registrados</p>
           <Link
             href="/contracts/new"
             className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
@@ -101,12 +101,12 @@ export default function ContractsPage() {
               <Link
                 key={contract.id}
                 href={`/contracts/${contract.id}`}
-                className="card block hover:border-gray-700 transition-colors"
+                className="card block hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="space-y-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-medium text-white">
+                      <h3 className="font-medium text-gray-900 dark:text-white">
                         {(contract.occupant as { name: string } | null)?.name || 'Sin inquilino'}
                       </h3>
                       <span className={statusBadge[contract.status] || 'badge-expired'}>
@@ -125,7 +125,7 @@ export default function ContractsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-400">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                       <span>
                         Unidad {(contract.unit as { number: string } | null)?.number || '—'}
                       </span>
@@ -136,10 +136,10 @@ export default function ContractsPage() {
                     </div>
                   </div>
                   <div className="text-left sm:text-right shrink-0">
-                    <p className="text-lg font-semibold text-white">
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
                       {formatCurrency(contract.monthly_amount)}
                     </p>
-                    <p className="text-xs text-gray-500">/ mes</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">/ mes</p>
                   </div>
                 </div>
               </Link>

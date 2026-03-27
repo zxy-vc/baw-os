@@ -38,45 +38,45 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-lg mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-white">
+      <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 rounded-xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {unit ? 'Editar unidad' : 'Nueva unidad'}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Número</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Número</label>
               <input
                 type="text"
                 required
                 value={form.number}
                 onChange={(e) => setForm({ ...form, number: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
                 placeholder="Ej: 101"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Piso</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Piso</label>
               <input
                 type="number"
                 value={form.floor}
                 onChange={(e) => setForm({ ...form, floor: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Tipo</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Tipo</label>
               <select
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value as UnitType })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
               >
                 <option value="LTR">Larga estancia (LTR)</option>
                 <option value="MTR">Media estancia (MTR)</option>
@@ -86,11 +86,11 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Estado</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Estado</label>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as UnitStatus })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
               >
                 <option value="available">Disponible</option>
                 <option value="occupied">Ocupado</option>
@@ -102,30 +102,30 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Área (m²)</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Área (m²)</label>
               <input
                 type="number"
                 step="0.01"
                 value={form.area_m2}
                 onChange={(e) => setForm({ ...form, area_m2: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Recámaras</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Recámaras</label>
               <input
                 type="number"
                 value={form.bedrooms}
                 onChange={(e) => setForm({ ...form, bedrooms: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Baños</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Baños</label>
               <select
                 value={form.bathrooms}
                 onChange={(e) => setForm({ ...form, bathrooms: e.target.value })}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                className="input-field"
               >
                 <option value="">—</option>
                 <option value="1">1 baño</option>
@@ -138,19 +138,19 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Notas</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Notas</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               rows={2}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className="input-field"
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
             >
               Cancelar
             </button>

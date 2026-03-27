@@ -4,13 +4,13 @@
 
 @layer base {
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
+    @apply bg-white border border-gray-200 rounded-xl p-6 dark:bg-gray-900 dark:border-gray-800;
   }
   .badge-available {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
@@ -38,5 +38,12 @@
   }
   .badge-expired {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20;
+  }
+
+  /* Light/dark form inputs */
+  .input-field {
+    @apply w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm
+           focus:ring-indigo-500 focus:border-indigo-500
+           dark:bg-gray-800 dark:border-gray-700 dark:text-white;
   }
 }

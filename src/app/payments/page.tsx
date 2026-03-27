@@ -95,8 +95,8 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white">Pagos</h1>
-          <p className="text-gray-400 mt-1 capitalize">{monthName}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Pagos</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 capitalize">{monthName}</p>
         </div>
         <Link
           href="/payments/new"
@@ -109,20 +109,20 @@ export default function PaymentsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card">
-          <p className="text-sm text-gray-400">Esperado</p>
-          <p className="text-xl font-bold text-white mt-1">{formatCurrency(totalExpected)}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Esperado</p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(totalExpected)}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-400">Recibido</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Recibido</p>
           <p className="text-xl font-bold text-emerald-400 mt-1">{formatCurrency(totalReceived)}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-400">Pendientes</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Pendientes</p>
           <p className="text-xl font-bold text-amber-400 mt-1">{pendingCount}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-400">En mora</p>
-          <p className={`text-xl font-bold mt-1 ${lateCount > 0 ? 'text-red-400' : 'text-gray-600'}`}>
+          <p className="text-sm text-gray-500 dark:text-gray-400">En mora</p>
+          <p className={`text-xl font-bold mt-1 ${lateCount > 0 ? 'text-red-400' : 'text-gray-300 dark:text-gray-600'}`}>
             {lateCount}
           </p>
         </div>
@@ -130,14 +130,14 @@ export default function PaymentsPage() {
 
       {Object.keys(byType).length > 0 && (
         <div className="card">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
             Ingresos por tipo
           </h3>
           <div className="flex flex-wrap gap-4 sm:gap-6">
             {Object.entries(byType).map(([type, amount]) => (
               <div key={type}>
-                <p className="text-xs text-gray-500">{type}</p>
-                <p className="text-lg font-semibold text-white">{formatCurrency(amount)}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{type}</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">{formatCurrency(amount)}</p>
               </div>
             ))}
           </div>
@@ -160,12 +160,12 @@ export default function PaymentsPage() {
           type="month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+          className="input-field w-auto"
         />
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2"
+          className="input-field w-auto"
         >
           <option value="all">Todos los estados</option>
           {Object.entries(statusLabels).map(([key, label]) => (
@@ -175,56 +175,56 @@ export default function PaymentsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-500">Cargando pagos...</div>
+        <div className="text-gray-400 dark:text-gray-500">Cargando pagos...</div>
       ) : payments.length === 0 ? (
         <div className="card text-center py-12">
-          <CreditCard className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-400">No hay pagos para este período</p>
+          <CreditCard className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-400">No hay pagos para este período</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+              <tr className="border-b border-gray-200 dark:border-gray-800">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Inquilino
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Unidad
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Vencimiento
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Monto
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Pagado
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Estado
                 </th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-3 px-4">
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Método
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
               {payments.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-900/50 transition-colors">
-                  <td className="py-3 px-4 text-sm text-white">
+                <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                  <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
                     {(p.contract?.occupant as { name: string } | null)?.name || '—'}
                   </td>
-                  <td className="py-3 px-4 text-sm text-gray-400">
+                  <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {(p.contract?.unit as { number: string } | null)?.number || '—'}
                   </td>
-                  <td className="py-3 px-4 text-sm text-gray-300">
+                  <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
                     {formatDate(p.due_date)}
                   </td>
-                  <td className="py-3 px-4 text-sm text-white">
+                  <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
                     {formatCurrency(p.amount)}
                   </td>
-                  <td className="py-3 px-4 text-sm text-white">
+                  <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
                     {p.amount_paid ? formatCurrency(p.amount_paid) : '—'}
                   </td>
                   <td className="py-3 px-4">
@@ -232,7 +232,7 @@ export default function PaymentsPage() {
                       {statusLabels[p.status] || p.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-sm text-gray-400">
+                  <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {p.method || '—'}
                   </td>
                 </tr>

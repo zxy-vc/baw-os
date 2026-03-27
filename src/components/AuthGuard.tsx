@@ -35,8 +35,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (checking && pathname !== '/login') {
     return (
-      <div className="fixed inset-0 bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Cargando...</div>
+      <div className="fixed inset-0 bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-gray-400 dark:text-gray-500 text-sm">Cargando...</div>
       </div>
     )
   }
