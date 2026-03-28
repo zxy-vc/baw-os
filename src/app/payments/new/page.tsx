@@ -21,7 +21,8 @@ export default function NewPaymentPage() {
 
   const [form, setForm] = useState({
     contract_id: '',
-    amount: '',
+    rent_amount: '',
+    water_fee: '250',
     amount_paid: '',
     due_date: new Date().toISOString().split('T')[0],
     paid_date: new Date().toISOString().split('T')[0],
@@ -30,6 +31,8 @@ export default function NewPaymentPage() {
     reference: '',
     notes: '',
   })
+
+  const totalAmount = (Number(form.rent_amount) || 0) + (Number(form.water_fee) || 0)
 
   useEffect(() => {
     supabase
@@ -44,10 +47,11 @@ export default function NewPaymentPage() {
 
   function handleContractChange(contractId: string) {
     const contract = contracts.find((c) => c.id === contractId)
+    const rentAmount = contract ? contract.monthly_amount - 250 : 0
     setForm({
       ...form,
       contract_id: contractId,
-      amount: contract ? String(contract.monthly_amount) : '',
+      rent_amount: contract ? String(rentAmount > 0 ? rentAmount : contract.monthly_amount) : '',
       amount_paid: contract ? String(contract.monthly_amount) : '',
     })
   }
@@ -58,7 +62,9 @@ export default function NewPaymentPage() {
 
     const { error } = await supabase.from('payments').insert({
       contract_id: form.contract_id,
-      amount: Number(form.amount),
+      rent_amount: Number(form.rent_amount),
+      water_fee: Number(form.water_fee),
+      amount: totalAmount,
       amount_paid: form.status === 'paid' || form.status === 'partial' ? Number(form.amount_paid) : null,
       due_date: form.due_date,
       paid_date: form.status === 'paid' || form.status === 'partial' ? form.paid_date : null,
@@ -108,18 +114,39 @@ export default function NewPaymentPage() {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto esperado</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta base</label>
             <input
               type="number"
               required
               step="0.01"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              value={form.rent_amount}
+              onChange={(e) => setForm({ ...form, rent_amount: e.target.value })}
               className="input-field"
+              placeholder="0.00"
             />
           </div>
+          <div>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Cuota agua</label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.water_fee}
+              onChange={(e) => setForm({ ...form, water_fee: e.target.value })}
+              className="input-field"
+              placeholder="250"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Total</label>
+            <div className="input-field bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white font-semibold flex items-center">
+              {formatCurrency(totalAmount)}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto pagado</label>
             <input
@@ -130,9 +157,6 @@ export default function NewPaymentPage() {
               className="input-field"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha vencimiento</label>
             <input
@@ -143,6 +167,9 @@ export default function NewPaymentPage() {
               className="input-field"
             />
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de pago</label>
             <input
@@ -152,9 +179,6 @@ export default function NewPaymentPage() {
               className="input-field"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Estado</label>
             <select
@@ -169,6 +193,9 @@ export default function NewPaymentPage() {
               <option value="waived">Condonado</option>
             </select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método de pago</label>
             <select
@@ -183,17 +210,16 @@ export default function NewPaymentPage() {
               <option value="other">Otro</option>
             </select>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia</label>
-          <input
-            type="text"
-            value={form.reference}
-            onChange={(e) => setForm({ ...form, reference: e.target.value })}
-            className="input-field"
-            placeholder="No. de transferencia, folio, etc."
-          />
+          <div>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia</label>
+            <input
+              type="text"
+              value={form.reference}
+              onChange={(e) => setForm({ ...form, reference: e.target.value })}
+              className="input-field"
+              placeholder="No. de transferencia, folio, etc."
+            />
+          </div>
         </div>
 
         <div>

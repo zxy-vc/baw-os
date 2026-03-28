@@ -77,6 +77,8 @@ export interface Payment {
   org_id: string
   contract_id: string
   amount: number
+  rent_amount?: number
+  water_fee?: number
   amount_paid?: number
   due_date: string
   paid_date?: string

@@ -9,6 +9,8 @@ import Link from 'next/link'
 interface PaymentWithContract {
   id: string
   amount: number
+  rent_amount: number | null
+  water_fee: number | null
   amount_paid: number | null
   due_date: string
   paid_date: string | null
@@ -196,7 +198,13 @@ export default function PaymentsPage() {
                   Vencimiento
                 </th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Monto
+                  Renta
+                </th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
+                  Agua
+                </th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
+                  Total
                 </th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Pagado
@@ -222,6 +230,12 @@ export default function PaymentsPage() {
                     {formatDate(p.due_date)}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
+                    {p.rent_amount ? formatCurrency(p.rent_amount) : '—'}
+                  </td>
+                  <td className="py-3 px-4 text-sm text-blue-400">
+                    {p.water_fee ? formatCurrency(p.water_fee) : '—'}
+                  </td>
+                  <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
                     {formatCurrency(p.amount)}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
