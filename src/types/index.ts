@@ -7,7 +7,9 @@ export type ContractStatus = 'active' | 'expired' | 'terminated' | 'pending' | '
 export type PaymentStatus = 'pending' | 'paid' | 'late' | 'partial' | 'waived'
 export type IncidentStatus = 'open' | 'in_progress' | 'waiting_parts' | 'resolved' | 'cancelled'
 export type IncidentPriority = 'low' | 'medium' | 'high' | 'urgent'
-export type ReservationStatus = 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show'
+export type ReservationStatus = 'tentative' | 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out'
+export type ReservationPaymentStatus = 'pending' | 'partial' | 'paid'
+export type BookingMode = 'full' | 'room' | 'bed'
 export type OccupantType = 'tenant' | 'guest' | 'owner' | 'staff'
 export type MemberRole = 'owner' | 'admin' | 'operator' | 'viewer' | 'agent'
 
@@ -115,25 +117,27 @@ export interface Incident {
 
 export interface Reservation {
   id: string
-  org_id: string
   unit_id: string
-  guest_id?: string
+  organization_id: string
+  guest_name: string
+  guest_phone?: string
+  guest_email?: string
   check_in: string
   check_out: string
-  nights: number
+  mode: BookingMode
+  rooms_count: number
+  beds_count: number
   guests_count: number
-  nightly_rate: number
-  total_amount: number
-  cleaning_fee: number
+  price_per_night: number
+  total_price: number
   status: ReservationStatus
-  source: string
-  stripe_payment_id?: string
+  payment_status: ReservationPaymentStatus
+  amount_paid: number
   notes?: string
   created_at: string
   updated_at: string
   // Relations
   unit?: Unit
-  guest?: Occupant
 }
 
 // API Response types
