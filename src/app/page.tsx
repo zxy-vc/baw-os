@@ -91,7 +91,7 @@ export default function Dashboard() {
           supabase
             .from('contracts')
             .select('*, unit:units(id, number), occupant:occupants(id, name)')
-            .eq('status', 'active'),
+            .in('status', ['active', 'expired']),
           supabase
             .from('payments')
             .select('*, contract:contracts(*, unit:units(number), occupant:occupants(name))')
@@ -116,13 +116,17 @@ export default function Dashboard() {
           contract: Contract & { unit: { number: string }; occupant: { name: string } }
         })[]
 
-        // Build unit map with occupant info
-        const contractByUnit = new Map<string, { occupantName: string; type: string }>()
+        // Build unit map with occupant info — prefer active, fallback to most recent expired
+        const contractByUnit = new Map<string, { occupantName: string; type: string; status: string }>()
         for (const c of activeContracts) {
-          if (c.unit) {
+          if (!c.unit) continue
+          const existing = contractByUnit.get(c.unit_id)
+          // Active contracts always win; for expired, only set if no entry yet
+          if (!existing || c.status === 'active') {
             contractByUnit.set(c.unit_id, {
               occupantName: c.occupant?.name || '',
-              type: c.unit?.number ? 'LTR' : 'LTR',
+              type: 'LTR',
+              status: c.status,
             })
           }
         }
