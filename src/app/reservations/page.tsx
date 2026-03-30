@@ -192,7 +192,7 @@ export default function ReservationsPage() {
 
     const { error } = await supabase.from('reservations').insert({
       unit_id: unitId,
-      organization_id: 'baw-alm809p',
+      organization_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
       guest_name: guestName,
       guest_phone: guestPhone || null,
       guest_email: guestEmail || null,
