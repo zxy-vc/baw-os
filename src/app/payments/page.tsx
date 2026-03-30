@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, CreditCard, AlertTriangle } from 'lucide-react'
+import { Plus, CreditCard, AlertTriangle, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -29,6 +29,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<PaymentWithContract[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -57,6 +58,21 @@ export default function PaymentsPage() {
   useEffect(() => {
     fetchPayments()
   }, [filterStatus, selectedMonth])
+
+  async function handleMarkPaid(payment: PaymentWithContract) {
+    setMarkingPaid(payment.id)
+    const today = new Date().toISOString().split('T')[0]
+    await supabase
+      .from('payments')
+      .update({
+        status: 'paid',
+        amount_paid: payment.amount,
+        paid_date: today,
+      })
+      .eq('id', payment.id)
+    setMarkingPaid(null)
+    fetchPayments()
+  }
 
   const statusLabels: Record<string, string> = {
     pending: 'Pendiente',
@@ -182,6 +198,12 @@ export default function PaymentsPage() {
         <div className="card text-center py-12">
           <CreditCard className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
           <p className="text-gray-500 dark:text-gray-400">No hay pagos para este período</p>
+          <Link
+            href="/payments/new"
+            className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+          >
+            Registrar pago
+          </Link>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -214,6 +236,9 @@ export default function PaymentsPage() {
                 </th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
                   Método
+                </th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
+                  Acciones
                 </th>
               </tr>
             </thead>
@@ -248,6 +273,19 @@ export default function PaymentsPage() {
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {p.method || '—'}
+                  </td>
+                  <td className="py-3 px-4">
+                    {(p.status === 'pending' || p.status === 'late') && (
+                      <button
+                        onClick={() => handleMarkPaid(p)}
+                        disabled={markingPaid === p.id}
+                        title="Marcar como pagado"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Pagado
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -606,6 +606,7 @@ export default function ReservationsPage() {
           <div className="text-center py-12">
             <CalendarDays className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400">No hay reservaciones</p>
+            <p className="mt-2 text-sm text-indigo-400">Usa el formulario de arriba para crear una reservación</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

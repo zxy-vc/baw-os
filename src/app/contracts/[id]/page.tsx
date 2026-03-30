@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
-import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { useParams, useRouter } from 'next/navigation'
+import { ArrowLeft, AlertTriangle, Trash2, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import type { Contract, Payment } from '@/types'
@@ -10,30 +10,59 @@ import Link from 'next/link'
 
 export default function ContractDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const [contract, setContract] = useState<Contract | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleteOccupantTarget, setDeleteOccupantTarget] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null)
+
+  async function fetchData() {
+    const [contractRes, paymentsRes] = await Promise.all([
+      supabase
+        .from('contracts')
+        .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
+        .eq('id', params.id)
+        .single(),
+      supabase
+        .from('payments')
+        .select('*')
+        .eq('contract_id', params.id)
+        .order('due_date', { ascending: false }),
+    ])
+    setContract(contractRes.data)
+    setPayments(paymentsRes.data || [])
+    setLoading(false)
+  }
 
   useEffect(() => {
-    async function fetch() {
-      const [contractRes, paymentsRes] = await Promise.all([
-        supabase
-          .from('contracts')
-          .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
-          .eq('id', params.id)
-          .single(),
-        supabase
-          .from('payments')
-          .select('*')
-          .eq('contract_id', params.id)
-          .order('due_date', { ascending: false }),
-      ])
-      setContract(contractRes.data)
-      setPayments(paymentsRes.data || [])
-      setLoading(false)
-    }
-    fetch()
+    fetchData()
   }, [params.id])
+
+  async function handleDeleteOccupant() {
+    if (!contract) return
+    setSaving(true)
+    await supabase.from('occupants').delete().eq('id', contract.occupant_id)
+    setDeleteOccupantTarget(false)
+    setSaving(false)
+    router.push('/contracts')
+  }
+
+  async function handleMarkPaid(payment: Payment) {
+    setMarkingPaid(payment.id)
+    const today = new Date().toISOString().split('T')[0]
+    await supabase
+      .from('payments')
+      .update({
+        status: 'paid',
+        amount_paid: payment.amount,
+        paid_date: today,
+      })
+      .eq('id', payment.id)
+    setMarkingPaid(null)
+    fetchData()
+  }
 
   if (loading) return <div className="text-gray-400 dark:text-gray-500">Cargando contrato...</div>
   if (!contract) return <div className="text-gray-400 dark:text-gray-500">Contrato no encontrado.</div>
@@ -104,9 +133,18 @@ export default function ContractDetailPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card space-y-3">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Inquilino
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Inquilino
+            </h3>
+            <button
+              onClick={() => setDeleteOccupantTarget(true)}
+              title="Eliminar inquilino"
+              className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <p className="text-gray-900 dark:text-white font-medium">{occupant?.name || '—'}</p>
           {occupant?.phone && <p className="text-sm text-gray-500 dark:text-gray-400">{occupant.phone}</p>}
           {occupant?.email && <p className="text-sm text-gray-500 dark:text-gray-400">{occupant.email}</p>}
@@ -172,7 +210,12 @@ export default function ContractDetailPage() {
           </div>
         </div>
         {payments.length === 0 ? (
-          <p className="text-gray-400 dark:text-gray-500 text-sm">No hay pagos registrados para este contrato.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            No hay pagos registrados para este contrato.{' '}
+            <Link href="/payments/new" className="text-indigo-400 hover:text-indigo-300">
+              Registrar pago
+            </Link>
+          </p>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full">
@@ -184,6 +227,7 @@ export default function ContractDetailPage() {
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Estado</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Fecha pago</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Método</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
@@ -203,6 +247,18 @@ export default function ContractDetailPage() {
                     {p.paid_date ? formatDate(p.paid_date) : '—'}
                   </td>
                   <td className="py-2 text-sm text-gray-500 dark:text-gray-400">{p.method || '—'}</td>
+                  <td className="py-2">
+                    {(p.status === 'pending' || p.status === 'late') && (
+                      <button
+                        onClick={() => handleMarkPaid(p)}
+                        disabled={markingPaid === p.id}
+                        title="Marcar como pagado"
+                        className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -210,6 +266,34 @@ export default function ContractDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Occupant Confirmation */}
+      {deleteOccupantTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="card w-full max-w-md mx-4">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar inquilino</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              ¿Eliminar a <strong className="text-gray-900 dark:text-white">{occupant?.name || '—'}</strong>? Esta acción no se puede deshacer y también eliminará contratos asociados.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteOccupantTarget(false)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteOccupant}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

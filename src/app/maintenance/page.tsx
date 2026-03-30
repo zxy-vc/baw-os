@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Wrench, AlertTriangle } from 'lucide-react'
+import { Plus, Wrench, AlertTriangle, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
@@ -58,6 +58,8 @@ export default function MaintenancePage() {
   const [filterPriority, setFilterPriority] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [units, setUnits] = useState<{ id: string; number: string }[]>([])
+  const [deleteTarget, setDeleteTarget] = useState<IncidentWithUnit | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     supabase
@@ -67,24 +69,41 @@ export default function MaintenancePage() {
       .then(({ data }) => setUnits(data || []))
   }, [])
 
+  async function fetchIncidents() {
+    setLoading(true)
+    let query = supabase
+      .from('incidents')
+      .select('*, unit:units(number)')
+      .order('created_at', { ascending: false })
+
+    if (filterUnit !== 'all') query = query.eq('unit_id', filterUnit)
+    if (filterPriority !== 'all') query = query.eq('priority', filterPriority)
+    if (filterStatus !== 'all') query = query.eq('status', filterStatus)
+
+    const { data } = await query
+    setIncidents((data as IncidentWithUnit[]) || [])
+    setLoading(false)
+  }
+
   useEffect(() => {
-    async function fetch() {
-      setLoading(true)
-      let query = supabase
-        .from('incidents')
-        .select('*, unit:units(number)')
-        .order('created_at', { ascending: false })
-
-      if (filterUnit !== 'all') query = query.eq('unit_id', filterUnit)
-      if (filterPriority !== 'all') query = query.eq('priority', filterPriority)
-      if (filterStatus !== 'all') query = query.eq('status', filterStatus)
-
-      const { data } = await query
-      setIncidents((data as IncidentWithUnit[]) || [])
-      setLoading(false)
-    }
-    fetch()
+    fetchIncidents()
   }, [filterUnit, filterPriority, filterStatus])
+
+  async function handleStatusChange(id: string, status: string) {
+    const updates: Record<string, unknown> = { status }
+    if (status === 'resolved') updates.resolved_at = new Date().toISOString()
+    await supabase.from('incidents').update(updates).eq('id', id)
+    fetchIncidents()
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setSaving(true)
+    await supabase.from('incidents').delete().eq('id', deleteTarget.id)
+    setDeleteTarget(null)
+    setSaving(false)
+    fetchIncidents()
+  }
 
   const urgentCount = incidents.filter((i) => i.priority === 'urgent' && i.status !== 'resolved' && i.status !== 'cancelled').length
   const openCount = incidents.filter((i) => i.status === 'open').length
@@ -178,6 +197,12 @@ export default function MaintenancePage() {
         <div className="card text-center py-12">
           <Wrench className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
           <p className="text-gray-500 dark:text-gray-400">No hay incidencias registradas</p>
+          <Link
+            href="/maintenance/new"
+            className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+          >
+            Reportar incidencia
+          </Link>
         </div>
       ) : (
         <div className="space-y-3">
@@ -210,9 +235,55 @@ export default function MaintenancePage() {
                     {inc.actual_cost && <span>Real: {formatCurrency(inc.actual_cost)}</span>}
                   </div>
                 </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <select
+                    value={inc.status}
+                    onChange={(e) => handleStatusChange(inc.id, e.target.value)}
+                    className="bg-gray-100 border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300"
+                  >
+                    {Object.entries(statusLabels).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setDeleteTarget(inc)}
+                    title="Eliminar incidencia"
+                    className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="card w-full max-w-md mx-4">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar incidencia</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              ¿Eliminar <strong className="text-gray-900 dark:text-white">{deleteTarget.title}</strong>? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
