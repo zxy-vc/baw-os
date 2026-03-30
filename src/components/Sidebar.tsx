@@ -73,7 +73,7 @@ export default function Sidebar() {
             </div>
             <div>
               <h1 className="text-base font-semibold text-white dark:text-white [html.light_&]:text-gray-900">BaW OS</h1>
-              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.1 · ALM809P</p>
+              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.3.0 · ALM809P</p>
             </div>
           </div>
           <button
