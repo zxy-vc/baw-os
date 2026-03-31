@@ -18,6 +18,7 @@ export default function ContractsPage() {
     status: 'active' as ContractStatus,
     notes: '',
     end_date: '',
+    drive_link: '',
   })
   const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null)
   const [saving, setSaving] = useState(false)
@@ -42,25 +43,31 @@ export default function ContractsPage() {
 
   function openEdit(contract: Contract) {
     setEditingContract(contract)
+    const existingLink = contract.notes?.match(/📎 (https?:\/\/\S+)/)?.[1] || ''
     setEditForm({
       monthly_amount: contract.monthly_amount,
       payment_day: contract.payment_day,
       status: contract.status,
-      notes: contract.notes || '',
+      notes: contract.notes?.replace(/\n?📎 https?:\/\/\S+/, '').trim() || '',
       end_date: contract.end_date || '',
+      drive_link: existingLink,
     })
   }
 
   async function handleSaveEdit() {
     if (!editingContract) return
     setSaving(true)
+    let notesValue = editForm.notes || ''
+    if (editForm.drive_link) {
+      notesValue = notesValue ? `${notesValue}\n📎 ${editForm.drive_link}` : `📎 ${editForm.drive_link}`
+    }
     await supabase
       .from('contracts')
       .update({
         monthly_amount: editForm.monthly_amount,
         payment_day: editForm.payment_day,
         status: editForm.status,
-        notes: editForm.notes || null,
+        notes: notesValue || null,
         end_date: editForm.end_date || null,
       })
       .eq('id', editingContract.id)
@@ -276,6 +283,16 @@ export default function ContractsPage() {
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                   className="input-field w-full"
                   rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Link de Drive</label>
+                <input
+                  type="url"
+                  value={editForm.drive_link}
+                  onChange={(e) => setEditForm({ ...editForm, drive_link: e.target.value })}
+                  className="input-field w-full"
+                  placeholder="https://drive.google.com/..."
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">

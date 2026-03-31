@@ -99,6 +99,9 @@ export default function ContractDetailPage() {
   const totalPaid = payments
     .filter((p) => p.status === 'paid')
     .reduce((sum, p) => sum + Number(p.amount_paid || p.amount), 0)
+  const totalPending = payments
+    .filter((p) => p.status === 'pending' || p.status === 'late')
+    .reduce((sum, p) => sum + Number(p.amount), 0)
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -205,8 +208,13 @@ export default function ContractDetailPage() {
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Historial de pagos
           </h3>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Total cobrado: <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(totalPaid)}</span>
+          <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
+            <span>
+              Cobrado: <span className="text-emerald-400 font-medium">{formatCurrency(totalPaid)}</span>
+            </span>
+            <span>
+              Pendiente: <span className={`font-medium ${totalPending > 0 ? 'text-amber-400' : 'text-gray-400'}`}>{formatCurrency(totalPending)}</span>
+            </span>
           </div>
         </div>
         {payments.length === 0 ? (
@@ -221,12 +229,13 @@ export default function ContractDetailPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Vencimiento</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Mes</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Monto</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Agua</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Pagado</th>
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Estado</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Fecha pago</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Método</th>
+                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Estado</th>
                 <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase py-2">Acciones</th>
               </tr>
             </thead>
@@ -235,18 +244,21 @@ export default function ContractDetailPage() {
                 <tr key={p.id}>
                   <td className="py-2 text-sm text-gray-700 dark:text-gray-300">{formatDate(p.due_date)}</td>
                   <td className="py-2 text-sm text-gray-900 dark:text-white">{formatCurrency(p.amount)}</td>
+                  <td className="py-2 text-sm text-blue-400">
+                    {p.water_fee ? formatCurrency(p.water_fee) : '—'}
+                  </td>
                   <td className="py-2 text-sm text-gray-900 dark:text-white">
                     {p.amount_paid ? formatCurrency(p.amount_paid) : '—'}
-                  </td>
-                  <td className="py-2">
-                    <span className={paymentStatusBadge[p.status] || 'badge-expired'}>
-                      {paymentStatusLabels[p.status] || p.status}
-                    </span>
                   </td>
                   <td className="py-2 text-sm text-gray-500 dark:text-gray-400">
                     {p.paid_date ? formatDate(p.paid_date) : '—'}
                   </td>
                   <td className="py-2 text-sm text-gray-500 dark:text-gray-400">{p.method || '—'}</td>
+                  <td className="py-2">
+                    <span className={paymentStatusBadge[p.status] || 'badge-expired'}>
+                      {paymentStatusLabels[p.status] || p.status}
+                    </span>
+                  </td>
                   <td className="py-2">
                     {(p.status === 'pending' || p.status === 'late') && (
                       <button

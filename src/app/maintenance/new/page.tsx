@@ -16,6 +16,8 @@ export default function NewIncidentPage() {
     title: '',
     description: '',
     priority: 'medium' as string,
+    assigned_to: '',
+    estimated_cost: '',
   })
 
   useEffect(() => {
@@ -31,10 +33,13 @@ export default function NewIncidentPage() {
     setSaving(true)
 
     const { error } = await supabase.from('incidents').insert({
+      org_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
       unit_id: form.unit_id || null,
       title: form.title,
       description: form.description || null,
       priority: form.priority,
+      assigned_to: form.assigned_to || null,
+      estimated_cost: form.estimated_cost ? Number(form.estimated_cost) : null,
       status: 'open',
     })
 
@@ -109,6 +114,29 @@ export default function NewIncidentPage() {
             <option value="medium">Normal</option>
             <option value="low">Baja</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Asignado a</label>
+          <input
+            type="text"
+            value={form.assigned_to}
+            onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+            className="input-field"
+            placeholder="Nombre del responsable"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Costo estimado</label>
+          <input
+            type="number"
+            step="0.01"
+            value={form.estimated_cost}
+            onChange={(e) => setForm({ ...form, estimated_cost: e.target.value })}
+            className="input-field"
+            placeholder="0.00"
+          />
         </div>
 
         <div className="flex justify-end gap-3 pt-2">

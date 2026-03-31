@@ -1,10 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, CreditCard, AlertTriangle, Check } from 'lucide-react'
+import { Plus, CreditCard, AlertTriangle, Check, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+
+interface ContractOption {
+  id: string
+  monthly_amount: number
+  unit: { number: string } | null
+  occupant: { name: string } | null
+}
 
 interface PaymentWithContract {
   id: string
@@ -34,6 +41,95 @@ export default function PaymentsPage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const [showPayModal, setShowPayModal] = useState(false)
+  const [contracts, setContracts] = useState<ContractOption[]>([])
+  const [savingPayment, setSavingPayment] = useState(false)
+  const [payForm, setPayForm] = useState({
+    contract_id: '',
+    month: '2026-01',
+    rent_amount: '',
+    water_fee: '250',
+    paid_date: new Date().toISOString().split('T')[0],
+    method: 'Transferencia',
+    reference: '',
+  })
+
+  const monthOptions = [
+    { value: '2026-01', label: 'Enero 2026' },
+    { value: '2026-02', label: 'Febrero 2026' },
+    { value: '2026-03', label: 'Marzo 2026' },
+    { value: '2026-04', label: 'Abril 2026' },
+    { value: '2026-05', label: 'Mayo 2026' },
+    { value: '2026-06', label: 'Junio 2026' },
+    { value: '2026-07', label: 'Julio 2026' },
+    { value: '2026-08', label: 'Agosto 2026' },
+    { value: '2026-09', label: 'Septiembre 2026' },
+    { value: '2026-10', label: 'Octubre 2026' },
+    { value: '2026-11', label: 'Noviembre 2026' },
+    { value: '2026-12', label: 'Diciembre 2026' },
+  ]
+
+  async function fetchContracts() {
+    const { data } = await supabase
+      .from('contracts')
+      .select('id, monthly_amount, unit:units(number), occupant:occupants(name)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+    setContracts((data as unknown as ContractOption[]) || [])
+  }
+
+  function openPayModal() {
+    const now = new Date()
+    setPayForm({
+      contract_id: '',
+      month: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      rent_amount: '',
+      water_fee: '250',
+      paid_date: now.toISOString().split('T')[0],
+      method: 'Transferencia',
+      reference: '',
+    })
+    fetchContracts()
+    setShowPayModal(true)
+  }
+
+  function handlePayContractChange(contractId: string) {
+    const contract = contracts.find((c) => c.id === contractId)
+    setPayForm({
+      ...payForm,
+      contract_id: contractId,
+      rent_amount: contract ? String(contract.monthly_amount) : '',
+    })
+  }
+
+  async function handlePaySubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSavingPayment(true)
+    const rentAmount = Number(payForm.rent_amount) || 0
+    const waterFee = Number(payForm.water_fee) || 0
+    const totalAmount = rentAmount + waterFee
+    const [year, month] = payForm.month.split('-').map(Number)
+    const dueDate = `${year}-${String(month).padStart(2, '0')}-01`
+
+    await supabase.from('payments').insert({
+      org_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
+      contract_id: payForm.contract_id,
+      amount: totalAmount,
+      rent_amount: rentAmount,
+      water_fee: waterFee,
+      amount_paid: totalAmount,
+      due_date: dueDate,
+      paid_date: payForm.paid_date,
+      status: 'paid',
+      method: payForm.method,
+      reference: payForm.reference || null,
+    })
+    setSavingPayment(false)
+    setShowPayModal(false)
+    fetchPayments()
+  }
+
+  const payTotal = (Number(payForm.rent_amount) || 0) + (Number(payForm.water_fee) || 0)
 
   async function fetchPayments() {
     setLoading(true)
@@ -116,13 +212,13 @@ export default function PaymentsPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Pagos</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1 capitalize">{monthName}</p>
         </div>
-        <Link
-          href="/payments/new"
+        <button
+          onClick={openPayModal}
           className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Registrar pago
-        </Link>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -291,6 +387,134 @@ export default function PaymentsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Registrar Pago Modal */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="card w-full max-w-lg mx-4 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowPayModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Registrar pago</h2>
+            <form onSubmit={handlePaySubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Contrato</label>
+                <select
+                  required
+                  value={payForm.contract_id}
+                  onChange={(e) => handlePayContractChange(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Seleccionar contrato...</option>
+                  {contracts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {(c.occupant as { name: string } | null)?.name || 'Sin nombre'} — Unidad{' '}
+                      {(c.unit as { number: string } | null)?.number || '—'} ({formatCurrency(c.monthly_amount)}/mes)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Mes</label>
+                <select
+                  value={payForm.month}
+                  onChange={(e) => setPayForm({ ...payForm, month: e.target.value })}
+                  className="input-field"
+                >
+                  {monthOptions.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    value={payForm.rent_amount}
+                    onChange={(e) => setPayForm({ ...payForm, rent_amount: e.target.value })}
+                    className="input-field"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={payForm.water_fee}
+                    onChange={(e) => setPayForm({ ...payForm, water_fee: e.target.value })}
+                    className="input-field"
+                    placeholder="250"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Total</label>
+                  <div className="input-field bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white font-semibold flex items-center">
+                    {formatCurrency(payTotal)}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de pago</label>
+                  <input
+                    type="date"
+                    required
+                    value={payForm.paid_date}
+                    onChange={(e) => setPayForm({ ...payForm, paid_date: e.target.value })}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método</label>
+                  <select
+                    value={payForm.method}
+                    onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Depósito">Depósito</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia / notas</label>
+                <input
+                  type="text"
+                  value={payForm.reference}
+                  onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+                  className="input-field"
+                  placeholder="No. de transferencia, folio, etc."
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPayModal(false)}
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  {savingPayment ? 'Guardando...' : 'Registrar pago'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
