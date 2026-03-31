@@ -13,7 +13,9 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('es-MX', {
+  // Parse YYYY-MM-DD as local date to avoid UTC timezone shift
+  const [year, month, day] = date.split('T')[0].split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString('es-MX', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
