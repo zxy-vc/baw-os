@@ -1,6 +1,6 @@
 {
   "name": "baw-os",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "BaW OS — Property Management System AI-Native. BaW Design Lab · ZXY Ventures.",
   "private": true,
   "scripts": {
