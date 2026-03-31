@@ -57,7 +57,11 @@ function diffDays(a: string, b: string): number {
 }
 
 function toISO(d: Date): string {
-  return d.toISOString().split('T')[0]
+  // Use local date to avoid UTC timezone shift
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function daysInMonth(year: number, month: number): number {
@@ -102,6 +106,7 @@ export default function ReservationsPage() {
   const [status, setStatus] = useState<ReservationStatus>('confirmed')
   const [paymentStatus, setPaymentStatus] = useState<ReservationPaymentStatus>('pending')
   const [amountPaid, setAmountPaid] = useState(0)
+  const [agreedPrice, setAgreedPrice] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
 
   // Autocomplete state
@@ -235,8 +240,8 @@ export default function ReservationsPage() {
       rooms_count: roomsCount,
       beds_count: bedsCount,
       guests_count: guestsCount,
-      price_per_night: pricePerNight,
-      total_price: totalPrice,
+      price_per_night: agreedPrice !== null ? agreedPrice / Math.max(nights, 1) : pricePerNight,
+      total_price: agreedPrice !== null ? agreedPrice : totalPrice,
       status,
       payment_status: paymentStatus,
       amount_paid: amountPaid,
@@ -266,6 +271,7 @@ export default function ReservationsPage() {
       setBedsCount(1)
       setGuestsCount(1)
       setAmountPaid(0)
+      setAgreedPrice(null)
       setNotes('')
       setStatus('confirmed')
       setPaymentStatus('pending')
@@ -607,6 +613,20 @@ export default function ReservationsPage() {
                   <option value="paid">Pagado</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Precio acordado <span className="text-gray-400 font-normal">(opcional — sobreescribe el calculado)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                placeholder={String(totalPrice)}
+                value={agreedPrice ?? ''}
+                onChange={(e) => setAgreedPrice(e.target.value === '' ? null : Number(e.target.value))}
+                className="input-field w-40"
+              />
             </div>
 
             {(paymentStatus === 'partial' || paymentStatus === 'paid') && (
