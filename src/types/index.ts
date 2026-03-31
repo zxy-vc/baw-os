@@ -3,7 +3,7 @@
 
 export type UnitType = 'STR' | 'MTR' | 'LTR' | 'OFFICE' | 'COMMON'
 export type UnitStatus = 'available' | 'occupied' | 'maintenance' | 'reserved' | 'inactive'
-export type ContractStatus = 'active' | 'expired' | 'terminated' | 'pending' | 'renewed'
+export type ContractStatus = 'active' | 'expired' | 'terminated' | 'pending' | 'renewed' | 'en_renovacion'
 export type PaymentStatus = 'pending' | 'paid' | 'late' | 'partial' | 'waived'
 export type IncidentStatus = 'open' | 'in_progress' | 'waiting_parts' | 'resolved' | 'cancelled'
 export type IncidentPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -51,6 +51,13 @@ export interface Occupant {
   type: OccupantType
   contact_type?: ContactType
   notes?: string
+  // Fiscal data (#9, #10)
+  rfc?: string
+  razon_social?: string
+  regimen_fiscal?: string
+  cp_fiscal?: string
+  email_factura?: string
+  requiere_factura?: boolean
   created_at: string
   updated_at: string
   // CRM enrichment (joined)
@@ -72,6 +79,10 @@ export interface Contract {
   status: ContractStatus
   contract_url?: string
   notes?: string
+  // Legal data (#15, #16)
+  aval?: string
+  curp_arrendatario?: string
+  domicilio_arrendatario?: string
   created_at: string
   updated_at: string
   // Relations (joined)

@@ -19,6 +19,9 @@ export default function ContractsPage() {
     notes: '',
     end_date: '',
     drive_link: '',
+    aval: '',
+    curp_arrendatario: '',
+    domicilio_arrendatario: '',
   })
   const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null)
   const [saving, setSaving] = useState(false)
@@ -51,6 +54,9 @@ export default function ContractsPage() {
       notes: contract.notes?.replace(/\n?📎 https?:\/\/\S+/, '').trim() || '',
       end_date: contract.end_date || '',
       drive_link: existingLink,
+      aval: contract.aval || '',
+      curp_arrendatario: contract.curp_arrendatario || '',
+      domicilio_arrendatario: contract.domicilio_arrendatario || '',
     })
   }
 
@@ -69,6 +75,9 @@ export default function ContractsPage() {
         status: editForm.status,
         notes: notesValue || null,
         end_date: editForm.end_date || null,
+        aval: editForm.aval || null,
+        curp_arrendatario: editForm.curp_arrendatario || null,
+        domicilio_arrendatario: editForm.domicilio_arrendatario || null,
       })
       .eq('id', editingContract.id)
     setEditingContract(null)
@@ -91,6 +100,7 @@ export default function ContractsPage() {
     terminated: 'Terminado',
     pending: 'Pendiente',
     renewed: 'Renovado',
+    en_renovacion: 'En renovación',
   }
 
   const statusBadge: Record<string, string> = {
@@ -99,6 +109,7 @@ export default function ContractsPage() {
     terminated: 'badge-late',
     pending: 'badge-pending',
     renewed: 'badge-occupied',
+    en_renovacion: 'badge-pending',
   }
 
   return (
@@ -295,6 +306,42 @@ export default function ContractsPage() {
                   placeholder="https://drive.google.com/..."
                 />
               </div>
+
+              {/* Datos Legales */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Datos Legales</h3>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Aval (nombre del garante)</label>
+                  <input
+                    type="text"
+                    value={editForm.aval}
+                    onChange={(e) => setEditForm({ ...editForm, aval: e.target.value })}
+                    className="input-field w-full"
+                    placeholder="Nombre completo del aval"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">CURP arrendatario</label>
+                  <input
+                    type="text"
+                    value={editForm.curp_arrendatario}
+                    onChange={(e) => setEditForm({ ...editForm, curp_arrendatario: e.target.value })}
+                    className="input-field w-full"
+                    placeholder="CURP de 18 caracteres"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Domicilio arrendatario</label>
+                  <input
+                    type="text"
+                    value={editForm.domicilio_arrendatario}
+                    onChange={(e) => setEditForm({ ...editForm, domicilio_arrendatario: e.target.value })}
+                    className="input-field w-full"
+                    placeholder="Calle, número, colonia, CP, ciudad"
+                  />
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setEditingContract(null)}

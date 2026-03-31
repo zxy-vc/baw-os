@@ -22,10 +22,11 @@ interface UnitWithContract extends Unit {
 }
 
 interface AlertItem {
-  type: 'overdue' | 'expiring' | 'maintenance'
+  type: 'overdue' | 'expiring' | 'maintenance' | 'missing_payment'
   title: string
   detail: string
   unitNumber?: string
+  severity?: 'red' | 'orange' | 'yellow'
 }
 
 interface RecentPayment {
@@ -82,7 +83,14 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchDashboard() {
       try {
-        const [unitsRes, contractsRes, paymentsRes, recentPmtsRes] = await Promise.all([
+        // Current month range for missing payment detection
+        const now0 = new Date()
+        const monthStart = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}-01`
+        const nextMonth = now0.getMonth() === 11
+          ? `${now0.getFullYear() + 1}-01-01`
+          : `${now0.getFullYear()}-${String(now0.getMonth() + 2).padStart(2, '0')}-01`
+
+        const [unitsRes, contractsRes, paymentsRes, recentPmtsRes, paidThisMonthRes] = await Promise.all([
           supabase
             .from('units')
             .select('*')
@@ -102,6 +110,12 @@ export default function Dashboard() {
             .eq('status', 'paid')
             .order('paid_date', { ascending: false })
             .limit(5),
+          supabase
+            .from('payments')
+            .select('contract_id, status, due_date')
+            .eq('status', 'paid')
+            .gte('due_date', monthStart)
+            .lt('due_date', nextMonth),
         ])
 
         const allUnits = (unitsRes.data || []) as Unit[]
@@ -151,21 +165,24 @@ export default function Dashboard() {
         // Overdue: payments with status 'late'
         const overduePayments = pendingPayments.filter((p) => p.status === 'late')
 
-        // Expiring soon: active contracts ending within 30 days
+        // Expiring soon: active contracts ending within 60 days (for tiered alerts)
         const now = new Date()
-        const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+        const in60Days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
         const expiringContracts = activeContracts.filter(
-          (c) => c.end_date && new Date(c.end_date) <= in30Days
+          (c) => c.end_date && c.status === 'active' && new Date(c.end_date) <= in60Days
         )
 
-        // Overdue based on payment_day: active contracts where today > payment_day and no paid payment this month
-        const currentMonth = now.getMonth()
-        const currentYear = now.getFullYear()
-        const overdueByDay = activeContracts.filter((c) => {
-          if (now.getDate() <= c.payment_day) return false
-          // Check if there's a late payment for this contract
-          return overduePayments.some((p) => p.contract_id === c.id)
-        })
+        // Paid this month — set of contract IDs that have a paid payment this month
+        const paidThisMonth = new Set(
+          (paidThisMonthRes.data || []).map((p: { contract_id: string }) => p.contract_id)
+        )
+
+        // Missing payments: active contracts with no paid payment this month and day > 10
+        const missingPaymentContracts = now.getDate() > 10
+          ? activeContracts.filter(
+              (c) => c.status === 'active' && !paidThisMonth.has(c.id) && !overduePayments.some((p) => p.contract_id === c.id)
+            )
+          : []
 
         setKpis({
           total: allUnits.length || 16,
@@ -194,11 +211,25 @@ export default function Dashboard() {
 
         for (const c of expiringContracts) {
           const days = daysUntil(c.end_date!)
+          const severity = days < 15 ? 'red' as const : days <= 30 ? 'yellow' as const : 'orange' as const
+          const emoji = days < 15 ? '🔴' : days <= 30 ? '🟡' : '🟠'
           alertItems.push({
             type: 'expiring',
-            title: `Contrato por vencer — ${c.unit?.number || 'N/A'}`,
+            title: `${emoji} Contrato por vencer — ${c.unit?.number || 'N/A'}`,
             detail: `${c.occupant?.name || 'Inquilino'} · Vence en ${days} días · ${formatDate(c.end_date!)}`,
             unitNumber: c.unit?.number,
+            severity,
+          })
+        }
+
+        // Missing payment alerts (#2)
+        for (const c of missingPaymentContracts) {
+          alertItems.push({
+            type: 'missing_payment',
+            title: `⚠️ Sin pago registrado — ${c.occupant?.name || 'Inquilino'} · ${c.unit?.number || 'N/A'}`,
+            detail: `Día ${c.payment_day} de vencimiento · Sin pago en el mes actual`,
+            unitNumber: c.unit?.number,
+            severity: 'orange',
           })
         }
 
@@ -244,12 +275,25 @@ export default function Dashboard() {
       case 'overdue':
         return <span className="text-lg">🔴</span>
       case 'expiring':
-        return <span className="text-lg">⚠️</span>
+        return null // emoji already in title
+      case 'missing_payment':
+        return null // emoji already in title
       case 'maintenance':
         return <span className="text-lg">🔧</span>
       default:
         return null
     }
+  }
+
+  const alertBg = (alert: AlertItem) => {
+    if (alert.type === 'overdue') return 'bg-red-50 dark:bg-red-900/20'
+    if (alert.type === 'missing_payment') return 'bg-amber-50 dark:bg-amber-900/20'
+    if (alert.type === 'expiring') {
+      if (alert.severity === 'red') return 'bg-red-50 dark:bg-red-900/20'
+      if (alert.severity === 'yellow') return 'bg-yellow-50 dark:bg-yellow-900/20'
+      if (alert.severity === 'orange') return 'bg-orange-50 dark:bg-orange-900/20'
+    }
+    return 'bg-gray-50 dark:bg-gray-800/50'
   }
 
   if (loading) {
@@ -343,7 +387,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Por vencer (30d)
+              Por vencer (60d)
             </p>
             <Clock
               className={`w-5 h-5 ${kpis.expiringSoon > 0 ? 'text-amber-500' : 'text-gray-300 dark:text-gray-700'}`}
@@ -467,9 +511,9 @@ export default function Dashboard() {
               {alerts.map((alert, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+                  className={`flex items-start gap-3 p-3 rounded-lg ${alertBg(alert)}`}
                 >
-                  <div className="mt-0.5">{alertIcon(alert.type)}</div>
+                  {alertIcon(alert.type) && <div className="mt-0.5">{alertIcon(alert.type)}</div>}
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {alert.title}

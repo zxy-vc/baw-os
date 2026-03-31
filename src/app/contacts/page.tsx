@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Users, Search, Pencil, Trash2, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft } from 'lucide-react'
+import { Plus, Users, Search, Pencil, Trash2, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import type { ContactType, Reservation, Contract } from '@/types'
@@ -14,6 +14,12 @@ interface Contact {
   email?: string
   type?: ContactType
   notes?: string
+  rfc?: string
+  razon_social?: string
+  regimen_fiscal?: string
+  cp_fiscal?: string
+  email_factura?: string
+  requiere_factura?: boolean
   created_at: string
   updated_at: string
   reservation_count?: number
@@ -51,7 +57,14 @@ export default function ContactsPage() {
     email: '',
     type: 'both' as ContactType,
     notes: '',
+    rfc: '',
+    razon_social: '',
+    regimen_fiscal: '',
+    cp_fiscal: '',
+    email_factura: '',
+    requiere_factura: false,
   })
+  const [showFiscal, setShowFiscal] = useState(false)
 
   // Detail view data
   const [contactReservations, setContactReservations] = useState<Reservation[]>([])
@@ -107,7 +120,8 @@ export default function ContactsPage() {
 
   // ─── Add contact ─────────────────────────────────────────────────
   function openAdd() {
-    setForm({ name: '', phone: '', email: '', type: 'both', notes: '' })
+    setForm({ name: '', phone: '', email: '', type: 'both', notes: '', rfc: '', razon_social: '', regimen_fiscal: '', cp_fiscal: '', email_factura: '', requiere_factura: false })
+    setShowFiscal(false)
     setShowAddModal(true)
   }
 
@@ -121,6 +135,12 @@ export default function ContactsPage() {
       email: form.email || null,
       type: form.type,
       notes: form.notes || null,
+      rfc: form.rfc || null,
+      razon_social: form.razon_social || null,
+      regimen_fiscal: form.regimen_fiscal || null,
+      cp_fiscal: form.cp_fiscal || null,
+      email_factura: form.email_factura || null,
+      requiere_factura: form.requiere_factura,
     })
     setShowAddModal(false)
     setSaving(false)
@@ -136,7 +156,14 @@ export default function ContactsPage() {
       email: contact.email || '',
       type: (contact.type as ContactType) || 'both',
       notes: contact.notes || '',
+      rfc: contact.rfc || '',
+      razon_social: contact.razon_social || '',
+      regimen_fiscal: contact.regimen_fiscal || '',
+      cp_fiscal: contact.cp_fiscal || '',
+      email_factura: contact.email_factura || '',
+      requiere_factura: contact.requiere_factura || false,
     })
+    setShowFiscal(!!(contact.rfc || contact.razon_social || contact.requiere_factura))
   }
 
   async function handleSaveEdit() {
@@ -150,6 +177,12 @@ export default function ContactsPage() {
         email: form.email || null,
         type: form.type,
         notes: form.notes || null,
+        rfc: form.rfc || null,
+        razon_social: form.razon_social || null,
+        regimen_fiscal: form.regimen_fiscal || null,
+        cp_fiscal: form.cp_fiscal || null,
+        email_factura: form.email_factura || null,
+        requiere_factura: form.requiere_factura,
         updated_at: new Date().toISOString(),
       })
       .eq('id', editingContact.id)
@@ -260,6 +293,84 @@ export default function ContactsPage() {
                 placeholder="Notas adicionales..."
               />
             </div>
+
+            {/* Datos Fiscales — collapsible */}
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowFiscal(!showFiscal)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              >
+                <span>Datos Fiscales</span>
+                {showFiscal ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {showFiscal && (
+                <div className="px-4 pb-4 space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">RFC</label>
+                      <input
+                        type="text"
+                        value={form.rfc}
+                        onChange={(e) => setForm({ ...form, rfc: e.target.value })}
+                        placeholder="XAXX010101000"
+                        className="input-field w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">CP fiscal</label>
+                      <input
+                        type="text"
+                        value={form.cp_fiscal}
+                        onChange={(e) => setForm({ ...form, cp_fiscal: e.target.value })}
+                        placeholder="76000"
+                        className="input-field w-full"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Razón social</label>
+                    <input
+                      type="text"
+                      value={form.razon_social}
+                      onChange={(e) => setForm({ ...form, razon_social: e.target.value })}
+                      placeholder="Nombre o razón social"
+                      className="input-field w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Régimen fiscal</label>
+                    <input
+                      type="text"
+                      value={form.regimen_fiscal}
+                      onChange={(e) => setForm({ ...form, regimen_fiscal: e.target.value })}
+                      placeholder="601 - General Ley PM"
+                      className="input-field w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Email factura</label>
+                    <input
+                      type="email"
+                      value={form.email_factura}
+                      onChange={(e) => setForm({ ...form, email_factura: e.target.value })}
+                      placeholder="facturacion@ejemplo.com"
+                      className="input-field w-full"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.requiere_factura}
+                      onChange={(e) => setForm({ ...form, requiere_factura: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">¿Requiere factura?</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={onClose}
