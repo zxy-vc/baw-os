@@ -104,18 +104,27 @@ export default function ReservationsPage() {
   const [amountPaid, setAmountPaid] = useState(0)
   const [notes, setNotes] = useState('')
 
+  // Autocomplete state
+  const [allContacts, setAllContacts] = useState<{ id: string; name: string; phone?: string; email?: string }[]>([])
+  const [acResults, setAcResults] = useState<{ id: string; name: string; phone?: string; email?: string }[]>([])
+  const [showAc, setShowAc] = useState(false)
+  const [saveAsContact, setSaveAsContact] = useState(false)
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+
   // List filters
   const [filterUnit, setFilterUnit] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<string>('all')
 
   // ─── Data loading ────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    const [unitsRes, resRes] = await Promise.all([
+    const [unitsRes, resRes, contactsRes] = await Promise.all([
       supabase.from('units').select('*').order('number'),
       supabase.from('reservations').select('*, unit:units(*)').order('check_in', { ascending: false }),
+      supabase.from('occupants').select('id, name, phone, email').order('name'),
     ])
     setUnits(unitsRes.data || [])
     setReservations(resRes.data || [])
+    setAllContacts(contactsRes.data || [])
     setLoading(false)
   }, [])
 
@@ -185,6 +194,30 @@ export default function ReservationsPage() {
     }
   }
 
+  // ─── Autocomplete handler ──────────────────────────────────────
+  function handleGuestNameChange(value: string) {
+    setGuestName(value)
+    setSelectedContactId(null)
+    if (value.length >= 2) {
+      const q = value.toLowerCase()
+      const matches = allContacts.filter((c) => c.name.toLowerCase().includes(q))
+      setAcResults(matches.slice(0, 5))
+      setShowAc(matches.length > 0)
+    } else {
+      setAcResults([])
+      setShowAc(false)
+    }
+  }
+
+  function selectContact(contact: { id: string; name: string; phone?: string; email?: string }) {
+    setGuestName(contact.name)
+    setGuestPhone(contact.phone || '')
+    setGuestEmail(contact.email || '')
+    setSelectedContactId(contact.id)
+    setShowAc(false)
+    setSaveAsContact(false)
+  }
+
   // ─── Save reservation ──────────────────────────────────────────
   async function handleSave() {
     if (!unitId || !guestName || !checkIn || !checkOut || !nights) return
@@ -213,6 +246,16 @@ export default function ReservationsPage() {
     if (error) {
       alert('Error al guardar: ' + error.message)
     } else {
+      // Create contact if checkbox was checked
+      if (saveAsContact && !selectedContactId && guestName) {
+        await supabase.from('occupants').insert({
+          org_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
+          name: guestName,
+          phone: guestPhone || null,
+          email: guestEmail || null,
+          type: 'str',
+        })
+      }
       // Reset form
       setGuestName('')
       setGuestPhone('')
@@ -226,6 +269,8 @@ export default function ReservationsPage() {
       setNotes('')
       setStatus('confirmed')
       setPaymentStatus('pending')
+      setSaveAsContact(false)
+      setSelectedContactId(null)
       await loadData()
     }
     setSaving(false)
@@ -495,9 +540,44 @@ export default function ReservationsPage() {
           </h2>
 
           <div className="space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del huésped *</label>
-              <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Nombre completo" className="input-field" />
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => handleGuestNameChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowAc(false), 200)}
+                onFocus={() => { if (guestName.length >= 2 && acResults.length > 0) setShowAc(true) }}
+                placeholder="Nombre completo"
+                className="input-field"
+                autoComplete="off"
+              />
+              {showAc && acResults.length > 0 && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
+                  {acResults.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => selectContact(c)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{c.name}</p>
+                      {c.phone && <p className="text-xs text-gray-500 dark:text-gray-400">{c.phone}</p>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!selectedContactId && guestName.length >= 2 && (
+                <label className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveAsContact}
+                    onChange={(e) => setSaveAsContact(e.target.checked)}
+                    className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Guardar como contacto
+                </label>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

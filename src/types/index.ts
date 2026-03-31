@@ -11,6 +11,7 @@ export type ReservationStatus = 'tentative' | 'confirmed' | 'cancelled' | 'check
 export type ReservationPaymentStatus = 'pending' | 'partial' | 'paid'
 export type BookingMode = 'full' | 'room' | 'bed'
 export type OccupantType = 'tenant' | 'guest' | 'owner' | 'staff'
+export type ContactType = 'ltr' | 'str' | 'both'
 export type MemberRole = 'owner' | 'admin' | 'operator' | 'viewer' | 'agent'
 
 export interface Organization {
@@ -48,9 +49,13 @@ export interface Occupant {
   id_type?: string
   id_number?: string
   type: OccupantType
+  contact_type?: ContactType
   notes?: string
   created_at: string
   updated_at: string
+  // CRM enrichment (joined)
+  reservation_count?: number
+  last_reservation?: string
 }
 
 export interface Contract {
