@@ -10,6 +10,8 @@ import {
   CheckCircle,
   Home,
   Users,
+  Receipt,
+  ArrowRight,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
@@ -78,6 +80,7 @@ export default function Dashboard() {
   })
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([])
+  const [cobrosSummary, setCobrosSummary] = useState<{ total: number; paid: number; pending: number; overdue: number } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -256,6 +259,31 @@ export default function Dashboard() {
             occupantName: p.contract?.occupant?.name || 'N/A',
           }))
         )
+
+        // Cobros del mes summary
+        const activeLtrMtr = activeContracts.filter((c) => c.status === 'active')
+        if (activeLtrMtr.length > 0) {
+          const paidCount = activeLtrMtr.filter((c) => paidThisMonth.has(c.id)).length
+          const todayDate = now.getDate()
+          let overdueCount = 0
+          let pendingCount = 0
+          for (const c of activeLtrMtr) {
+            if (paidThisMonth.has(c.id)) continue
+            if (todayDate >= 10) {
+              overdueCount++
+            } else if (todayDate >= c.payment_day) {
+              overdueCount++
+            } else {
+              pendingCount++
+            }
+          }
+          setCobrosSummary({
+            total: activeLtrMtr.length,
+            paid: paidCount,
+            pending: pendingCount,
+            overdue: overdueCount,
+          })
+        }
       } catch (err) {
         console.error('Error fetching dashboard:', err)
       } finally {
@@ -407,6 +435,35 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* Cobros del mes */}
+      {cobrosSummary && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-indigo-500" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cobros del mes</h2>
+            </div>
+            <Link
+              href="/cobros"
+              className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-400 font-medium transition-colors"
+            >
+              Ver cobros <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              {cobrosSummary.paid} pagados
+            </span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+              {cobrosSummary.pending} pendientes
+            </span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+              {cobrosSummary.overdue} en mora
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Building Map */}
       <div className="card">

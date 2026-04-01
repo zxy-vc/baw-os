@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -12,6 +12,8 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Unidades', href: '/units', icon: Building2 },
   { name: 'Contratos', href: '/contracts', icon: FileText },
+  { name: 'Cobros', href: '/cobros', icon: Receipt },
+  { name: 'Gastos', href: '/gastos', icon: TrendingDown },
   { name: 'Pagos', href: '/payments', icon: CreditCard },
   { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
   { name: 'Precios', href: '/pricing', icon: DollarSign },
