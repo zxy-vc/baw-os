@@ -88,7 +88,7 @@ export default function UnitDetailPage() {
     </div>
   )
 
-  const activeContract = contracts.find((c) => c.status === 'active')
+  const activeContract = contracts.find((c) => ['active', 'en_renovacion'].includes(c.status))
   const pendingPayments = payments.filter((p) => ['pending', 'late'].includes(p.status))
 
   function exportCSV() {
@@ -156,7 +156,10 @@ export default function UnitDetailPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {formatCurrency(activeContract.monthly_amount)}/mes
               </p>
-              {activeContract.end_date && (
+              {activeContract.status === 'en_renovacion' && (
+                <p className="text-xs text-yellow-500 mt-1">⚠️ En renovación</p>
+              )}
+              {activeContract.end_date && activeContract.status !== 'en_renovacion' && (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                   Vence: {formatDate(activeContract.end_date)}
                 </p>
