@@ -7,6 +7,7 @@ import {
   apiOk,
   getOrgId,
 } from '@/lib/api-auth'
+import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -46,4 +47,23 @@ export async function POST(request: NextRequest) {
 
   if (error) return apiError(error.message, 500)
   return apiOk(data)
+}
+
+export async function DELETE(request: NextRequest) {
+  const supabase = createServiceClient()
+  const { searchParams } = new URL(request.url)
+
+  const id = searchParams.get('id')
+  if (!id) return apiError('id query param is required')
+
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('id', id)
+
+  if (error) return apiError(error.message, 500)
+
+  await logEvent('expense.deleted', { expense_id: id })
+
+  return apiOk({ deleted: id })
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Plus, Users, Search, Pencil, Trash2, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/Toast'
 import { formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
@@ -43,6 +44,7 @@ const TYPE_BADGE: Record<string, string> = {
 }
 
 export default function ContactsPage() {
+  const toast = useToast()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -197,7 +199,17 @@ export default function ContactsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
-    await supabase.from('occupants').delete().eq('id', deleteTarget.id)
+    try {
+      const res = await fetch(`/api/contacts?id=${deleteTarget.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!json.success) {
+        toast.error('Error al eliminar contacto — intenta de nuevo')
+      } else {
+        toast.success('Contacto eliminado')
+      }
+    } catch {
+      toast.error('Error al eliminar contacto — intenta de nuevo')
+    }
     setDeleteTarget(null)
     setSaving(false)
     if (selectedContact?.id === deleteTarget.id) setSelectedContact(null)

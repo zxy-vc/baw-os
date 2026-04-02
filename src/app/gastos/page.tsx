@@ -183,7 +183,17 @@ export default function GastosPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
-    await supabase.from('expenses').delete().eq('id', deleteTarget.id)
+    try {
+      const res = await fetch(`/api/gastos?id=${deleteTarget.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!json.success) {
+        toast.error('Error al eliminar gasto — intenta de nuevo')
+      } else {
+        toast.success('Gasto eliminado')
+      }
+    } catch {
+      toast.error('Error al eliminar gasto — intenta de nuevo')
+    }
     setDeleteTarget(null)
     setSaving(false)
     fetchExpenses()

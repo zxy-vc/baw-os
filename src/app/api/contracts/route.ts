@@ -62,3 +62,30 @@ export async function POST(request: NextRequest) {
 
   return apiOk(data)
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = createServiceClient()
+  const { searchParams } = new URL(request.url)
+
+  const id = searchParams.get('id')
+  if (!id) return apiError('id query param is required')
+
+  // Delete linked payments first (foreign key constraint)
+  const { error: payErr } = await supabase
+    .from('payments')
+    .delete()
+    .eq('contract_id', id)
+
+  if (payErr) return apiError(payErr.message, 500)
+
+  const { error } = await supabase
+    .from('contracts')
+    .delete()
+    .eq('id', id)
+
+  if (error) return apiError(error.message, 500)
+
+  await logEvent('contract.deleted', { contract_id: id })
+
+  return apiOk({ deleted: id })
+}

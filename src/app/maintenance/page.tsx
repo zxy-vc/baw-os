@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Wrench, AlertTriangle, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/Toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
@@ -55,6 +56,7 @@ const statusColor: Record<string, string> = {
 }
 
 export default function MaintenancePage() {
+  const toast = useToast()
   const [incidents, setIncidents] = useState<IncidentWithUnit[]>([])
   const [loading, setLoading] = useState(true)
   const [filterUnit, setFilterUnit] = useState('all')
@@ -102,7 +104,17 @@ export default function MaintenancePage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
-    await supabase.from('incidents').delete().eq('id', deleteTarget.id)
+    try {
+      const res = await fetch(`/api/incidents?id=${deleteTarget.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!json.success) {
+        toast.error('Error al eliminar incidente — intenta de nuevo')
+      } else {
+        toast.success('Incidente eliminado')
+      }
+    } catch {
+      toast.error('Error al eliminar incidente — intenta de nuevo')
+    }
     setDeleteTarget(null)
     setSaving(false)
     fetchIncidents()

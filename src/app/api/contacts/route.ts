@@ -102,10 +102,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
-
   const supabase = createServiceClient()
-  const orgId = getOrgId()
   const { searchParams } = new URL(request.url)
 
   const id = searchParams.get('id')
@@ -115,7 +112,6 @@ export async function DELETE(request: NextRequest) {
     .from('occupants')
     .delete()
     .eq('id', id)
-    .eq('org_id', orgId)
 
   if (error) return apiError(error.message, 500)
   return apiOk({ deleted: id })

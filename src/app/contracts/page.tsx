@@ -102,17 +102,19 @@ export default function ContractsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
-    // First delete associated payments (foreign key constraint)
-    await supabase.from('payments').delete().eq('contract_id', deleteTarget.id)
-    // Then delete the contract
-    const { error } = await supabase.from('contracts').delete().eq('id', deleteTarget.id)
+    try {
+      const res = await fetch(`/api/contracts?id=${deleteTarget.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!json.success) {
+        toast.error('Error al eliminar contrato — intenta de nuevo')
+      } else {
+        toast.success('Contrato eliminado')
+      }
+    } catch {
+      toast.error('Error al eliminar contrato — intenta de nuevo')
+    }
     setDeleteTarget(null)
     setSaving(false)
-    if (error) {
-      toast.error('Error al eliminar — intenta de nuevo')
-    } else {
-      toast.success('Contrato eliminado')
-    }
     fetchContracts()
   }
 

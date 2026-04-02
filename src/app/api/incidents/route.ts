@@ -54,3 +54,22 @@ export async function POST(request: NextRequest) {
 
   return apiOk(data)
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = createServiceClient()
+  const { searchParams } = new URL(request.url)
+
+  const id = searchParams.get('id')
+  if (!id) return apiError('id query param is required')
+
+  const { error } = await supabase
+    .from('incidents')
+    .delete()
+    .eq('id', id)
+
+  if (error) return apiError(error.message, 500)
+
+  await logEvent('incident.deleted', { incident_id: id })
+
+  return apiOk({ deleted: id })
+}
