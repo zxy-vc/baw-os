@@ -41,6 +41,7 @@ export default function PaymentsPage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const [hasDataCurrentMonth, setHasDataCurrentMonth] = useState(true)
   const [showPayModal, setShowPayModal] = useState(false)
   const [contracts, setContracts] = useState<ContractOption[]>([])
   const [savingPayment, setSavingPayment] = useState(false)
@@ -147,7 +148,26 @@ export default function PaymentsPage() {
     if (filterStatus !== 'all') query = query.eq('status', filterStatus)
 
     const { data } = await query
-    setPayments((data as PaymentWithContract[]) || [])
+    const results = (data as PaymentWithContract[]) || []
+    setPayments(results)
+    setHasDataCurrentMonth(results.length > 0)
+
+    // If no data for current month, auto-switch to most recent month with data
+    if (results.length === 0 && filterStatus === 'all') {
+      const { data: latestData } = await supabase
+        .from('payments')
+        .select('due_date')
+        .order('due_date', { ascending: false })
+        .limit(1)
+      if (latestData && latestData.length > 0) {
+        const latestDate = new Date(latestData[0].due_date)
+        const latestMonth = `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, '0')}`
+        if (latestMonth !== selectedMonth) {
+          setSelectedMonth(latestMonth)
+          return
+        }
+      }
+    }
     setLoading(false)
   }
 
