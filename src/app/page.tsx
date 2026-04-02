@@ -104,7 +104,7 @@ export default function Dashboard() {
           supabase
             .from('contracts')
             .select('*, unit:units(id, number), occupant:occupants(id, name)')
-            .in('status', ['active', 'expired']),
+            .in('status', ['active', 'expired', 'en_renovacion']),
           supabase
             .from('payments')
             .select('*, contract:contracts(*, unit:units(number), occupant:occupants(name))')
@@ -161,10 +161,10 @@ export default function Dashboard() {
         const occupied = allUnits.filter((u) => u.status === 'occupied').length
         const available = allUnits.filter((u) => u.status === 'available').length
         const maint = allUnits.filter((u) => u.status === 'maintenance').length
-        const monthlyIncome = activeContracts.reduce(
-          (sum, c) => sum + Number(c.monthly_amount),
-          0
-        )
+        // Monthly income includes active + en_renovacion contracts (all occupied paying units)
+        const monthlyIncome = activeContracts
+          .filter((c) => ['active', 'en_renovacion'].includes(c.status))
+          .reduce((sum, c) => sum + Number(c.monthly_amount), 0)
 
         // Overdue: payments with status 'late'
         const overduePayments = pendingPayments.filter((p) => p.status === 'late')
