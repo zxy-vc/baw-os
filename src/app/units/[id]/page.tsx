@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Building2, FileText, CreditCard, Wrench } from 'lucide-react'
+import { ArrowLeft, Building2, FileText, CreditCard, Wrench, Download, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -69,7 +69,6 @@ export default function UnitDetailPage() {
         .select('*, contract:contracts(unit:units(number))')
         .in('contract_id', contractIds)
         .order('due_date', { ascending: false })
-        .limit(10)
       setPayments((pmtsData || []) as (Payment & { contract: { unit: { number: string } } | null })[])
     }
 
@@ -91,6 +90,33 @@ export default function UnitDetailPage() {
 
   const activeContract = contracts.find((c) => c.status === 'active')
   const pendingPayments = payments.filter((p) => ['pending', 'late'].includes(p.status))
+
+  function exportCSV() {
+    const header = ['Depto', 'Inquilino', 'Mes', 'Vencimiento', 'Renta', 'Agua', 'Total', 'Pagado', 'Fecha pago', 'Método', 'Referencia', 'Status']
+    const occupantName = activeContract ? (activeContract.occupant as { name: string } | null)?.name || '' : ''
+    const rows = payments.map((p) => [
+      unit?.number || '',
+      occupantName,
+      formatDate(p.due_date),
+      formatDate(p.due_date),
+      String(p.amount || 0),
+      String((p as any).water_fee || 0),
+      String(p.amount || 0),
+      String(p.amount_paid || 0),
+      p.paid_date ? formatDate(p.paid_date) : '',
+      (p as any).method || '',
+      (p as any).reference || '',
+      p.status,
+    ])
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `pagos_depto_${unit?.number || 'unknown'}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
@@ -197,18 +223,55 @@ export default function UnitDetailPage() {
         </div>
       )}
 
+      {/* Documentos */}
+      {contracts.filter((c) => (c as any).contract_url).length > 0 && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-4 h-4 text-indigo-400" />
+            <h2 className="font-semibold text-gray-900 dark:text-white">Documentos</h2>
+          </div>
+          <div className="space-y-2">
+            {contracts
+              .filter((c) => (c as any).contract_url)
+              .map((c) => (
+                <a
+                  key={c.id}
+                  href={(c as any).contract_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-800/50 last:border-0 group"
+                >
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Contrato {formatDate(c.start_date)} — {(c.occupant as { name: string } | null)?.name ?? '—'}
+                  </p>
+                  <ExternalLink className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300" />
+                </a>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Payments */}
       {payments.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-indigo-400" />
-              <h2 className="font-semibold text-gray-900 dark:text-white">Últimos pagos</h2>
+              <h2 className="font-semibold text-gray-900 dark:text-white">Historial de pagos</h2>
             </div>
-            <Link href="/payments" className="text-xs text-indigo-400 hover:text-indigo-300">Ver todos →</Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={exportCSV}
+                className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Exportar CSV
+              </button>
+              <Link href="/payments" className="text-xs text-indigo-400 hover:text-indigo-300">Ver todos →</Link>
+            </div>
           </div>
           <div className="space-y-2">
-            {payments.slice(0, 8).map((p) => (
+            {payments.map((p) => (
               <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-800/50 last:border-0">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Vence: {formatDate(p.due_date)}</p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { TrendingDown, Plus, Pencil, Trash2, X, Save } from 'lucide-react'
+import { TrendingDown, Plus, Pencil, Trash2, X, Save, Wifi, Flame, Zap, Wrench, Sparkles, Package } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
@@ -20,12 +20,21 @@ const CATEGORY_LABELS: Record<Category, string> = {
 }
 
 const CATEGORY_COLORS: Record<Category, string> = {
-  internet: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  gas: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  luz: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  mantenimiento: 'bg-red-500/10 text-red-400 border-red-500/20',
-  limpieza: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  otro: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  internet: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
+  gas: 'bg-orange-500/15 text-orange-500 border-orange-500/20',
+  luz: 'bg-yellow-500/15 text-yellow-600 border-yellow-500/20',
+  mantenimiento: 'bg-gray-500/15 text-gray-400 border-gray-500/20',
+  limpieza: 'bg-green-500/15 text-green-500 border-green-500/20',
+  otro: 'bg-purple-500/15 text-purple-400 border-purple-500/20',
+}
+
+const CATEGORY_ICONS: Record<Category, React.ComponentType<{ className?: string }>> = {
+  internet: Wifi,
+  gas: Flame,
+  luz: Zap,
+  mantenimiento: Wrench,
+  limpieza: Sparkles,
+  otro: Package,
 }
 
 interface Expense {
@@ -214,14 +223,20 @@ export default function GastosPage() {
           <p className="text-xs text-gray-500 dark:text-gray-400">Total mes</p>
           <p className="text-xl font-bold text-gray-900 dark:text-white">{formatCurrency(totalMonth)}</p>
         </div>
-        {CATEGORIES.map((cat) => (
-          <div key={cat} className="card">
-            <p className="text-xs text-gray-500 dark:text-gray-400">{CATEGORY_LABELS[cat]}</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">
-              {summaryByCategory[cat] > 0 ? formatCurrency(summaryByCategory[cat]) : '$0'}
-            </p>
-          </div>
-        ))}
+        {CATEGORIES.map((cat) => {
+          const Icon = CATEGORY_ICONS[cat]
+          return (
+            <div key={cat} className="card">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Icon className={`w-3.5 h-3.5 ${CATEGORY_COLORS[cat].split(' ')[1]}`} />
+                <p className="text-xs text-gray-500 dark:text-gray-400">{CATEGORY_LABELS[cat]}</p>
+              </div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">
+                {summaryByCategory[cat] > 0 ? formatCurrency(summaryByCategory[cat]) : '$0'}
+              </p>
+            </div>
+          )
+        })}
       </div>
 
       {/* Table */}
@@ -255,9 +270,15 @@ export default function GastosPage() {
                       {formatDate(expense.expense_date)}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${CATEGORY_COLORS[expense.category]}`}>
-                        {CATEGORY_LABELS[expense.category]}
-                      </span>
+                      {(() => {
+                        const Icon = CATEGORY_ICONS[expense.category]
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${CATEGORY_COLORS[expense.category]}`}>
+                            <Icon className="w-3 h-3" />
+                            {CATEGORY_LABELS[expense.category]}
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                       {expense.scope === 'unit' && unitNum ? `Depto ${unitNum}` : 'General'}

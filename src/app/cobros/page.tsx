@@ -58,6 +58,7 @@ export default function CobrosPage() {
     paid_date: new Date().toISOString().split('T')[0],
   })
   const [saving, setSaving] = useState(false)
+  const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
 
   async function fetchBilling() {
     setLoading(true)
@@ -67,7 +68,7 @@ export default function CobrosPage() {
       ? `${year + 1}-01-01`
       : `${year}-${String(month + 1).padStart(2, '0')}-01`
 
-    const [contractsRes, paymentsRes] = await Promise.all([
+    const [contractsRes, paymentsRes, latePaymentsRes] = await Promise.all([
       supabase
         .from('contracts')
         .select('id, unit_id, occupant_id, monthly_amount, payment_day, unit:units(number), occupant:occupants(name)')
@@ -79,6 +80,11 @@ export default function CobrosPage() {
         .eq('status', 'paid')
         .gte('due_date', monthStart)
         .lt('due_date', nextMonth),
+      supabase
+        .from('payments')
+        .select('contract_id, status, contract:contracts(occupant:occupants(name))')
+        .eq('status', 'late')
+        .lt('due_date', monthStart),
     ])
 
     const contracts = (contractsRes.data || []) as ContractRow[]
@@ -129,6 +135,20 @@ export default function CobrosPage() {
       const bNum = b.contract.unit?.number || ''
       return aNum.localeCompare(bNum)
     })
+
+    // Chronic debtors: contracts with late payments from previous months
+    const latePayments = (latePaymentsRes.data || []) as { contract_id: string; status: string; contract: { occupant: { name: string } | null } | null }[]
+    const debtorMap = new Map<string, { name: string; count: number }>()
+    for (const lp of latePayments) {
+      const name = lp.contract?.occupant?.name || 'Sin nombre'
+      const existing = debtorMap.get(lp.contract_id)
+      if (existing) {
+        existing.count++
+      } else {
+        debtorMap.set(lp.contract_id, { name, count: 1 })
+      }
+    }
+    setChronicDebtors(Array.from(debtorMap.values()).sort((a, b) => b.count - a.count))
 
     setRows(billingRows)
     setLoading(false)
@@ -263,6 +283,22 @@ export default function CobrosPage() {
           <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totalPending)}</p>
         </div>
       </div>
+
+      {/* Deudores crónicos */}
+      {chronicDebtors.length > 0 && (
+        <div className="card border-red-500/30">
+          <h3 className="text-sm font-semibold text-red-400 mb-2">
+            Deudores crónicos — {chronicDebtors.length} inquilino(s) con pagos atrasados de meses anteriores
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {chronicDebtors.map((d, i) => (
+              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                {d.name} ({d.count} pago{d.count > 1 ? 's' : ''})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (

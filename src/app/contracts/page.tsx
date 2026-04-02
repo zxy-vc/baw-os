@@ -46,7 +46,7 @@ export default function ContractsPage() {
 
   function openEdit(contract: Contract) {
     setEditingContract(contract)
-    const existingLink = contract.notes?.match(/📎 (https?:\/\/\S+)/)?.[1] || ''
+    const existingLink = contract.contract_url || contract.notes?.match(/📎 (https?:\/\/\S+)/)?.[1] || ''
     setEditForm({
       monthly_amount: contract.monthly_amount,
       payment_day: contract.payment_day,
@@ -78,6 +78,7 @@ export default function ContractsPage() {
         aval: editForm.aval || null,
         curp_arrendatario: editForm.curp_arrendatario || null,
         domicilio_arrendatario: editForm.domicilio_arrendatario || null,
+        contract_url: editForm.drive_link || null,
       })
       .eq('id', editingContract.id)
     setEditingContract(null)

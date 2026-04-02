@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, AlertTriangle, Trash2, Check } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import type { Contract, Payment } from '@/types'
@@ -22,7 +22,7 @@ export default function ContractDetailPage() {
     const [contractRes, paymentsRes] = await Promise.all([
       supabase
         .from('contracts')
-        .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
+        .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email, id_type, id_number, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
         .eq('id', params.id)
         .single(),
       supabase
@@ -68,7 +68,7 @@ export default function ContractDetailPage() {
   if (!contract) return <div className="text-gray-400 dark:text-gray-500">Contrato no encontrado.</div>
 
   const unit = contract.unit as { number: string; floor: number; type: string } | null
-  const occupant = contract.occupant as { name: string; phone?: string; email?: string } | null
+  const occupant = contract.occupant as { name: string; phone?: string; email?: string; id_type?: string; id_number?: string; rfc?: string; razon_social?: string; regimen_fiscal?: string; cp_fiscal?: string; email_factura?: string; requiere_factura?: boolean } | null
   const days = contract.end_date ? daysUntil(contract.end_date) : null
   const isExpiring = days !== null && days <= 30 && days > 0 && contract.status === 'active'
 
@@ -202,6 +202,101 @@ export default function ContractDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Datos del inquilino */}
+      <div className="card">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+          Datos del inquilino
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Nombre</p>
+            <p className="text-sm text-gray-900 dark:text-white">{occupant?.name || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Teléfono</p>
+            <p className="text-sm text-gray-900 dark:text-white">{occupant?.phone || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Email</p>
+            <p className="text-sm text-gray-900 dark:text-white">{occupant?.email || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Tipo ID</p>
+            <p className="text-sm text-gray-900 dark:text-white">{occupant?.id_type || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Número ID</p>
+            <p className="text-sm text-gray-900 dark:text-white">{occupant?.id_number || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">CURP</p>
+            <p className="text-sm text-gray-900 dark:text-white">{contract.curp_arrendatario || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Domicilio</p>
+            <p className="text-sm text-gray-900 dark:text-white">{contract.domicilio_arrendatario || '—'}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Aval</p>
+            <p className="text-sm text-gray-900 dark:text-white">{contract.aval || '—'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Datos fiscales */}
+      {occupant?.rfc && (
+        <div className="card">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+            Datos fiscales
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">RFC</p>
+              <p className="text-sm text-gray-900 dark:text-white font-mono">{occupant.rfc}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Razón social</p>
+              <p className="text-sm text-gray-900 dark:text-white">{occupant.razon_social || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Régimen fiscal</p>
+              <p className="text-sm text-gray-900 dark:text-white">{occupant.regimen_fiscal || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">CP fiscal</p>
+              <p className="text-sm text-gray-900 dark:text-white">{occupant.cp_fiscal || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Email facturación</p>
+              <p className="text-sm text-gray-900 dark:text-white">{occupant.email_factura || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Facturación</p>
+              {occupant.requiere_factura ? (
+                <span className="badge-pending">Requiere factura</span>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No requiere</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link contrato Drive */}
+      {contract.contract_url && (
+        <a
+          href={contract.contract_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="card flex items-center gap-3 hover:border-indigo-500/50 transition-colors group"
+        >
+          <ExternalLink className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300" />
+          <span className="text-sm font-medium text-indigo-400 group-hover:text-indigo-300">
+            Ver contrato en Drive
+          </span>
+        </a>
+      )}
 
       <div className="card">
         <div className="flex items-center justify-between mb-4">

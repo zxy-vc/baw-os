@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Contratos', href: '/contracts', icon: FileText },
   { name: 'Cobros', href: '/cobros', icon: Receipt },
   { name: 'Gastos', href: '/gastos', icon: TrendingDown },
+  { name: 'Reportes', href: '/reportes', icon: BarChart3 },
   { name: 'Pagos', href: '/payments', icon: CreditCard },
   { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
   { name: 'Precios', href: '/pricing', icon: DollarSign },
@@ -76,7 +77,7 @@ export default function Sidebar() {
             </div>
             <div>
               <h1 className="text-base font-semibold text-white dark:text-white [html.light_&]:text-gray-900">BaW OS</h1>
-              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.5.1 · ALM809P</p>
+              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.7.0 · ALM809P</p>
             </div>
           </div>
           <button

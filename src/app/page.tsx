@@ -24,7 +24,7 @@ interface UnitWithContract extends Unit {
 }
 
 interface AlertItem {
-  type: 'overdue' | 'expiring' | 'maintenance' | 'missing_payment'
+  type: 'overdue' | 'expiring' | 'expiring_critical' | 'expiring_soon' | 'expiring_warning' | 'maintenance' | 'missing_payment'
   title: string
   detail: string
   unitNumber?: string
@@ -214,12 +214,23 @@ export default function Dashboard() {
 
         for (const c of expiringContracts) {
           const days = daysUntil(c.end_date!)
-          const severity = days < 15 ? 'red' as const : days <= 30 ? 'yellow' as const : 'orange' as const
-          const emoji = days < 15 ? '🔴' : days <= 30 ? '🟡' : '🟠'
+          let alertType: AlertItem['type'] = 'expiring_warning'
+          let severity: 'red' | 'orange' | 'yellow' = 'yellow'
+          let message = `Vence en ${days} días — planear renovación`
+          if (days <= 15) {
+            alertType = 'expiring_critical'
+            severity = 'red'
+            message = `Vence en ${days} días — urgente renovar`
+          } else if (days <= 30) {
+            alertType = 'expiring_soon'
+            severity = 'orange'
+            message = `Vence en ${days} días`
+          }
+          const emoji = days <= 15 ? '🔴' : days <= 30 ? '🟠' : '🟡'
           alertItems.push({
-            type: 'expiring',
+            type: alertType,
             title: `${emoji} Contrato por vencer — ${c.unit?.number || 'N/A'}`,
-            detail: `${c.occupant?.name || 'Inquilino'} · Vence en ${days} días · ${formatDate(c.end_date!)}`,
+            detail: `${c.occupant?.name || 'Inquilino'} · ${message} · ${formatDate(c.end_date!)}`,
             unitNumber: c.unit?.number,
             severity,
           })
@@ -244,6 +255,18 @@ export default function Dashboard() {
             unitNumber: u.number,
           })
         }
+
+        // Sort alerts: overdue, expiring_critical, expiring_soon, expiring_warning, missing_payment, maintenance
+        const alertOrder: Record<string, number> = {
+          overdue: 0,
+          expiring_critical: 1,
+          expiring_soon: 2,
+          expiring_warning: 3,
+          missing_payment: 4,
+          maintenance: 5,
+          expiring: 3,
+        }
+        alertItems.sort((a, b) => (alertOrder[a.type] ?? 9) - (alertOrder[b.type] ?? 9))
 
         setAlerts(alertItems)
         setUnits(enrichedUnits)
@@ -303,6 +326,9 @@ export default function Dashboard() {
       case 'overdue':
         return <span className="text-lg">🔴</span>
       case 'expiring':
+      case 'expiring_critical':
+      case 'expiring_soon':
+      case 'expiring_warning':
         return null // emoji already in title
       case 'missing_payment':
         return null // emoji already in title
@@ -315,6 +341,9 @@ export default function Dashboard() {
 
   const alertBg = (alert: AlertItem) => {
     if (alert.type === 'overdue') return 'bg-red-50 dark:bg-red-900/20'
+    if (alert.type === 'expiring_critical') return 'bg-red-50 dark:bg-red-900/20'
+    if (alert.type === 'expiring_soon') return 'bg-orange-50 dark:bg-orange-900/20'
+    if (alert.type === 'expiring_warning') return 'bg-yellow-50 dark:bg-yellow-900/20'
     if (alert.type === 'missing_payment') return 'bg-amber-50 dark:bg-amber-900/20'
     if (alert.type === 'expiring') {
       if (alert.severity === 'red') return 'bg-red-50 dark:bg-red-900/20'
