@@ -12,6 +12,7 @@ interface ContractRow {
   occupant_id: string
   monthly_amount: number
   payment_day: number
+  status: string
   unit: { number: string } | null
   occupant: { name: string } | null
 }
@@ -73,7 +74,7 @@ export default function CobrosPage() {
     const [contractsRes, paymentsRes, latePaymentsRes] = await Promise.all([
       supabase
         .from('contracts')
-        .select('id, unit_id, occupant_id, monthly_amount, payment_day, unit:units(number), occupant:occupants(name)')
+        .select('id, unit_id, occupant_id, monthly_amount, payment_day, status, unit:units(number), occupant:occupants(name)')
         .in('status', ['active', 'en_renovacion'])
         .eq('org_id', ORG_ID),
       supabase
@@ -341,6 +342,11 @@ export default function CobrosPage() {
                   <tr key={row.contract.id} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30">
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                       {row.contract.unit?.number || '—'}
+                      {row.contract.status === 'en_renovacion' && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/15 text-yellow-500 border border-yellow-500/20" title="Contrato en renovación">
+                          &#9888;
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                       {row.contract.occupant?.name || 'Sin inquilino'}

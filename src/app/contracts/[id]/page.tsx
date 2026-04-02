@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
+import { useToast } from '@/components/Toast'
 import type { Contract, Payment } from '@/types'
 import Link from 'next/link'
 
@@ -17,6 +18,7 @@ export default function ContractDetailPage() {
   const [deleteOccupantTarget, setDeleteOccupantTarget] = useState(false)
   const [saving, setSaving] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<string | null>(null)
+  const toast = useToast()
 
   async function fetchData() {
     const [contractRes, paymentsRes] = await Promise.all([
@@ -52,7 +54,7 @@ export default function ContractDetailPage() {
   async function handleMarkPaid(payment: Payment) {
     setMarkingPaid(payment.id)
     const today = new Date().toISOString().split('T')[0]
-    await supabase
+    const { error } = await supabase
       .from('payments')
       .update({
         status: 'paid',
@@ -61,6 +63,11 @@ export default function ContractDetailPage() {
       })
       .eq('id', payment.id)
     setMarkingPaid(null)
+    if (error) {
+      toast.error('Error al guardar — intenta de nuevo')
+    } else {
+      toast.success('Pago registrado correctamente')
+    }
     fetchData()
   }
 
@@ -78,6 +85,7 @@ export default function ContractDetailPage() {
     terminated: 'Terminado',
     pending: 'Pendiente',
     renewed: 'Renovado',
+    en_renovacion: 'En renovación',
   }
 
   const paymentStatusLabels: Record<string, string> = {
@@ -121,6 +129,26 @@ export default function ContractDetailPage() {
           </p>
         </div>
       </div>
+
+      {contract.status === 'en_renovacion' && (
+        <div className="card border-yellow-500/30 bg-yellow-500/5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              <p className="text-sm text-yellow-400 font-medium">
+                Contrato en renovación — pendiente de renovar
+              </p>
+            </div>
+            <Link
+              href="/contracts"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition-colors shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Renovar ahora
+            </Link>
+          </div>
+        </div>
+      )}
 
       {isExpiring && (
         <div className="card border-amber-500/30">

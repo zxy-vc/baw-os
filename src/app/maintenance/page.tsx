@@ -13,6 +13,7 @@ interface IncidentWithUnit {
   status: string
   priority: string
   assigned_to: string | null
+  assigned_phone: string | null
   estimated_cost: number | null
   actual_cost: number | null
   notes: string | null
@@ -230,7 +231,11 @@ export default function MaintenancePage() {
                   <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-400 dark:text-gray-500">
                     {inc.unit && <span>Unidad {(inc.unit as { number: string }).number}</span>}
                     <span>{formatDate(inc.created_at)}</span>
-                    {inc.assigned_to && <span>Asignado: {inc.assigned_to}</span>}
+                    {inc.assigned_to && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        {inc.assigned_to}{inc.assigned_phone ? ` · ${inc.assigned_phone}` : ''}
+                      </span>
+                    )}
                     {inc.estimated_cost && <span>Est: {formatCurrency(inc.estimated_cost)}</span>}
                     {inc.actual_cost && <span>Real: {formatCurrency(inc.actual_cost)}</span>}
                   </div>

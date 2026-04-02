@@ -11,12 +11,14 @@ export default function NewIncidentPage() {
   const [units, setUnits] = useState<{ id: string; number: string }[]>([])
   const [saving, setSaving] = useState(false)
 
+  const [staffOptions, setStaffOptions] = useState<{ name: string; phone?: string }[]>([])
   const [form, setForm] = useState({
     unit_id: '',
     title: '',
     description: '',
     priority: 'medium' as string,
     assigned_to: '',
+    assigned_phone: '',
     estimated_cost: '',
   })
 
@@ -26,6 +28,11 @@ export default function NewIncidentPage() {
       .select('id, number')
       .order('number')
       .then(({ data }) => setUnits(data || []))
+    supabase
+      .from('occupants')
+      .select('name, phone')
+      .eq('type', 'staff')
+      .then(({ data }) => setStaffOptions((data || []) as { name: string; phone?: string }[]))
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,6 +46,7 @@ export default function NewIncidentPage() {
       description: form.description || null,
       priority: form.priority,
       assigned_to: form.assigned_to || null,
+      assigned_phone: form.assigned_phone || null,
       estimated_cost: form.estimated_cost ? Number(form.estimated_cost) : null,
       status: 'open',
     })
@@ -117,13 +125,41 @@ export default function NewIncidentPage() {
         </div>
 
         <div>
-          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Asignado a</label>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Asignar a</label>
+          {staffOptions.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                const staff = staffOptions.find((s) => s.name === e.target.value)
+                if (staff) {
+                  setForm({ ...form, assigned_to: staff.name, assigned_phone: staff.phone || '' })
+                }
+              }}
+              className="input-field mb-2"
+            >
+              <option value="">Seleccionar staff...</option>
+              {staffOptions.map((s) => (
+                <option key={s.name} value={s.name}>{s.name}{s.phone ? ` (${s.phone})` : ''}</option>
+              ))}
+            </select>
+          )}
           <input
             type="text"
             value={form.assigned_to}
             onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
             className="input-field"
             placeholder="Nombre del responsable"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Teléfono del asignado</label>
+          <input
+            type="text"
+            value={form.assigned_phone}
+            onChange={(e) => setForm({ ...form, assigned_phone: e.target.value })}
+            className="input-field"
+            placeholder="Teléfono de contacto"
           />
         </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BarChart3, Download } from 'lucide-react'
+import { BarChart3, Download, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
@@ -134,6 +134,13 @@ export default function ReportesPage() {
             <Download className="w-4 h-4" />
             Exportar CSV
           </button>
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors no-print"
+          >
+            <Printer className="w-4 h-4" />
+            Exportar PDF
+          </button>
         </div>
       </div>
 
@@ -190,7 +197,8 @@ export default function ReportesPage() {
           <p className="text-gray-500 dark:text-gray-400">No hay pagos en este período</p>
         </div>
       ) : (
-        <div className="card overflow-x-auto p-0">
+        <div id="print-area" className="card overflow-x-auto p-0">
+          <h2 className="hidden print:block text-lg font-bold p-4">BaW OS — Reporte de pagos</h2>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">

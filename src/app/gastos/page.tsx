@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { TrendingDown, Plus, Pencil, Trash2, X, Save, Wifi, Flame, Zap, Wrench, Sparkles, Package } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/Toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
@@ -69,6 +70,7 @@ const emptyForm = {
 }
 
 export default function GastosPage() {
+  const toast = useToast()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [units, setUnits] = useState<UnitOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -157,14 +159,22 @@ export default function GastosPage() {
       notes: form.notes || null,
     }
 
+    let error = null
     if (editingId) {
-      await supabase.from('expenses').update(payload).eq('id', editingId)
+      const res = await supabase.from('expenses').update(payload).eq('id', editingId)
+      error = res.error
     } else {
-      await supabase.from('expenses').insert(payload)
+      const res = await supabase.from('expenses').insert(payload)
+      error = res.error
     }
 
     setShowModal(false)
     setSaving(false)
+    if (error) {
+      toast.error('Error al guardar — intenta de nuevo')
+    } else {
+      toast.success('Gasto guardado')
+    }
     fetchExpenses()
   }
 

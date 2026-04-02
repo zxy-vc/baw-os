@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3 } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -77,7 +77,7 @@ export default function Sidebar() {
             </div>
             <div>
               <h1 className="text-base font-semibold text-white dark:text-white [html.light_&]:text-gray-900">BaW OS</h1>
-              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.7.0 · ALM809P</p>
+              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.8.0 · ALM809P</p>
             </div>
           </div>
           <button
@@ -87,6 +87,16 @@ export default function Sidebar() {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        <div className="px-3 pt-3">
+          <Link
+            href="/search"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200 transition-colors w-full border border-gray-800 [html.light_&]:border-gray-300"
+          >
+            <Search className="w-4 h-4" />
+            Buscar...
+          </Link>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">

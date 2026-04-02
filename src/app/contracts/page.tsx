@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save } from 'lucide-react'
+import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
+import { useToast } from '@/components/Toast'
 import type { Contract, ContractStatus } from '@/types'
 import Link from 'next/link'
 
 export default function ContractsPage() {
+  const toast = useToast()
   const [contracts, setContracts] = useState<Contract[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
@@ -25,6 +27,15 @@ export default function ContractsPage() {
   })
   const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null)
   const [saving, setSaving] = useState(false)
+  const [renewTarget, setRenewTarget] = useState<Contract | null>(null)
+  const [renewForm, setRenewForm] = useState({
+    monthly_amount: 0,
+    payment_day: 5,
+    start_date: '',
+    end_date: '',
+    deposit_amount: 0,
+    deposit_paid: false,
+  })
 
   async function fetchContracts() {
     setLoading(true)
@@ -89,8 +100,55 @@ export default function ContractsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
-    await supabase.from('contracts').delete().eq('id', deleteTarget.id)
+    const { error } = await supabase.from('contracts').delete().eq('id', deleteTarget.id)
     setDeleteTarget(null)
+    setSaving(false)
+    if (error) {
+      toast.error('Error al guardar — intenta de nuevo')
+    } else {
+      toast.success('Contrato eliminado')
+    }
+    fetchContracts()
+  }
+
+  function openRenew(contract: Contract) {
+    const today = new Date().toISOString().split('T')[0]
+    const nextYear = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+    setRenewTarget(contract)
+    setRenewForm({
+      monthly_amount: contract.monthly_amount,
+      payment_day: contract.payment_day || 5,
+      start_date: today,
+      end_date: nextYear,
+      deposit_amount: contract.deposit_amount || 0,
+      deposit_paid: false,
+    })
+  }
+
+  async function handleRenew() {
+    if (!renewTarget) return
+    setSaving(true)
+    // Insert new contract
+    const { error } = await supabase.from('contracts').insert({
+      org_id: renewTarget.org_id,
+      unit_id: renewTarget.unit_id,
+      occupant_id: renewTarget.occupant_id,
+      monthly_amount: renewForm.monthly_amount,
+      payment_day: renewForm.payment_day,
+      start_date: renewForm.start_date,
+      end_date: renewForm.end_date,
+      deposit_amount: renewForm.deposit_amount || null,
+      deposit_paid: renewForm.deposit_paid,
+      status: 'active',
+    })
+    if (!error) {
+      // Update old contract status to renewed
+      await supabase.from('contracts').update({ status: 'renewed' }).eq('id', renewTarget.id)
+      toast.success('Contrato renovado correctamente')
+    } else {
+      toast.error('Error al guardar — intenta de nuevo')
+    }
+    setRenewTarget(null)
     setSaving(false)
     fetchContracts()
   }
@@ -210,6 +268,16 @@ export default function ContractsPage() {
                       <p className="text-xs text-gray-400 dark:text-gray-500">/ mes</p>
                     </div>
                     <div className="flex items-center gap-1">
+                      {contract.status === 'en_renovacion' && (
+                        <button
+                          onClick={() => openRenew(contract)}
+                          title="Renovar contrato"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Renovar
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(contract)}
                         title="Editar contrato"
@@ -387,6 +455,101 @@ export default function ContractsPage() {
                 <Trash2 className="w-4 h-4" />
                 Eliminar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Renew Modal */}
+      {renewTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="card w-full max-w-lg mx-4 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setRenewTarget(null)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              Renovar contrato
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {(renewTarget.occupant as { name: string } | null)?.name || 'Sin inquilino'} — Unidad {(renewTarget.unit as { number: string } | null)?.number || '—'}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta mensual</label>
+                <input
+                  type="number"
+                  value={renewForm.monthly_amount}
+                  onChange={(e) => setRenewForm({ ...renewForm, monthly_amount: Number(e.target.value) })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Día de pago</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={renewForm.payment_day}
+                  onChange={(e) => setRenewForm({ ...renewForm, payment_day: Number(e.target.value) })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha inicio</label>
+                <input
+                  type="date"
+                  value={renewForm.start_date}
+                  onChange={(e) => setRenewForm({ ...renewForm, start_date: e.target.value })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha fin</label>
+                <input
+                  type="date"
+                  value={renewForm.end_date}
+                  onChange={(e) => setRenewForm({ ...renewForm, end_date: e.target.value })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Depósito</label>
+                <input
+                  type="number"
+                  value={renewForm.deposit_amount}
+                  onChange={(e) => setRenewForm({ ...renewForm, deposit_amount: Number(e.target.value) })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="deposit_paid"
+                  checked={renewForm.deposit_paid}
+                  onChange={(e) => setRenewForm({ ...renewForm, deposit_paid: e.target.checked })}
+                  className="rounded border-gray-300 dark:border-gray-600"
+                />
+                <label htmlFor="deposit_paid" className="text-sm text-gray-500 dark:text-gray-400">Depósito pagado</label>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setRenewTarget(null)}
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRenew}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Renovar contrato
+                </button>
+              </div>
             </div>
           </div>
         </div>

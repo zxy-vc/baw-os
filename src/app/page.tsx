@@ -38,6 +38,7 @@ interface RecentPayment {
   method?: string
   unitNumber: string
   occupantName: string
+  status: string
 }
 
 const FLOORS = [4, 3, 2, 1]
@@ -110,8 +111,7 @@ export default function Dashboard() {
           supabase
             .from('payments')
             .select('*, contract:contracts(*, unit:units(number), occupant:occupants(name))')
-            .eq('status', 'paid')
-            .order('paid_date', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(5),
           supabase
             .from('payments')
@@ -129,7 +129,7 @@ export default function Dashboard() {
         const pendingPayments = (paymentsRes.data || []) as (Payment & {
           contract: Contract & { unit: { number: string }; occupant: { name: string } }
         })[]
-        const recentPaid = (recentPmtsRes.data || []) as (Payment & {
+        const recentAll = (recentPmtsRes.data || []) as (Payment & {
           contract: Contract & { unit: { number: string }; occupant: { name: string } }
         })[]
 
@@ -273,13 +273,14 @@ export default function Dashboard() {
 
         // Recent payments
         setRecentPayments(
-          recentPaid.map((p) => ({
+          recentAll.map((p) => ({
             id: p.id,
             amount: Number(p.amount_paid || p.amount),
-            paid_date: p.paid_date || p.created_at,
+            paid_date: p.paid_date || p.due_date || p.created_at,
             method: p.method,
             unitNumber: p.contract?.unit?.number || 'N/A',
             occupantName: p.contract?.occupant?.name || 'N/A',
+            status: p.status,
           }))
         )
 
@@ -635,15 +636,25 @@ export default function Dashboard() {
                   className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {p.occupantName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {p.occupantName}
+                      </p>
+                      <span className={
+                        p.status === 'paid' ? 'badge-available' :
+                        p.status === 'late' ? 'badge-late' :
+                        p.status === 'pending' ? 'badge-pending' :
+                        'badge-expired'
+                      }>
+                        {p.status === 'paid' ? 'Pagado' : p.status === 'late' ? 'Mora' : p.status === 'pending' ? 'Pendiente' : p.status}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Unidad {p.unitNumber} · {formatDate(p.paid_date)}
                       {p.method && ` · ${p.method}`}
                     </p>
                   </div>
-                  <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 shrink-0 ml-3">
+                  <span className={`text-sm font-semibold shrink-0 ml-3 ${p.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'}`}>
                     {formatCurrency(p.amount)}
                   </span>
                 </div>
