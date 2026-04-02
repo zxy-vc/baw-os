@@ -408,7 +408,7 @@ export default function Dashboard() {
             {formatCurrency(kpis.monthlyIncome)}
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            Contratos activos
+            Renta base · sin agua (+$250/depto)
           </p>
         </div>
 
