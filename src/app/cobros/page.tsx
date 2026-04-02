@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Receipt, X, Save, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 
 interface ContractRow {
@@ -40,6 +41,7 @@ interface BillingRow {
 const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 export default function CobrosPage() {
+  const toast = useToast()
   const [rows, setRows] = useState<BillingRow[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
@@ -177,7 +179,7 @@ export default function CobrosPage() {
     const dueDate = `${year}-${String(month).padStart(2, '0')}-${String(payingContract.payment_day).padStart(2, '0')}`
     const totalAmount = payForm.rent_amount + payForm.water_fee
 
-    await supabase.from('payments').insert({
+    const { error } = await supabase.from('payments').insert({
       org_id: ORG_ID,
       contract_id: payingContract.id,
       amount: totalAmount,
@@ -192,6 +194,11 @@ export default function CobrosPage() {
 
     setPayingContract(null)
     setSaving(false)
+    if (error) {
+      toast.error('Error al guardar — intenta de nuevo')
+    } else {
+      toast.success('Pago registrado correctamente')
+    }
     fetchBilling()
   }
 
@@ -204,8 +211,9 @@ export default function CobrosPage() {
         return true
       })
 
-  const totalExpected = rows.reduce((s, r) => s + r.contract.monthly_amount, 0)
-  const totalCollected = rows.filter((r) => r.status === 'pagado').reduce((s, r) => s + (r.payment?.amount || r.contract.monthly_amount), 0)
+  // Total expected = rent + water ($250) per contract
+  const totalExpected = rows.reduce((s, r) => s + r.contract.monthly_amount + 250, 0)
+  const totalCollected = rows.filter((r) => r.status === 'pagado').reduce((s, r) => s + (r.payment?.amount || r.contract.monthly_amount + 250), 0)
   const totalPending = totalExpected - totalCollected
 
   const statusBadge = (status: BillingStatus, moraAmount: number) => {
