@@ -102,11 +102,14 @@ export default function ContractsPage() {
   async function handleDelete() {
     if (!deleteTarget) return
     setSaving(true)
+    // First delete associated payments (foreign key constraint)
+    await supabase.from('payments').delete().eq('contract_id', deleteTarget.id)
+    // Then delete the contract
     const { error } = await supabase.from('contracts').delete().eq('id', deleteTarget.id)
     setDeleteTarget(null)
     setSaving(false)
     if (error) {
-      toast.error('Error al guardar — intenta de nuevo')
+      toast.error('Error al eliminar — intenta de nuevo')
     } else {
       toast.success('Contrato eliminado')
     }
