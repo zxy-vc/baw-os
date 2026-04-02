@@ -1,6 +1,7 @@
 // BaW OS — Payments API (Tier 2 Agent Interface)
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -53,5 +54,13 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return apiError(error.message, 500)
+
+  await logEvent('payment.received', {
+    payment_id: data.id,
+    contract_id,
+    amount,
+    method: method || 'transfer',
+  })
+
   return apiOk(data)
 }

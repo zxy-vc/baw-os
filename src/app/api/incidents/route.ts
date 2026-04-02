@@ -7,6 +7,7 @@ import {
   apiOk,
   getOrgId,
 } from '@/lib/api-auth'
+import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -43,5 +44,13 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return apiError(error.message, 500)
+
+  await logEvent('incident.opened', {
+    incident_id: data.id,
+    title: body.title,
+    priority: body.priority,
+    unit_id: body.unit_id,
+  })
+
   return apiOk(data)
 }

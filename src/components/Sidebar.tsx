@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Notificaciones', href: '/notifications', icon: Bell },
   { name: 'Unidades', href: '/units', icon: Building2 },
   { name: 'Contratos', href: '/contracts', icon: FileText },
   { name: 'Cobros', href: '/cobros', icon: Receipt },
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Precios', href: '/pricing', icon: DollarSign },
   { name: 'Cotizador', href: '/quotes', icon: Calculator },
   { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
+  { name: 'API Docs', href: '/api-docs', icon: Code2 },
   { name: 'Contactos', href: '/contacts', icon: Users },
 ]
 
@@ -28,6 +30,23 @@ export default function Sidebar() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  const fetchUnread = useCallback(async () => {
+    try {
+      const { count } = await supabase
+        .from('webhook_events')
+        .select('*', { count: 'exact', head: true })
+        .eq('read', false)
+      setUnreadCount(count || 0)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 30000)
+    return () => clearInterval(interval)
+  }, [fetchUnread])
 
   // Close drawer on route change
   useEffect(() => {
@@ -77,7 +96,7 @@ export default function Sidebar() {
             </div>
             <div>
               <h1 className="text-base font-semibold text-white dark:text-white [html.light_&]:text-gray-900">BaW OS</h1>
-              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.8.0 · ALM809P</p>
+              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v0.9.0 · ALM809P</p>
             </div>
           </div>
           <button
@@ -118,6 +137,11 @@ export default function Sidebar() {
               >
                 <item.icon className="w-5 h-5" />
                 {item.name}
+                {item.name === 'Notificaciones' && unreadCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </Link>
             )
           })}
