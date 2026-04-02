@@ -30,7 +30,7 @@ interface PaymentRow {
   reference: string | null
 }
 
-type BillingStatus = 'pagado' | 'pendiente' | 'vencido' | 'mora'
+type BillingStatus = 'pagado' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
 
 interface BillingRow {
   contract: ContractRow
@@ -110,7 +110,10 @@ export default function CobrosPage() {
       let status: BillingStatus = 'pendiente'
       let moraAmount = 0
 
-      if (payment) {
+      if (!c.payment_day) {
+        // No fixed payment day — verbal agreement
+        status = payment ? 'pagado' : 'verbal'
+      } else if (payment) {
         status = 'pagado'
       } else if (isCurrentMonth) {
         if (todayDay >= 10) {
@@ -229,6 +232,12 @@ export default function CobrosPage() {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border-2 border-red-500/40">
             Mora activa · +{formatCurrency(moraAmount)}
+          </span>
+        )
+      case 'verbal':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/30">
+            Acuerdo verbal
           </span>
         )
     }
