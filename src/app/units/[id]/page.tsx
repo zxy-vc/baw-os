@@ -6,6 +6,8 @@ import { ArrowLeft, Building2, FileText, CreditCard, Wrench, Download, ExternalL
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import { SkeletonDashboard } from '@/components/Skeleton'
 import type { Unit, Contract, Payment, Incident } from '@/types'
 
 const statusLabels: Record<string, string> = {
@@ -80,7 +82,7 @@ export default function UnitDetailPage() {
     fetchData()
   }, [params.id])
 
-  if (loading) return <div className="text-gray-400 dark:text-gray-500">Cargando unidad...</div>
+  if (loading) return <SkeletonDashboard />
   if (!unit) return (
     <div className="text-gray-400 dark:text-gray-500">
       <p>Unidad no encontrada.</p>
@@ -120,6 +122,11 @@ export default function UnitDetailPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs items={[
+        { label: 'Dashboard', href: '/' },
+        { label: 'Unidades', href: '/units' },
+        { label: unit.number },
+      ]} />
       {/* Header */}
       <div className="flex items-center gap-4">
         <button

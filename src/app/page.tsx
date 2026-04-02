@@ -16,6 +16,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import Link from 'next/link'
+import { SkeletonDashboard } from '@/components/Skeleton'
 import type { Unit, Contract, Payment, Occupant } from '@/types'
 
 interface UnitWithContract extends Unit {
@@ -355,13 +356,7 @@ export default function Dashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400 dark:text-gray-500 animate-pulse">
-          Cargando dashboard...
-        </div>
-      </div>
-    )
+    return <SkeletonDashboard />
   }
 
   return (

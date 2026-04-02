@@ -5,6 +5,8 @@ import { TrendingDown, Plus, Pencil, Trash2, X, Save, Wifi, Flame, Zap, Wrench, 
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 
 const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
@@ -251,12 +253,13 @@ export default function GastosPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500 animate-pulse">Cargando gastos...</div>
+        <SkeletonTable />
       ) : expenses.length === 0 ? (
-        <div className="card text-center py-12">
-          <TrendingDown className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay gastos registrados este mes</p>
-        </div>
+        <EmptyState
+          icon={TrendingDown}
+          title="No hay gastos registrados este mes"
+          description="Registra gastos de servicios, mantenimiento y más"
+        />
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">

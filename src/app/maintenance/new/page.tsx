@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 
 export default function NewIncidentPage() {
@@ -59,6 +60,11 @@ export default function NewIncidentPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <Breadcrumbs items={[
+        { label: 'Dashboard', href: '/' },
+        { label: 'Mantenimiento', href: '/maintenance' },
+        { label: 'Nueva incidencia' },
+      ]} />
       <div className="flex items-center gap-4">
         <Link
           href="/maintenance"

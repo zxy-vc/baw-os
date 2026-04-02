@@ -5,6 +5,8 @@ import { Plus, Building2, Filter } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Unit, UnitType, UnitStatus } from '@/types'
 import { cn } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 import UnitModal from './UnitModal'
 
 const statusLabels: Record<UnitStatus, string> = {
@@ -142,18 +144,15 @@ export default function UnitsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500">Cargando unidades...</div>
+        <SkeletonTable />
       ) : units.length === 0 ? (
-        <div className="card text-center py-12">
-          <Building2 className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay unidades registradas</p>
-          <button
-            onClick={handleNew}
-            className="mt-4 text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-          >
-            Crear primera unidad
-          </button>
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="No hay unidades registradas"
+          description="Crea la primera unidad para comenzar"
+          actionLabel="Crear primera unidad"
+          actionHref="/units"
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">

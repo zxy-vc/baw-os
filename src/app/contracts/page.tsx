@@ -5,6 +5,8 @@ import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw } fro
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 import type { Contract, ContractStatus } from '@/types'
 import Link from 'next/link'
 
@@ -203,18 +205,15 @@ export default function ContractsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500">Cargando contratos...</div>
+        <SkeletonTable />
       ) : contracts.length === 0 ? (
-        <div className="card text-center py-12">
-          <FileText className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay contratos registrados</p>
-          <Link
-            href="/contracts/new"
-            className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-          >
-            Crear primer contrato
-          </Link>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No hay contratos registrados"
+          description="Registra el primer contrato LTR o MTR"
+          actionLabel="Crear primer contrato"
+          actionHref="/contracts/new"
+        />
       ) : (
         <div className="space-y-3">
           {contracts.map((contract) => {

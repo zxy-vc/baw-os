@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, Building2, FileText, Users, Wrench } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { SkeletonText } from '@/components/Skeleton'
 import Link from 'next/link'
 
 interface SearchResult {
@@ -147,7 +148,11 @@ export default function SearchPage() {
       </div>
 
       {loading && (
-        <p className="text-sm text-gray-400 dark:text-gray-500 animate-pulse">Buscando...</p>
+        <div className="space-y-3">
+          <SkeletonText width="w-3/4" />
+          <SkeletonText width="w-1/2" />
+          <SkeletonText width="w-2/3" />
+        </div>
       )}
 
       {!loading && query.trim() && results.length === 0 && (

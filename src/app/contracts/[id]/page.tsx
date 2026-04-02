@@ -6,6 +6,8 @@ import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink, RefreshCw } from
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
+import Breadcrumbs from '@/components/Breadcrumbs'
+import { SkeletonDashboard } from '@/components/Skeleton'
 import type { Contract, Payment } from '@/types'
 import Link from 'next/link'
 
@@ -71,7 +73,7 @@ export default function ContractDetailPage() {
     fetchData()
   }
 
-  if (loading) return <div className="text-gray-400 dark:text-gray-500">Cargando contrato...</div>
+  if (loading) return <SkeletonDashboard />
   if (!contract) return <div className="text-gray-400 dark:text-gray-500">Contrato no encontrado.</div>
 
   const unit = contract.unit as { number: string; floor: number; type: string } | null
@@ -113,6 +115,11 @@ export default function ContractDetailPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      <Breadcrumbs items={[
+        { label: 'Dashboard', href: '/' },
+        { label: 'Contratos', href: '/contracts' },
+        { label: occupant?.name || 'Contrato' },
+      ]} />
       <div className="flex items-center gap-4">
         <Link
           href="/contracts"

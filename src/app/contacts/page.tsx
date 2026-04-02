@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from 'react'
 import { Plus, Users, Search, Pencil, Trash2, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 import type { ContactType, Reservation, Contract } from '@/types'
 
 interface Contact {
@@ -617,22 +619,13 @@ export default function ContactsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500">Cargando contactos...</div>
+        <SkeletonTable />
       ) : filtered.length === 0 ? (
-        <div className="card text-center py-12">
-          <Users className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">
-            {searchQuery ? 'No se encontraron contactos' : 'No hay contactos registrados'}
-          </p>
-          {!searchQuery && (
-            <button
-              onClick={openAdd}
-              className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-            >
-              Agregar primer contacto
-            </button>
-          )}
-        </div>
+        <EmptyState
+          icon={Users}
+          title={searchQuery ? 'No se encontraron contactos' : 'No hay contactos registrados'}
+          description={searchQuery ? `Sin resultados para "${searchQuery}"` : 'Agrega inquilinos, proveedores o staff'}
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((contact) => (

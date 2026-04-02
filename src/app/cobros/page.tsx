@@ -5,6 +5,8 @@ import { Receipt, X, Save, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 
 interface ContractRow {
   id: string
@@ -320,12 +322,13 @@ export default function CobrosPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500 animate-pulse">Cargando cobros...</div>
+        <SkeletonTable />
       ) : filtered.length === 0 ? (
-        <div className="card text-center py-12">
-          <Receipt className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay contratos activos para este mes</p>
-        </div>
+        <EmptyState
+          icon={Receipt}
+          title="No hay contratos activos para este mes"
+          description="Los cobros se generan automáticamente para contratos activos"
+        />
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">

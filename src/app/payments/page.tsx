@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Plus, CreditCard, AlertTriangle, Check, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 import Link from 'next/link'
 
 interface ContractOption {
@@ -309,18 +311,15 @@ export default function PaymentsPage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500">Cargando pagos...</div>
+        <SkeletonTable />
       ) : payments.length === 0 ? (
-        <div className="card text-center py-12">
-          <CreditCard className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay pagos para este período</p>
-          <Link
-            href="/payments/new"
-            className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-          >
-            Registrar pago
-          </Link>
-        </div>
+        <EmptyState
+          icon={CreditCard}
+          title="No hay pagos para este período"
+          description="Registra un pago recibido o pendiente"
+          actionLabel="Registrar pago"
+          actionHref="/payments/new"
+        />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">

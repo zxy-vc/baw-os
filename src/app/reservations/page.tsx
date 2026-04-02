@@ -6,6 +6,7 @@ import {
   Check, Ban, BedDouble, Home, Users, Filter
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { SkeletonTable } from '@/components/Skeleton'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Unit, Reservation, BookingMode, ReservationStatus, ReservationPaymentStatus } from '@/types'
 
@@ -310,11 +311,7 @@ export default function ReservationsPage() {
 
   // ─── Render ─────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-400 dark:text-gray-500">Cargando reservaciones...</p>
-      </div>
-    )
+    return <SkeletonTable />
   }
 
   const totalDays = daysInMonth(calYear, calMonth)

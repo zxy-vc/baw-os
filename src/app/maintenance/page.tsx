@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Plus, Wrench, AlertTriangle, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 import Link from 'next/link'
 
 interface IncidentWithUnit {
@@ -193,18 +195,15 @@ export default function MaintenancePage() {
       </div>
 
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500">Cargando incidencias...</div>
+        <SkeletonTable />
       ) : incidents.length === 0 ? (
-        <div className="card text-center py-12">
-          <Wrench className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay incidencias registradas</p>
-          <Link
-            href="/maintenance/new"
-            className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
-          >
-            Reportar incidencia
-          </Link>
-        </div>
+        <EmptyState
+          icon={Wrench}
+          title="No hay incidencias registradas"
+          description="Reporta problemas o solicitudes de mantenimiento"
+          actionLabel="Reportar incidencia"
+          actionHref="/maintenance/new"
+        />
       ) : (
         <div className="space-y-3">
           {incidents.map((inc) => (

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { BarChart3, Download, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { SkeletonTable } from '@/components/Skeleton'
+import EmptyState from '@/components/EmptyState'
 
 const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
@@ -190,12 +192,13 @@ export default function ReportesPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="text-gray-400 dark:text-gray-500 animate-pulse">Cargando reporte...</div>
+        <SkeletonTable />
       ) : filtered.length === 0 ? (
-        <div className="card text-center py-12">
-          <BarChart3 className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No hay pagos en este período</p>
-        </div>
+        <EmptyState
+          icon={BarChart3}
+          title="No hay pagos en este período"
+          description="Selecciona otro rango de fechas o registra pagos"
+        />
       ) : (
         <div id="print-area" className="card overflow-x-auto p-0">
           <h2 className="hidden print:block text-lg font-bold p-4">BaW OS — Reporte de pagos</h2>

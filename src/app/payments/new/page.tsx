@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
+import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 
 interface ContractWithDetails {
@@ -82,6 +83,11 @@ export default function NewPaymentPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <Breadcrumbs items={[
+        { label: 'Dashboard', href: '/' },
+        { label: 'Pagos', href: '/payments' },
+        { label: 'Nuevo pago' },
+      ]} />
       <div className="flex items-center gap-4">
         <Link
           href="/payments"
