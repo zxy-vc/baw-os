@@ -43,7 +43,7 @@ export default function ReportesPage() {
       .gte('due_date', startStr)
       .order('due_date', { ascending: false })
 
-    setPayments((data || []) as PaymentRow[])
+    setPayments((data || []) as unknown as PaymentRow[])
     setLoading(false)
   }
 

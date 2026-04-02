@@ -72,7 +72,7 @@ export default function CobrosPage() {
       supabase
         .from('contracts')
         .select('id, unit_id, occupant_id, monthly_amount, payment_day, unit:units(number), occupant:occupants(name)')
-        .in('status', ['active'])
+        .in('status', ['active', 'en_renovacion'])
         .eq('org_id', ORG_ID),
       supabase
         .from('payments')
@@ -87,7 +87,7 @@ export default function CobrosPage() {
         .lt('due_date', monthStart),
     ])
 
-    const contracts = (contractsRes.data || []) as ContractRow[]
+    const contracts = (contractsRes.data || []) as unknown as ContractRow[]
     const payments = (paymentsRes.data || []) as PaymentRow[]
 
     const paymentByContract = new Map<string, PaymentRow>()
@@ -137,7 +137,7 @@ export default function CobrosPage() {
     })
 
     // Chronic debtors: contracts with late payments from previous months
-    const latePayments = (latePaymentsRes.data || []) as { contract_id: string; status: string; contract: { occupant: { name: string } | null } | null }[]
+    const latePayments = (latePaymentsRes.data || []) as unknown as { contract_id: string; status: string; contract: { occupant: { name: string } | null } | null }[]
     const debtorMap = new Map<string, { name: string; count: number }>()
     for (const lp of latePayments) {
       const name = lp.contract?.occupant?.name || 'Sin nombre'
