@@ -20,6 +20,8 @@ export default function ContractDetailPage() {
   const [deleteOccupantTarget, setDeleteOccupantTarget] = useState(false)
   const [saving, setSaving] = useState(false)
   const [markingPaid, setMarkingPaid] = useState<string | null>(null)
+  const [driveFolderUrl, setDriveFolderUrl] = useState('')
+  const [savingDrive, setSavingDrive] = useState(false)
   const toast = useToast()
 
   async function fetchData() {
@@ -37,6 +39,7 @@ export default function ContractDetailPage() {
     ])
     setContract(contractRes.data)
     setPayments(paymentsRes.data || [])
+    setDriveFolderUrl(contractRes.data?.drive_folder_url || '')
     setLoading(false)
   }
 
@@ -228,6 +231,46 @@ export default function ContractDetailPage() {
           <div>
             <p className="text-xs text-gray-400 dark:text-gray-500">Día de pago</p>
             <p className="text-lg font-semibold text-gray-900 dark:text-white">{contract.payment_day}</p>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Carpeta Drive</p>
+          {contract.drive_folder_url && (
+            <a
+              href={contract.drive_folder_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 mb-2"
+            >
+              📁 Ver expediente en Drive
+            </a>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              placeholder="https://drive.google.com/drive/folders/..."
+              value={driveFolderUrl}
+              onChange={(e) => setDriveFolderUrl(e.target.value)}
+              className="input-field flex-1 text-sm"
+            />
+            <button
+              type="button"
+              disabled={savingDrive}
+              onClick={async () => {
+                setSavingDrive(true)
+                const { error } = await supabase
+                  .from('contracts')
+                  .update({ drive_folder_url: driveFolderUrl || null })
+                  .eq('id', contract.id)
+                if (!error) {
+                  setContract({ ...contract, drive_folder_url: driveFolderUrl || undefined })
+                }
+                setSavingDrive(false)
+              }}
+              className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
+            >
+              {savingDrive ? 'Guardando...' : 'Guardar'}
+            </button>
           </div>
         </div>
         {contract.notes && (

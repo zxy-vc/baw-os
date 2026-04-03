@@ -78,6 +78,7 @@ export interface Contract {
   payment_day: number
   status: ContractStatus
   contract_url?: string
+  drive_folder_url?: string
   notes?: string
   // Legal data (#15, #16)
   aval?: string

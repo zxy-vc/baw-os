@@ -25,6 +25,7 @@ export default function NewContractPage() {
     deposit_paid: false,
     payment_day: '1',
     notes: '',
+    drive_folder_url: '',
   })
 
   const [occupantForm, setOccupantForm] = useState({
@@ -80,6 +81,7 @@ export default function NewContractPage() {
       payment_day: Number(form.payment_day),
       status: 'active',
       notes: form.notes || null,
+      drive_folder_url: form.drive_folder_url || null,
     })
 
     if (!error) {
@@ -252,6 +254,17 @@ export default function NewContractPage() {
           <label htmlFor="deposit_paid" className="text-sm text-gray-500 dark:text-gray-400">
             Depósito pagado
           </label>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Link carpeta Drive (opcional)</label>
+          <input
+            type="url"
+            value={form.drive_folder_url}
+            onChange={(e) => setForm({ ...form, drive_folder_url: e.target.value })}
+            className="input-field"
+            placeholder="https://drive.google.com/drive/folders/..."
+          />
         </div>
 
         <div>
