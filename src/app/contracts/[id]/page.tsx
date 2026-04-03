@@ -25,16 +25,17 @@ export default function ContractDetailPage() {
   const toast = useToast()
 
   async function fetchData() {
+    const contractId = Array.isArray(params.id) ? params.id[0] : params.id
     const [contractRes, paymentsRes] = await Promise.all([
       supabase
         .from('contracts')
         .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email, id_type, id_number, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
-        .eq('id', params.id)
+        .eq('id', contractId)
         .single(),
       supabase
         .from('payments')
         .select('*')
-        .eq('contract_id', params.id)
+        .eq('contract_id', contractId)
         .order('due_date', { ascending: false }),
     ])
     setContract(contractRes.data)
