@@ -15,25 +15,27 @@ interface ContractWithDetails {
   occupant: { name: string } | null
 }
 
+const initialForm = {
+  contract_id: '',
+  rent_amount: '',
+  water_fee: '250',
+  amount_paid: '',
+  due_date: new Date().toISOString().split('T')[0],
+  paid_date: new Date().toISOString().split('T')[0],
+  status: 'paid' as string,
+  method: 'transfer' as string,
+  reference: '',
+  notes: '',
+}
+
 export default function NewPaymentPage() {
   const router = useRouter()
   const [contracts, setContracts] = useState<ContractWithDetails[]>([])
   const [saving, setSaving] = useState(false)
-
-  const [form, setForm] = useState({
-    contract_id: '',
-    rent_amount: '',
-    water_fee: '250',
-    amount_paid: '',
-    due_date: new Date().toISOString().split('T')[0],
-    paid_date: new Date().toISOString().split('T')[0],
-    status: 'paid' as string,
-    method: 'transfer' as string,
-    reference: '',
-    notes: '',
-  })
+  const [form, setForm] = useState(initialForm)
 
   const totalAmount = (Number(form.rent_amount) || 0) + (Number(form.water_fee) || 0)
+  const needsAmountPaid = form.status === 'paid' || form.status === 'partial'
 
   useEffect(() => {
     supabase
@@ -48,27 +50,30 @@ export default function NewPaymentPage() {
 
   function handleContractChange(contractId: string) {
     const contract = contracts.find((c) => c.id === contractId)
-    const rentAmount = contract ? contract.monthly_amount - 250 : 0
     setForm({
       ...form,
       contract_id: contractId,
-      rent_amount: contract ? String(rentAmount > 0 ? rentAmount : contract.monthly_amount) : '',
-      amount_paid: contract ? String(contract.monthly_amount) : '',
+      rent_amount: contract ? String(contract.monthly_amount) : '',
+      amount_paid: contract ? String(contract.monthly_amount + 250) : '',
     })
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSave(andAnother: boolean) {
     setSaving(true)
+
+    if (needsAmountPaid && !form.amount_paid) {
+      setSaving(false)
+      return
+    }
 
     const { error } = await supabase.from('payments').insert({
       contract_id: form.contract_id,
       rent_amount: Number(form.rent_amount),
       water_fee: Number(form.water_fee),
       amount: totalAmount,
-      amount_paid: form.status === 'paid' || form.status === 'partial' ? Number(form.amount_paid) : null,
+      amount_paid: needsAmountPaid ? Number(form.amount_paid) : null,
       due_date: form.due_date,
-      paid_date: form.status === 'paid' || form.status === 'partial' ? form.paid_date : null,
+      paid_date: needsAmountPaid ? form.paid_date : null,
       status: form.status,
       method: form.method || null,
       reference: form.reference || null,
@@ -76,9 +81,22 @@ export default function NewPaymentPage() {
     })
 
     if (!error) {
-      router.push('/payments')
+      if (andAnother) {
+        setForm({
+          ...initialForm,
+          due_date: new Date().toISOString().split('T')[0],
+          paid_date: new Date().toISOString().split('T')[0],
+        })
+      } else {
+        router.push('/payments')
+      }
     }
     setSaving(false)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    await handleSave(false)
   }
 
   return (
@@ -122,7 +140,7 @@ export default function NewPaymentPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta base</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta</label>
             <input
               type="number"
               required
@@ -134,7 +152,7 @@ export default function NewPaymentPage() {
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Cuota agua</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
             <input
               type="number"
               step="0.01"
@@ -149,14 +167,22 @@ export default function NewPaymentPage() {
             <div className="input-field bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white font-semibold flex items-center">
               {formatCurrency(totalAmount)}
             </div>
+            {form.rent_amount && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {formatCurrency(Number(form.rent_amount))} + {formatCurrency(Number(form.water_fee) || 0)} = {formatCurrency(totalAmount)}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto pagado</label>
+            <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+              Monto pagado {needsAmountPaid && <span className="text-red-500">*</span>}
+            </label>
             <input
               type="number"
+              required={needsAmountPaid}
               step="0.01"
               value={form.amount_paid}
               onChange={(e) => setForm({ ...form, amount_paid: e.target.value })}
@@ -245,6 +271,14 @@ export default function NewPaymentPage() {
           >
             Cancelar
           </Link>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => handleSave(true)}
+            className="px-4 py-2 border border-indigo-600 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+          >
+            {saving ? 'Guardando...' : 'Guardar y registrar otro'}
+          </button>
           <button
             type="submit"
             disabled={saving}
