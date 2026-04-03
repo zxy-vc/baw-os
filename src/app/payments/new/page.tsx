@@ -41,7 +41,7 @@ export default function NewPaymentPage() {
     supabase
       .from('contracts')
       .select('*, unit:units(number), occupant:occupants(name)')
-      .eq('status', 'active')
+      .in('status', ['active', 'en_renovacion'])
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setContracts((data as ContractWithDetails[]) || [])
