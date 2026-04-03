@@ -18,7 +18,6 @@ const navigation = [
   { name: 'Reportes', href: '/reportes', icon: BarChart3 },
   { name: 'Pagos', href: '/payments', icon: CreditCard },
   { name: 'Reportes CSV', href: '/reports', icon: BarChart3 },
-  { name: 'WhatsApp', href: '/notifications', icon: MessageSquare },
   { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
   { name: 'Precios', href: '/pricing', icon: DollarSign },
   { name: 'Cotizador', href: '/quotes', icon: Calculator },
