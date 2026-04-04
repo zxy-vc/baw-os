@@ -92,7 +92,7 @@ function formatRelativeDate(d: string): string {
   return `Hace ${diff} días`
 }
 
-export default function PortalPage() {
+export default function TenantPortalPage() {
   const params = useParams()
   const token = Array.isArray(params.token) ? params.token[0] : params.token
   const [data, setData] = useState<PortalData | null>(null)
@@ -105,7 +105,7 @@ export default function PortalPage() {
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null)
 
   useEffect(() => {
-    fetch(`/api/portal/${token}`)
+    fetch(`/api/tenant/${token}`)
       .then((res) => {
         if (!res.ok) throw new Error()
         return res.json()
@@ -120,7 +120,7 @@ export default function PortalPage() {
     setSubmitting(true)
     setSubmitResult(null)
     try {
-      const res = await fetch(`/api/portal/${token}/incident`, {
+      const res = await fetch(`/api/tenant/${token}/incident`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category, description }),
@@ -129,7 +129,7 @@ export default function PortalPage() {
       setSubmitResult('success')
       setCategory('')
       setDescription('')
-      const updated = await fetch(`/api/portal/${token}`)
+      const updated = await fetch(`/api/tenant/${token}`)
       if (updated.ok) setData(await updated.json())
     } catch {
       setSubmitResult('error')

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: 'Portal de inquilino — BaW Administración de propiedades',
 }
 
-export default function PortalLayout({
+export default function TenantLayout({
   children,
 }: {
   children: React.ReactNode
