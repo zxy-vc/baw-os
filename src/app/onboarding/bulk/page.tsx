@@ -1,8 +1,11 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useRef, useCallback } from 'react'
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, X, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+// Toast imported via dynamic context
 import { useToast } from '@/components/Toast'
 
 interface CsvRow {

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getAlertLevel, type ContractAlert, type AlertLevel } from '@/lib/contract-alerts'
