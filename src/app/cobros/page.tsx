@@ -30,6 +30,7 @@ interface PaymentRow {
   water_fee: number | null
   method: string | null
   reference: string | null
+  confirmed_by: string | null
 }
 
 type BillingStatus = 'pagado' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
@@ -63,6 +64,7 @@ export default function CobrosPage() {
     paid_date: new Date().toISOString().split('T')[0],
   })
   const [saving, setSaving] = useState(false)
+  const [confirmedBy, setConfirmedBy] = useState('alicia')
   const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
 
   async function fetchBilling() {
@@ -81,7 +83,7 @@ export default function CobrosPage() {
         .eq('org_id', ORG_ID),
       supabase
         .from('payments')
-        .select('id, contract_id, status, due_date, paid_date, amount, rent_amount, water_fee, method, reference')
+        .select('id, contract_id, status, due_date, paid_date, amount, rent_amount, water_fee, method, reference, confirmed_by')
         .eq('status', 'paid')
         .gte('due_date', monthStart)
         .lt('due_date', nextMonth),
@@ -185,7 +187,7 @@ export default function CobrosPage() {
     const dueDate = `${year}-${String(month).padStart(2, '0')}-${String(payingContract.payment_day).padStart(2, '0')}`
     const totalAmount = payForm.rent_amount + payForm.water_fee
 
-    const { error } = await supabase.from('payments').insert({
+    const { data: paymentData, error } = await supabase.from('payments').insert({
       org_id: ORG_ID,
       contract_id: payingContract.id,
       amount: totalAmount,
@@ -196,7 +198,27 @@ export default function CobrosPage() {
       status: 'paid',
       method: payForm.method,
       reference: payForm.reference || null,
-    })
+      confirmed_by: confirmedBy,
+      confirmed_at: new Date().toISOString(),
+      payment_method: payForm.method.toLowerCase() === 'transferencia' ? 'transferencia' : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro',
+    }).select().single()
+
+    // Also create ledger entry
+    if (paymentData && !error) {
+      await supabase.from('payment_ledger').insert({
+        org_id: ORG_ID,
+        payment_id: paymentData.id,
+        contract_id: payingContract.id,
+        unit_id: payingContract.unit_id,
+        tenant_name: payingContract.occupant?.name || null,
+        amount: payForm.rent_amount,
+        water_fee: payForm.water_fee,
+        total: totalAmount,
+        payment_method: payForm.method.toLowerCase() === 'transferencia' ? 'transferencia' : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro',
+        confirmed_by: confirmedBy,
+        notes: payForm.reference || null,
+      })
+    }
 
     setPayingContract(null)
     setSaving(false)
@@ -341,6 +363,7 @@ export default function CobrosPage() {
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Día cobro</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Confirmó</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Acción</th>
               </tr>
             </thead>
@@ -377,6 +400,9 @@ export default function CobrosPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {statusBadge(row.status, row.moraAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400 capitalize">
+                      {row.payment?.confirmed_by || '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {row.status !== 'pagado' ? (
@@ -463,6 +489,19 @@ export default function CobrosPage() {
                   className="input-field w-full"
                   placeholder="Número de referencia"
                 />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Confirmado por</label>
+                <select
+                  value={confirmedBy}
+                  onChange={(e) => setConfirmedBy(e.target.value)}
+                  className="input-field w-full"
+                >
+                  <option value="alicia">Alicia</option>
+                  <option value="enrique">Enrique</option>
+                  <option value="fran">Fran</option>
+                  <option value="system">Sistema</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de pago</label>
