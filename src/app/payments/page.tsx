@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, CreditCard, AlertTriangle, Check, X } from 'lucide-react'
+import { Plus, CreditCard, AlertTriangle, Check, X, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
+import InvoiceModal from '@/components/InvoiceModal'
+import { useToast } from '@/components/Toast'
 import Link from 'next/link'
 
 interface ContractOption {
@@ -35,10 +37,13 @@ interface PaymentWithContract {
 }
 
 export default function PaymentsPage() {
+  const toast = useToast()
   const [payments, setPayments] = useState<PaymentWithContract[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [markingPaid, setMarkingPaid] = useState<string | null>(null)
+  const [invoicedPaymentIds, setInvoicedPaymentIds] = useState<Set<string>>(new Set())
+  const [invoiceTarget, setInvoiceTarget] = useState<PaymentWithContract | null>(null)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -173,8 +178,24 @@ export default function PaymentsPage() {
     setLoading(false)
   }
 
+  async function fetchInvoicedIds() {
+    try {
+      const res = await fetch(`/api/invoices?month=${selectedMonth}`)
+      if (res.ok) {
+        const json = await res.json()
+        const ids = new Set<string>(
+          (json.invoices || [])
+            .filter((inv: { payment_id: string }) => inv.payment_id)
+            .map((inv: { payment_id: string }) => inv.payment_id)
+        )
+        setInvoicedPaymentIds(ids)
+      }
+    } catch { /* silent */ }
+  }
+
   useEffect(() => {
     fetchPayments()
+    fetchInvoicedIds()
   }, [filterStatus, selectedMonth])
 
   async function handleMarkPaid(payment: PaymentWithContract) {
@@ -390,23 +411,57 @@ export default function PaymentsPage() {
                     {p.method || '—'}
                   </td>
                   <td className="py-3 px-4">
-                    {(p.status === 'pending' || p.status === 'late') && (
-                      <button
-                        onClick={() => handleMarkPaid(p)}
-                        disabled={markingPaid === p.id}
-                        title="Marcar como pagado"
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors disabled:opacity-50"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        Pagado
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {(p.status === 'pending' || p.status === 'late') && (
+                        <button
+                          onClick={() => handleMarkPaid(p)}
+                          disabled={markingPaid === p.id}
+                          title="Marcar como pagado"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Pagado
+                        </button>
+                      )}
+                      {p.status === 'paid' && invoicedPaymentIds.has(p.id) && (
+                        <span className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">
+                          <Check className="w-3.5 h-3.5" />
+                          Facturada
+                        </span>
+                      )}
+                      {p.status === 'paid' && !invoicedPaymentIds.has(p.id) && (
+                        <button
+                          onClick={() => setInvoiceTarget(p)}
+                          title="Generar factura CFDI"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          Facturar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Modal Facturar */}
+      {invoiceTarget && (
+        <InvoiceModal
+          paymentId={invoiceTarget.id}
+          paymentAmount={invoiceTarget.amount}
+          unitType={(invoiceTarget.contract?.unit as { type: string } | null)?.type}
+          unitNumber={(invoiceTarget.contract?.unit as { number: string } | null)?.number}
+          tenantName={(invoiceTarget.contract?.occupant as { name: string } | null)?.name}
+          onClose={() => setInvoiceTarget(null)}
+          onCreated={() => {
+            fetchInvoicedIds()
+            toast.success('CFDI generado')
+          }}
+        />
       )}
 
       {/* Registrar Pago Modal */}

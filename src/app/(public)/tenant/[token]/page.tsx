@@ -35,6 +35,15 @@ interface PortalData {
   }[]
 }
 
+interface InvoiceItem {
+  id: string
+  folio_number: number | null
+  total: number
+  status: string
+  created_at: string
+  facturapi_id: string | null
+}
+
 const paymentStatusLabels: Record<string, string> = {
   pending: 'Pendiente',
   paid: 'Pagado',
@@ -99,6 +108,8 @@ export default function TenantPortalPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([])
+
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -113,6 +124,12 @@ export default function TenantPortalPage() {
       .then(setData)
       .catch(() => setError(true))
       .finally(() => setLoading(false))
+
+    // Cargar facturas
+    fetch(`/api/tenant/${token}/invoices`)
+      .then((res) => res.ok ? res.json() : { invoices: [] })
+      .then((json) => setInvoices(json.invoices || []))
+      .catch(() => {})
   }, [token])
 
   async function handleSubmitIncident(e: React.FormEvent) {
@@ -299,7 +316,68 @@ export default function TenantPortalPage() {
           )}
         </div>
 
-        {/* Section 3 — Reportar Incidencia */}
+        {/* Section 3 — Mis Facturas */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Mis Facturas</p>
+            <span className="text-lg">🧾</span>
+          </div>
+
+          {invoices.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">📄</span>
+              </div>
+              <p className="text-slate-400 text-sm">No hay facturas emitidas</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {invoices.map((inv) => (
+                <div
+                  key={inv.id}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-xl transition-all duration-200 hover:shadow-sm"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">
+                      Folio {inv.folio_number || '—'}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {formatDate(inv.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-bold text-slate-900">
+                      ${formatCurrency(inv.total)}
+                    </p>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        inv.status === 'valid'
+                          ? 'bg-green-50 text-green-700'
+                          : inv.status === 'cancelled'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-yellow-50 text-yellow-700'
+                      }`}
+                    >
+                      {inv.status === 'valid' ? 'Timbrada' : inv.status === 'cancelled' ? 'Cancelada' : 'Borrador'}
+                    </span>
+                    {inv.facturapi_id && !inv.facturapi_id.startsWith('mock_') && (
+                      <a
+                        href={`/api/invoices/${inv.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 font-medium hover:underline"
+                      >
+                        PDF
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Section 4 — Reportar Incidencia */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-lg">🔧</span>
