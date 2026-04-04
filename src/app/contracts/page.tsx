@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import type { Contract, ContractStatus } from '@/types'
+import { getAlertLevel, getAlertColor, getAlertText } from '@/lib/contract-alerts'
 import Link from 'next/link'
 
 export default function ContractsPage() {
@@ -223,8 +224,9 @@ export default function ContractsPage() {
         <div className="space-y-3">
           {contracts.map((contract) => {
             const days = contract.end_date ? daysUntil(contract.end_date) : null
-            const isExpiring = days !== null && days <= 30 && days > 0 && contract.status === 'active'
-            const isExpired = days !== null && days <= 0 && contract.status === 'active'
+            const alertLevel = ['active', 'en_renovacion'].includes(contract.status)
+              ? getAlertLevel(contract.end_date)
+              : null
             const occupantName = (contract.occupant as { name: string } | null)?.name || 'Sin inquilino'
 
             return (
@@ -241,16 +243,10 @@ export default function ContractsPage() {
                       <span className={statusBadge[contract.status] || 'badge-expired'}>
                         {statusLabels[contract.status] || contract.status}
                       </span>
-                      {isExpiring && (
-                        <span className="badge-pending flex items-center gap-1">
+                      {alertLevel && days !== null && (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getAlertColor(alertLevel)}`}>
                           <AlertTriangle className="w-3 h-3" />
-                          Vence en {days} días
-                        </span>
-                      )}
-                      {isExpired && (
-                        <span className="badge-late flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Vencido
+                          {getAlertText(alertLevel, days)}
                         </span>
                       )}
                     </div>
@@ -259,7 +255,7 @@ export default function ContractsPage() {
                         Unidad {(contract.unit as { number: string } | null)?.number || '—'}
                       </span>
                       <span>
-                        {formatDate(contract.start_date)} — {contract.end_date ? formatDate(contract.end_date) : 'Indefinido'}
+                        {formatDate(contract.start_date)} — {contract.end_date ? formatDate(contract.end_date) : (<span className="text-gray-400">Indefinido</span>)}
                       </span>
                       <span>Día de pago: {contract.payment_day}</span>
                     </div>

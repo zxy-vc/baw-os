@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import Link from 'next/link'
 import { SkeletonDashboard } from '@/components/Skeleton'
+import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import type { Unit, Contract, Payment, Occupant } from '@/types'
 
 interface UnitWithContract extends Unit {
@@ -370,6 +371,9 @@ export default function Dashboard() {
           ALM809P — Vista general de operación
         </p>
       </div>
+
+      {/* Contract Expiry Alerts Banner */}
+      <ContractAlertsBanner />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

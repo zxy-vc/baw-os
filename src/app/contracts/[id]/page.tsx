@@ -9,6 +9,7 @@ import { useToast } from '@/components/Toast'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { SkeletonDashboard } from '@/components/Skeleton'
 import type { Contract, Payment } from '@/types'
+import { getAlertLevel, getAlertColor, getAlertText } from '@/lib/contract-alerts'
 import Link from 'next/link'
 
 export default function ContractDetailPage() {
@@ -101,6 +102,9 @@ export default function ContractDetailPage() {
   const unit = contract.unit as { number: string; floor: number; type: string } | null
   const occupant = contract.occupant as { name: string; phone?: string; email?: string; rfc?: string; razon_social?: string; regimen_fiscal?: string; cp_fiscal?: string; email_factura?: string; requiere_factura?: boolean } | null
   const days = contract.end_date ? daysUntil(contract.end_date) : null
+  const alertLevel = ['active', 'en_renovacion'].includes(contract.status)
+    ? getAlertLevel(contract.end_date)
+    : null
   const isExpiring = days !== null && days <= 30 && days > 0 && contract.status === 'active'
 
   const statusLabels: Record<string, string> = {
@@ -158,6 +162,20 @@ export default function ContractDetailPage() {
           </p>
         </div>
       </div>
+
+      {alertLevel && days !== null && (
+        <div className={`flex items-center gap-3 p-4 rounded-lg border ${getAlertColor(alertLevel)}`}>
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">
+              {getAlertText(alertLevel, days)}
+            </p>
+            <p className="text-xs opacity-75 mt-0.5">
+              Fecha de vencimiento: {formatDate(contract.end_date!)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {contract.status === 'en_renovacion' && (
         <div className="card border-yellow-500/30 bg-yellow-500/5">
