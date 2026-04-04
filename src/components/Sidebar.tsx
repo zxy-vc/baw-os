@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageSquare } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageSquare, ClipboardList, CheckSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -24,6 +24,8 @@ const navigation = [
   { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
   { name: 'API Docs', href: '/api-docs', icon: Code2 },
   { name: 'Contactos', href: '/contacts', icon: Users },
+  { name: 'Tareas', href: '/tasks', icon: CheckSquare },
+  { name: 'Audit Log', href: '/audit', icon: ClipboardList },
 ]
 
 export default function Sidebar() {
