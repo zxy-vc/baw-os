@@ -99,7 +99,7 @@ export default function Sidebar() {
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800 dark:border-gray-800 [html.light_&]:border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-sm text-white">
+            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-bold text-sm text-black">
               B
             </div>
             <div>
@@ -139,7 +139,7 @@ export default function Sidebar() {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-gray-800 text-white [html.light_&]:bg-indigo-100 [html.light_&]:text-indigo-700'
+                    ? 'bg-gray-800 text-white [html.light_&]:bg-gray-100 [html.light_&]:text-gray-700'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200'
                 )}
               >
