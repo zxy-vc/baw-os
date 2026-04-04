@@ -228,32 +228,45 @@ export default function ContractsPage() {
               ? getAlertLevel(contract.end_date)
               : null
             const occupantName = (contract.occupant as { name: string } | null)?.name || 'Sin inquilino'
+            const unitNumber = (contract.unit as { number: string } | null)?.number || '—'
 
             return (
               <div
                 key={contract.id}
-                className="card hover:border-gray-300 dark:hover:border-gray-700 transition-colors"
+                className={`card hover:border-gray-300 dark:hover:border-gray-700 transition-all hover:shadow-sm ${
+                  alertLevel === 'expired' || alertLevel === 'critical'
+                    ? 'border-l-4 border-l-red-500'
+                    : alertLevel === 'warning'
+                    ? 'border-l-4 border-l-yellow-500'
+                    : alertLevel === 'info'
+                    ? 'border-l-4 border-l-blue-500'
+                    : ''
+                }`}
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <Link href={`/contracts/${contract.id}`} className="space-y-2 min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-medium text-gray-900 dark:text-white">
-                        {occupantName}
-                      </h3>
-                      <span className={statusBadge[contract.status] || 'badge-expired'}>
-                        {statusLabels[contract.status] || contract.status}
+                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-300 shrink-0">
+                        {unitNumber}
                       </span>
-                      {alertLevel && days !== null && (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getAlertColor(alertLevel)}`}>
-                          <AlertTriangle className="w-3 h-3" />
-                          {getAlertText(alertLevel, days)}
-                        </span>
-                      )}
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          {occupantName}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                          <span className={statusBadge[contract.status] || 'badge-expired'}>
+                            {statusLabels[contract.status] || contract.status}
+                          </span>
+                          {alertLevel && days !== null && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getAlertColor(alertLevel)}`}>
+                              <AlertTriangle className="w-3 h-3" />
+                              {getAlertText(alertLevel, days)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
-                      <span>
-                        Unidad {(contract.unit as { number: string } | null)?.number || '—'}
-                      </span>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400 pl-0 sm:pl-12">
                       <span>
                         {formatDate(contract.start_date)} — {contract.end_date ? formatDate(contract.end_date) : (<span className="text-gray-400">Indefinido</span>)}
                       </span>
@@ -262,7 +275,7 @@ export default function ContractsPage() {
                   </Link>
                   <div className="flex items-start gap-3 shrink-0">
                     <div className="text-left sm:text-right">
-                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      <p className="text-lg font-bold text-gray-900 dark:text-white">
                         {formatCurrency(contract.monthly_amount)}
                       </p>
                       <p className="text-xs text-gray-400 dark:text-gray-500">/ mes</p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -29,6 +29,13 @@ const TYPE_STYLES: Record<ToastType, string> = {
   info: 'bg-blue-600 text-white',
 }
 
+const TYPE_ICONS: Record<ToastType, typeof CheckCircle> = {
+  success: CheckCircle,
+  error: AlertCircle,
+  warning: AlertTriangle,
+  info: Info,
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
 
@@ -37,7 +44,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => [...prev, { id, message, type }])
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
-    }, 4000)
+    }, 3000)
   }, [])
 
   const dismiss = useCallback((id: number) => {
@@ -56,20 +63,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {/* Toast container */}
       <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-slide-in ${TYPE_STYLES[t.type]}`}
-          >
-            <span className="flex-1">{t.message}</span>
-            <button
-              onClick={() => dismiss(t.id)}
-              className="p-0.5 rounded hover:opacity-70 transition-opacity shrink-0"
+        {toasts.map((t) => {
+          const Icon = TYPE_ICONS[t.type]
+          return (
+            <div
+              key={t.id}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-sm font-medium animate-slide-in ${TYPE_STYLES[t.type]}`}
             >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
+              <Icon className="w-5 h-5 shrink-0" />
+              <span className="flex-1">{t.message}</span>
+              <button
+                onClick={() => dismiss(t.id)}
+                className="p-0.5 rounded hover:opacity-70 transition-opacity shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

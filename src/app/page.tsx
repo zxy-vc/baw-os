@@ -12,6 +12,10 @@ import {
   Users,
   Receipt,
   ArrowRight,
+  CreditCard,
+  AlertOctagon,
+  CalendarPlus,
+  FileText,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
@@ -69,6 +73,13 @@ const TYPE_BADGE: Record<string, string> = {
   OFFICE: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
   COMMON: 'bg-gray-500/15 text-gray-600 dark:text-gray-400',
 }
+
+const QUICK_ACTIONS = [
+  { label: 'Registrar Pago', href: '/cobros', icon: CreditCard, color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 dark:border-emerald-800' },
+  { label: 'Nueva Incidencia', href: '/maintenance', icon: AlertOctagon, color: 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30 dark:border-amber-800' },
+  { label: 'Nueva Reservación', href: '/reservations', icon: CalendarPlus, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 dark:border-blue-800' },
+  { label: 'Generar Factura', href: '/invoices', icon: FileText, color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30 dark:border-purple-800' },
+]
 
 export default function Dashboard() {
   const [units, setUnits] = useState<UnitWithContract[]>([])
@@ -229,10 +240,9 @@ export default function Dashboard() {
             severity = 'orange'
             message = `Vence en ${days} días`
           }
-          const emoji = days <= 15 ? '🔴' : days <= 30 ? '🟠' : '🟡'
           alertItems.push({
             type: alertType,
-            title: `${emoji} Contrato por vencer — ${c.unit?.number || 'N/A'}`,
+            title: `Contrato por vencer — ${c.unit?.number || 'N/A'}`,
             detail: `${c.occupant?.name || 'Inquilino'} · ${message} · ${formatDate(c.end_date!)}`,
             unitNumber: c.unit?.number,
             severity,
@@ -243,7 +253,7 @@ export default function Dashboard() {
         for (const c of missingPaymentContracts) {
           alertItems.push({
             type: 'missing_payment',
-            title: `⚠️ Sin pago registrado — ${c.occupant?.name || 'Inquilino'} · ${c.unit?.number || 'N/A'}`,
+            title: `Sin pago registrado — ${c.occupant?.name || 'Inquilino'} · ${c.unit?.number || 'N/A'}`,
             detail: `Día ${c.payment_day} de vencimiento · Sin pago en el mes actual`,
             unitNumber: c.unit?.number,
             severity: 'orange',
@@ -338,22 +348,31 @@ export default function Dashboard() {
     return units.find((u) => u.number === number)
   }
 
-  const alertIcon = (type: string) => {
+  const alertIconEl = (type: string) => {
     switch (type) {
       case 'overdue':
-        return <span className="text-lg">🔴</span>
-      case 'expiring':
+        return <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-900/30"><AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" /></div>
       case 'expiring_critical':
+        return <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-900/30"><Clock className="w-4 h-4 text-red-600 dark:text-red-400" /></div>
       case 'expiring_soon':
+        return <div className="p-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30"><Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" /></div>
       case 'expiring_warning':
-        return null // emoji already in title
+        return <div className="p-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30"><Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" /></div>
       case 'missing_payment':
-        return null // emoji already in title
+        return <div className="p-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30"><AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" /></div>
       case 'maintenance':
-        return <span className="text-lg">🔧</span>
+        return <div className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800"><Wrench className="w-4 h-4 text-gray-600 dark:text-gray-400" /></div>
       default:
         return null
     }
+  }
+
+  const alertBorderColor = (alert: AlertItem) => {
+    if (alert.type === 'overdue' || alert.type === 'expiring_critical') return 'border-l-4 border-l-red-500'
+    if (alert.type === 'expiring_soon') return 'border-l-4 border-l-orange-500'
+    if (alert.type === 'expiring_warning') return 'border-l-4 border-l-yellow-500'
+    if (alert.type === 'missing_payment') return 'border-l-4 border-l-amber-500'
+    return 'border-l-4 border-l-gray-400'
   }
 
   const alertBg = (alert: AlertItem) => {
@@ -389,16 +408,18 @@ export default function Dashboard() {
       {/* Contract Expiry Alerts Banner */}
       <ContractAlertsBanner />
 
-      {/* KPI Cards */}
+      {/* KPI Cards — with gradients */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Units */}
-        <div className="card">
+        <div className="card bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/40 dark:to-gray-900">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Unidades</p>
-            <Building2 className="w-5 h-5 text-indigo-500" />
+            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/40">
+              <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">{kpis.total}</p>
-          <div className="flex gap-3 mt-2 text-xs">
+          <div className="flex gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               {kpis.occupied} ocup.
@@ -415,12 +436,14 @@ export default function Dashboard() {
         </div>
 
         {/* Monthly Income */}
-        <div className="card">
+        <div className="card bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-gray-900">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Ingreso mensual LTR
             </p>
-            <DollarSign className="w-5 h-5 text-emerald-500" />
+            <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+              <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(kpis.monthlyIncome)}
@@ -431,14 +454,16 @@ export default function Dashboard() {
         </div>
 
         {/* Overdue */}
-        <div className="card">
+        <div className={`card ${kpis.overdue > 0 ? 'bg-gradient-to-br from-red-50 to-white dark:from-red-950/40 dark:to-gray-900' : 'bg-gradient-to-br from-green-50 to-white dark:from-green-950/40 dark:to-gray-900'}`}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Pagos vencidos
             </p>
-            <AlertTriangle
-              className={`w-5 h-5 ${kpis.overdue > 0 ? 'text-red-500' : 'text-gray-300 dark:text-gray-700'}`}
-            />
+            <div className={`p-2 rounded-full ${kpis.overdue > 0 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
+              <AlertTriangle
+                className={`w-5 h-5 ${kpis.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}
+              />
+            </div>
           </div>
           <p
             className={`text-3xl font-bold ${
@@ -455,14 +480,16 @@ export default function Dashboard() {
         </div>
 
         {/* Expiring */}
-        <div className="card">
+        <div className={`card ${kpis.expiringSoon > 0 ? 'bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-gray-900' : 'bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/40 dark:to-gray-900'}`}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Por vencer (60d)
             </p>
-            <Clock
-              className={`w-5 h-5 ${kpis.expiringSoon > 0 ? 'text-amber-500' : 'text-gray-300 dark:text-gray-700'}`}
-            />
+            <div className={`p-2 rounded-full ${kpis.expiringSoon > 0 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-slate-100 dark:bg-slate-800'}`}>
+              <Clock
+                className={`w-5 h-5 ${kpis.expiringSoon > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}
+              />
+            </div>
           </div>
           <p
             className={`text-3xl font-bold ${
@@ -479,16 +506,32 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {QUICK_ACTIONS.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all hover:shadow-md ${action.color}`}
+          >
+            <action.icon className="w-5 h-5 shrink-0" />
+            <span className="truncate">{action.label}</span>
+          </Link>
+        ))}
+      </div>
+
       {/* Mora crítica card — solo visible si hay deudores */}
       {moraCriticalCount > 0 && (
-        <Link href="/mora" className="card border-red-200 dark:border-red-800 hover:shadow-md transition-shadow block">
+        <Link href="/mora" className="block card border-l-4 border-l-red-500 border-red-200 dark:border-red-800 hover:shadow-md transition-shadow bg-gradient-to-r from-red-50 to-white dark:from-red-950/30 dark:to-gray-900">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-red-600 dark:text-red-400">En mora crítica</p>
               <p className="text-3xl font-bold text-red-700 dark:text-red-300 mt-1">{moraCriticalCount}</p>
               <p className="text-xs text-red-500/70 mt-1">contratos con {'>'} 15 días de mora</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+            <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/40">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
+            </div>
           </div>
         </Link>
       )}
@@ -498,7 +541,9 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-indigo-500" />
+              <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+                <Receipt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cobros del mes</h2>
             </div>
             <Link
@@ -509,13 +554,16 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="flex flex-wrap gap-3">
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
+              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
               {cobrosSummary.paid} pagados
             </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20">
+              <Clock className="w-3.5 h-3.5 mr-1.5" />
               {cobrosSummary.pending} pendientes
             </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20">
+              <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
               {cobrosSummary.overdue} en mora
             </span>
           </div>
@@ -525,7 +573,9 @@ export default function Dashboard() {
       {/* Building Map */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
-          <Home className="w-5 h-5 text-indigo-500" />
+          <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+            <Home className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Mapa del edificio
           </h2>
@@ -606,28 +656,32 @@ export default function Dashboard() {
         {/* Alerts */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/40">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Alertas</h2>
             {alerts.length > 0 && (
-              <span className="text-xs bg-red-500/15 text-red-500 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400 px-2 py-0.5 rounded-full font-medium">
                 {alerts.length}
               </span>
             )}
           </div>
 
           {alerts.length === 0 ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-500">
-              <CheckCircle className="w-4 h-4" />
-              Sin alertas — todo en orden
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border-l-4 border-l-emerald-500">
+              <div className="p-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Sin alertas — todo en orden</span>
             </div>
           ) : (
-            <div className="space-y-3 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-72 overflow-y-auto">
               {alerts.map((alert, i) => (
                 <div
                   key={i}
-                  className={`flex items-start gap-3 p-3 rounded-lg ${alertBg(alert)}`}
+                  className={`flex items-start gap-3 p-3 rounded-lg ${alertBg(alert)} ${alertBorderColor(alert)}`}
                 >
-                  {alertIcon(alert.type) && <div className="mt-0.5">{alertIcon(alert.type)}</div>}
+                  <div className="mt-0.5 shrink-0">{alertIconEl(alert.type)}</div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {alert.title}
@@ -645,7 +699,9 @@ export default function Dashboard() {
         {/* Recent Activity */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-indigo-500" />
+            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Actividad reciente
             </h2>
@@ -656,11 +712,11 @@ export default function Dashboard() {
               Sin pagos registrados aún
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {recentPayments.map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

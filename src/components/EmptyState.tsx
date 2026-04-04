@@ -13,14 +13,16 @@ interface EmptyStateProps {
 
 export default function EmptyState({ icon: Icon, title, description, actionLabel, actionHref }: EmptyStateProps) {
   return (
-    <div className="card text-center py-12">
-      <Icon className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-      <p className="text-lg font-medium text-gray-500 dark:text-gray-400">{title}</p>
-      <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">{description}</p>
+    <div className="card text-center py-16">
+      <div className="mx-auto w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+        <Icon className="w-8 h-8 text-gray-400 dark:text-gray-600" />
+      </div>
+      <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">{title}</p>
+      <p className="mt-1.5 text-sm text-gray-400 dark:text-gray-500 max-w-sm mx-auto">{description}</p>
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
-          className="mt-4 inline-block text-indigo-400 hover:text-indigo-300 text-sm font-medium"
+          className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
         >
           {actionLabel}
         </Link>
