@@ -29,7 +29,7 @@ export default function ContractDetailPage() {
     const [contractRes, paymentsRes] = await Promise.all([
       supabase
         .from('contracts')
-        .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email, id_type, id_number, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
+        .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
         .eq('id', contractId)
         .single(),
       supabase
