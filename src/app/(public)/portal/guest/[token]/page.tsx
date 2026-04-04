@@ -235,6 +235,151 @@ export default function GuestPortalPage() {
           )}
         </div>
 
+        {/* Check-in Digital */}
+        {checkInDone ? (
+          <div className="bg-green-50 rounded-2xl border border-green-200 shadow-sm p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-green-800">Check-in completado</p>
+                <p className="text-sm text-green-600">Gracias, todo listo para tu estancia.</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">📋</span>
+              <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Check-in Digital</p>
+            </div>
+
+            <div className="space-y-3">
+              {/* 1. Confirmar datos personales */}
+              <button
+                type="button"
+                onClick={() => setCheckInForm(f => ({ ...f, nameConfirmed: !f.nameConfirmed }))}
+                className="flex items-center gap-3 w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                  checkInForm.nameConfirmed ? 'bg-green-500' : 'border-2 border-slate-300'
+                }`}>
+                  {checkInForm.nameConfirmed && (
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-sm text-slate-700">Confirmar datos personales</span>
+              </button>
+
+              {/* 2. Aceptar reglamento */}
+              <button
+                type="button"
+                onClick={() => setCheckInForm(f => ({ ...f, rulesAccepted: !f.rulesAccepted }))}
+                className="flex items-center gap-3 w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                  checkInForm.rulesAccepted ? 'bg-green-500' : 'border-2 border-slate-300'
+                }`}>
+                  {checkInForm.rulesAccepted && (
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-sm text-slate-700">Aceptar reglamento del edificio</span>
+              </button>
+
+              {/* 3. Registrar vehiculo (opcional) */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowVehicle(v => !v)}
+                  className="flex items-center gap-3 w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 border-slate-300">
+                    <svg className={`w-3 h-3 text-slate-400 transition-transform ${showVehicle ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </div>
+                  <span className="text-sm text-slate-700">Registrar vehiculo (opcional)</span>
+                </button>
+                {showVehicle && (
+                  <div className="mt-2 ml-8 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Placa"
+                      value={checkInForm.vehiclePlate}
+                      onChange={e => setCheckInForm(f => ({ ...f, vehiclePlate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Modelo, color"
+                      value={checkInForm.vehicleModel}
+                      onChange={e => setCheckInForm(f => ({ ...f, vehicleModel: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Contacto de emergencia */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowEmergency(v => !v)}
+                  className="flex items-center gap-3 w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 border-slate-300">
+                    <svg className={`w-3 h-3 text-slate-400 transition-transform ${showEmergency ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </div>
+                  <span className="text-sm text-slate-700">Contacto de emergencia</span>
+                </button>
+                {showEmergency && (
+                  <div className="mt-2 ml-8 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Nombre"
+                      value={checkInForm.emergencyName}
+                      onChange={e => setCheckInForm(f => ({ ...f, emergencyName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Telefono"
+                      value={checkInForm.emergencyPhone}
+                      onChange={e => setCheckInForm(f => ({ ...f, emergencyPhone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Progress + Submit */}
+            <div className="mt-4 space-y-3">
+              <p className="text-xs text-slate-400 text-center">
+                {(checkInForm.nameConfirmed ? 1 : 0) + (checkInForm.rulesAccepted ? 1 : 0)} de 2 completados
+              </p>
+              <button
+                type="button"
+                disabled={!checkInForm.nameConfirmed || !checkInForm.rulesAccepted || checkInSubmitting}
+                onClick={handleCheckIn}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl px-4 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {checkInSubmitting ? 'Enviando...' : 'Completar Check-in'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 3. Card "WiFi" */}
         {reservation.wifi_name && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
@@ -265,6 +410,36 @@ export default function GuestPortalPage() {
             </div>
           </div>
         )}
+
+        {/* Informacion del inmueble */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">🏢</span>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Informacion del inmueble</p>
+          </div>
+          <div className="space-y-3 text-sm text-slate-700">
+            <div className="flex items-start gap-2">
+              <span>🚨</span>
+              <p>Emergencias: 911 / Proteccion Civil Queretaro: 442 238 7700</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span>📞</span>
+              <p>Administracion BaW: +52 446 479 0229</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span>🔇</span>
+              <p>Horario de silencio: 10:00 PM — 8:00 AM</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span>🅿️</span>
+              <p>Estacionamiento: 1 cajon asignado por departamento</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <span>🗑️</span>
+              <p>Basura: Contenedores en planta baja, separar organica/inorganica</p>
+            </div>
+          </div>
+        </div>
 
         {/* 4. Card "Reglas de la casa" */}
         {reservation.house_rules && (
