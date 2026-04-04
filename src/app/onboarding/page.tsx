@@ -120,7 +120,7 @@ export default function OnboardingWizard() {
   const step2Valid = units.length >= 1 && units.every((u) => u.number)
 
   return (
-    <div className="min-h-screen flex items-start justify-center pt-12 px-4">
+    <div className="min-h-screen flex items-start justify-center pt-12 px-4 bg-black">
       <div className="w-full max-w-2xl">
         {/* Progress bar */}
         <div className="flex items-center justify-between mb-8">
@@ -156,7 +156,7 @@ export default function OnboardingWizard() {
         </div>
 
         {/* Card principal */}
-        <div className="card">
+        <div className="bg-[#111] border border-[#333] rounded-xl p-6">
           {/* ── Paso 1: Edificio ── */}
           {step === 0 && (
             <div className="space-y-6">
