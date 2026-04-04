@@ -98,7 +98,7 @@ export default function UnitsPage() {
         </div>
         <button
           onClick={handleNew}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Nueva unidad
@@ -208,7 +208,7 @@ export default function UnitsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(unit)}
-                        className="text-xs text-indigo-400 hover:text-indigo-300"
+                        className="text-xs text-gray-400 hover:text-white"
                       >
                         Editar
                       </button>

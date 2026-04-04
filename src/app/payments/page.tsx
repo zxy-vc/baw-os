@@ -257,7 +257,7 @@ export default function PaymentsPage() {
         </div>
         <button
           onClick={openPayModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Registrar pago
@@ -433,7 +433,7 @@ export default function PaymentsPage() {
                         <button
                           onClick={() => setInvoiceTarget(p)}
                           title="Generar factura CFDI"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/10 text-black dark:text-gray-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-colors"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           Facturar
@@ -581,7 +581,7 @@ export default function PaymentsPage() {
                 <button
                   type="submit"
                   disabled={savingPayment}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <CreditCard className="w-4 h-4" />
                   {savingPayment ? 'Guardando...' : 'Registrar pago'}

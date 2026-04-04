@@ -134,7 +134,7 @@ export default function MaintenancePage() {
         </div>
         <Link
           href="/maintenance/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Nueva incidencia
@@ -243,7 +243,7 @@ export default function MaintenancePage() {
                     {inc.unit && <span>Unidad {(inc.unit as { number: string }).number}</span>}
                     <span>{formatDate(inc.created_at)}</span>
                     {inc.assigned_to && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-500/10 text-gray-400 border border-indigo-500/20">
                         {inc.assigned_to}{inc.assigned_phone ? ` · ${inc.assigned_phone}` : ''}
                       </span>
                     )}

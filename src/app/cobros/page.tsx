@@ -274,7 +274,7 @@ export default function CobrosPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Receipt className="w-6 h-6 text-indigo-500" />
+          <Receipt className="w-6 h-6 text-gray-400" />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Cobros</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
@@ -423,7 +423,7 @@ export default function CobrosPage() {
                           {row.payment && (
                             <button
                               onClick={() => setInvoicingRow(row)}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-500 rounded text-[11px] font-medium transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
                               title="Generar factura CFDI"
                             >
                               <FileText className="w-3 h-3" />

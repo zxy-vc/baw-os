@@ -190,7 +190,7 @@ export default function ContractsPage() {
         </div>
         <Link
           href="/contracts/new"
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Nuevo contrato
@@ -294,7 +294,7 @@ export default function ContractsPage() {
                       <button
                         onClick={() => openEdit(contract)}
                         title="Editar contrato"
-                        className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-black dark:text-gray-400 transition-colors"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
@@ -434,7 +434,7 @@ export default function ContractsPage() {
                 <button
                   onClick={handleSaveEdit}
                   disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
                   Guardar

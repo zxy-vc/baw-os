@@ -232,7 +232,7 @@ export default function LedgerPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <BookOpen className="w-6 h-6 text-indigo-500" />
+          <BookOpen className="w-6 h-6 text-gray-400" />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Bitácora de Cobros</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
@@ -246,7 +246,7 @@ export default function LedgerPage() {
         </div>
         <button
           onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Registrar cobro
@@ -479,7 +479,7 @@ export default function LedgerPage() {
                 <button
                   onClick={handleSubmit}
                   disabled={saving || !form.contract_id}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Registrando...' : 'Registrar'}
