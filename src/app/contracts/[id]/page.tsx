@@ -81,7 +81,7 @@ export default function ContractDetailPage() {
   if (!contract) return <div className="text-gray-400 dark:text-gray-500">Contrato no encontrado.</div>
 
   const unit = contract.unit as { number: string; floor: number; type: string } | null
-  const occupant = contract.occupant as { name: string; phone?: string; email?: string; id_type?: string; id_number?: string; rfc?: string; razon_social?: string; regimen_fiscal?: string; cp_fiscal?: string; email_factura?: string; requiere_factura?: boolean } | null
+  const occupant = contract.occupant as { name: string; phone?: string; email?: string; rfc?: string; razon_social?: string; regimen_fiscal?: string; cp_fiscal?: string; email_factura?: string; requiere_factura?: boolean } | null
   const days = contract.end_date ? daysUntil(contract.end_date) : null
   const isExpiring = days !== null && days <= 30 && days > 0 && contract.status === 'active'
 
@@ -302,11 +302,11 @@ export default function ContractDetailPage() {
           </div>
           <div>
             <p className="text-xs text-gray-400 dark:text-gray-500">Tipo ID</p>
-            <p className="text-sm text-gray-900 dark:text-white">{occupant?.id_type || '—'}</p>
+            <p className="text-sm text-gray-900 dark:text-white">—</p>
           </div>
           <div>
             <p className="text-xs text-gray-400 dark:text-gray-500">Número ID</p>
-            <p className="text-sm text-gray-900 dark:text-white">{occupant?.id_number || '—'}</p>
+            <p className="text-sm text-gray-900 dark:text-white">—</p>
           </div>
           <div>
             <p className="text-xs text-gray-400 dark:text-gray-500">CURP</p>
