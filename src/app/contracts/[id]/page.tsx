@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink, RefreshCw } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink, RefreshCw, Copy, Send } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
@@ -22,6 +22,8 @@ export default function ContractDetailPage() {
   const [markingPaid, setMarkingPaid] = useState<string | null>(null)
   const [driveFolderUrl, setDriveFolderUrl] = useState('')
   const [savingDrive, setSavingDrive] = useState(false)
+  const [togglingPortal, setTogglingPortal] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
   const toast = useToast()
 
   async function fetchData() {
@@ -29,7 +31,7 @@ export default function ContractDetailPage() {
     const [contractRes, paymentsRes] = await Promise.all([
       supabase
         .from('contracts')
-        .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
+        .select('*, portal_token, portal_enabled, unit:units(number, floor, type), occupant:occupants(name, phone, email, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
         .eq('id', contractId)
         .single(),
       supabase
@@ -75,6 +77,22 @@ export default function ContractDetailPage() {
       toast.success('Pago registrado correctamente')
     }
     fetchData()
+  }
+
+  async function handleTogglePortal() {
+    if (!contract) return
+    setTogglingPortal(true)
+    const { error } = await supabase
+      .from('contracts')
+      .update({ portal_enabled: !contract.portal_enabled })
+      .eq('id', contract.id)
+    setTogglingPortal(false)
+    if (error) {
+      toast.error('Error al actualizar portal')
+    } else {
+      setContract({ ...contract, portal_enabled: !contract.portal_enabled })
+      toast.success(contract.portal_enabled ? 'Portal desactivado' : 'Portal activado')
+    }
   }
 
   if (loading) return <SkeletonDashboard />
@@ -450,6 +468,70 @@ export default function ContractDetailPage() {
             </tbody>
           </table>
           </div>
+        )}
+      </div>
+
+      {/* Portal Inquilino */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            Portal Inquilino
+          </h3>
+          <button
+            onClick={handleTogglePortal}
+            disabled={togglingPortal}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              contract.portal_enabled ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                contract.portal_enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {contract.portal_enabled && contract.portal_token && (
+          <div className="space-y-3">
+            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-1">Link del portal</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 font-mono break-all">
+                baw-os.vercel.app/portal/{contract.portal_token}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `https://baw-os.vercel.app/portal/${contract.portal_token}`
+                  )
+                  setCopiedLink(true)
+                  setTimeout(() => setCopiedLink(false), 2000)
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copiedLink ? 'Copiado!' : 'Copiar link'}
+              </button>
+              <button
+                onClick={() => {
+                  const msg = encodeURIComponent(
+                    `Hola! Aquí está tu portal de inquilino BaW: https://baw-os.vercel.app/portal/${contract.portal_token}`
+                  )
+                  window.open(`https://wa.me/?text=${msg}`, '_blank')
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Enviar por WhatsApp
+              </button>
+            </div>
+          </div>
+        )}
+        {!contract.portal_enabled && (
+          <p className="text-sm text-gray-400 dark:text-gray-500">
+            Activa el portal para generar un link de acceso para el inquilino.
+          </p>
         )}
       </div>
 

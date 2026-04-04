@@ -84,6 +84,9 @@ export interface Contract {
   aval?: string
   curp_arrendatario?: string
   domicilio_arrendatario?: string
+  // Portal Inquilino
+  portal_token?: string
+  portal_enabled?: boolean
   created_at: string
   updated_at: string
   // Relations (joined)

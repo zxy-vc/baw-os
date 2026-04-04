@@ -1,0 +1,4 @@
+-- Portal Inquilino — Migration already applied directly in Supabase
+-- ALTER TABLE contracts ADD COLUMN IF NOT EXISTS portal_token uuid DEFAULT gen_random_uuid();
+-- ALTER TABLE contracts ADD COLUMN IF NOT EXISTS portal_enabled boolean DEFAULT false;
+-- CREATE INDEX IF NOT EXISTS idx_contracts_portal_token ON contracts(portal_token);
