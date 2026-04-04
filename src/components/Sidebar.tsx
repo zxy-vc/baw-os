@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageSquare, MessageCircle, ClipboardList, CheckSquare, BookOpen } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageSquare, MessageCircle, ClipboardList, CheckSquare, BookOpen, AlertOctagon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Unidades', href: '/units', icon: Building2 },
   { name: 'Contratos', href: '/contracts', icon: FileText },
   { name: 'Cobros', href: '/cobros', icon: Receipt },
+  { name: 'Morosidad', href: '/mora', icon: AlertOctagon },
   { name: 'Bitácora', href: '/ledger', icon: BookOpen },
   { name: 'Gastos', href: '/gastos', icon: TrendingDown },
   { name: 'Reportes', href: '/reportes', icon: BarChart3 },

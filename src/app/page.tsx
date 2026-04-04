@@ -84,6 +84,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([])
   const [cobrosSummary, setCobrosSummary] = useState<{ total: number; paid: number; pending: number; overdue: number } | null>(null)
+  const [moraCriticalCount, setMoraCriticalCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -310,6 +311,19 @@ export default function Dashboard() {
             overdue: overdueCount,
           })
         }
+        // Mora critical count
+        try {
+          const moraRes = await fetch('/api/mora')
+          const moraData = await moraRes.json()
+          if (moraData.success && moraData.data) {
+            const critical = (moraData.data as Array<{ level: string }>).filter(
+              (m) => m.level === 'critical' || m.level === 'legal'
+            ).length
+            setMoraCriticalCount(critical)
+          }
+        } catch {
+          // Mora fetch is non-blocking
+        }
       } catch (err) {
         console.error('Error fetching dashboard:', err)
       } finally {
@@ -464,6 +478,20 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* Mora crítica card — solo visible si hay deudores */}
+      {moraCriticalCount > 0 && (
+        <Link href="/mora" className="card border-red-200 dark:border-red-800 hover:shadow-md transition-shadow block">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">En mora crítica</p>
+              <p className="text-3xl font-bold text-red-700 dark:text-red-300 mt-1">{moraCriticalCount}</p>
+              <p className="text-xs text-red-500/70 mt-1">contratos con {'>'} 15 días de mora</p>
+            </div>
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+        </Link>
+      )}
 
       {/* Cobros del mes */}
       {cobrosSummary && (
