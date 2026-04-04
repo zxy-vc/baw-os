@@ -23,7 +23,7 @@ export async function GET() {
     const { data: payments, error: paymentsErr } = await supabase
       .from('payments')
       .select('id, contract_id, due_date, amount, status, confirmed_by')
-      .in('status', ['pending', 'overdue'])
+      .in('status', ['pending', 'late'])
       .lt('due_date', todayStr)
 
     if (paymentsErr) {
