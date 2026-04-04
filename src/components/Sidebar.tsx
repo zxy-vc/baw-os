@@ -72,7 +72,7 @@ export default function Sidebar() {
       {/* Mobile hamburger button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 text-gray-500 hover:text-gray-900 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white md:hidden"
+        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 text-gray-500 hover:text-gray-900 dark:bg-[#111] dark:border-[#333] dark:text-[#888] dark:hover:text-white md:hidden"
         aria-label="Abrir menú"
       >
         <Menu className="w-5 h-5" />
