@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   CalendarDays, ChevronLeft, ChevronRight, Plus, X, Search,
-  Check, Ban, BedDouble, Home, Users, Filter
+  Check, Ban, BedDouble, Home, Users, Filter, Copy, Link2, ExternalLink
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -51,6 +51,12 @@ const PAY_STATUS_COLORS: Record<ReservationPaymentStatus, string> = {
   paid: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
 }
 
+const PLATFORM_LABELS: Record<string, { label: string; color: string }> = {
+  airbnb: { label: 'Airbnb', color: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400' },
+  booking: { label: 'Booking', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
+  direct: { label: 'Directo', color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────
 function diffDays(a: string, b: string): number {
   const msPerDay = 86400000
@@ -58,7 +64,6 @@ function diffDays(a: string, b: string): number {
 }
 
 function toISO(d: Date): string {
-  // Use local date to avoid UTC timezone shift
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -81,9 +86,10 @@ const MONTH_NAMES = [
 // ─── Main Component ──────────────────────────────────────────────────
 export default function ReservationsPage() {
   const [units, setUnits] = useState<Unit[]>([])
-  const [reservations, setReservations] = useState<Reservation[]>([])
+  const [reservations, setReservations] = useState<(Reservation & { guest_token?: string; platform?: string; check_in_code?: string; wifi_name?: string; wifi_password?: string; house_rules?: string; check_in_instructions?: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // Calendar state
   const now = new Date()
@@ -109,6 +115,14 @@ export default function ReservationsPage() {
   const [amountPaid, setAmountPaid] = useState(0)
   const [agreedPrice, setAgreedPrice] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
+
+  // Guest portal fields
+  const [platform, setPlatform] = useState<string>('')
+  const [checkInCode, setCheckInCode] = useState('')
+  const [wifiName, setWifiName] = useState('')
+  const [wifiPassword, setWifiPassword] = useState('')
+  const [houseRules, setHouseRules] = useState('')
+  const [checkInInstructions, setCheckInInstructions] = useState('')
 
   // Autocomplete state
   const [allContacts, setAllContacts] = useState<{ id: string; name: string; phone?: string; email?: string }[]>([])
@@ -160,7 +174,7 @@ export default function ReservationsPage() {
     })
   }, [reservations, calUnitFilter])
 
-  function getDateStatus(day: number): { color: string; reservations: Reservation[] } {
+  function getDateStatus(day: number): { color: string; reservations: typeof reservations } {
     const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const matching = calReservations.filter((r) => r.check_in <= dateStr && r.check_out > dateStr)
     if (matching.length === 0) return { color: 'bg-emerald-100 dark:bg-emerald-900/30', reservations: [] }
@@ -247,6 +261,12 @@ export default function ReservationsPage() {
       payment_status: paymentStatus,
       amount_paid: amountPaid,
       notes: notes || null,
+      platform: platform || null,
+      check_in_code: checkInCode || null,
+      wifi_name: wifiName || null,
+      wifi_password: wifiPassword || null,
+      house_rules: houseRules || null,
+      check_in_instructions: checkInInstructions || null,
     })
 
     if (error) {
@@ -278,6 +298,12 @@ export default function ReservationsPage() {
       setPaymentStatus('pending')
       setSaveAsContact(false)
       setSelectedContactId(null)
+      setPlatform('')
+      setCheckInCode('')
+      setWifiName('')
+      setWifiPassword('')
+      setHouseRules('')
+      setCheckInInstructions('')
       await loadData()
     }
     setSaving(false)
@@ -298,6 +324,21 @@ export default function ReservationsPage() {
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', id)
     await loadData()
+  }
+
+  async function updateStatus(id: string, newStatus: ReservationStatus) {
+    await supabase
+      .from('reservations')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    await loadData()
+  }
+
+  function copyPortalLink(guestToken: string) {
+    const url = `${window.location.origin}/portal/guest/${guestToken}`
+    navigator.clipboard.writeText(url)
+    setCopiedId(guestToken)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   // ─── Filtered list ──────────────────────────────────────────────
@@ -612,6 +653,53 @@ export default function ReservationsPage() {
               </div>
             </div>
 
+            {/* Guest Portal fields */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <p className="text-xs font-medium text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-1">
+                <Link2 className="w-3.5 h-3.5" />
+                Portal Huésped
+              </p>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plataforma</label>
+                    <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="input-field">
+                      <option value="">Sin plataforma</option>
+                      <option value="airbnb">Airbnb</option>
+                      <option value="booking">Booking</option>
+                      <option value="direct">Directo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código acceso</label>
+                    <input type="text" value={checkInCode} onChange={(e) => setCheckInCode(e.target.value)} placeholder="1234" className="input-field" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WiFi red</label>
+                    <input type="text" value={wifiName} onChange={(e) => setWifiName(e.target.value)} placeholder="BaW_ALM809P" className="input-field" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WiFi contraseña</label>
+                    <input type="text" value={wifiPassword} onChange={(e) => setWifiPassword(e.target.value)} placeholder="password" className="input-field" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reglas de la casa</label>
+                  <textarea value={houseRules} onChange={(e) => setHouseRules(e.target.value)} rows={2} placeholder="• No fumar&#10;• No mascotas" className="input-field" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Instrucciones check-in</label>
+                  <textarea value={checkInInstructions} onChange={(e) => setCheckInInstructions(e.target.value)} rows={2} placeholder="1. El código de acceso es...&#10;2. El depto está en..." className="input-field" />
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Precio acordado <span className="text-gray-400 font-normal">(opcional — sobreescribe el calculado)</span>
@@ -650,6 +738,7 @@ export default function ReservationsPage() {
                 <p className="font-medium text-indigo-900 dark:text-indigo-300">Resumen</p>
                 <p className="text-indigo-700 dark:text-indigo-400">
                   {guestName} · {selectedUnit?.number} · {MODE_LABELS[mode]}
+                  {platform && ` · ${PLATFORM_LABELS[platform]?.label || platform}`}
                 </p>
                 <p className="text-indigo-700 dark:text-indigo-400">
                   {checkIn} → {checkOut} ({nights} noches) · {formatCurrency(totalPrice)}
@@ -713,7 +802,7 @@ export default function ReservationsPage() {
                   <th className="pb-2 pr-3 font-medium">Huésped</th>
                   <th className="pb-2 pr-3 font-medium">Unidad</th>
                   <th className="pb-2 pr-3 font-medium">Fechas</th>
-                  <th className="pb-2 pr-3 font-medium">Modo</th>
+                  <th className="pb-2 pr-3 font-medium">Plataforma</th>
                   <th className="pb-2 pr-3 font-medium text-right">Total</th>
                   <th className="pb-2 pr-3 font-medium">Estado</th>
                   <th className="pb-2 pr-3 font-medium">Pago</th>
@@ -736,8 +825,14 @@ export default function ReservationsPage() {
                       <p className="text-gray-700 dark:text-gray-300">{formatDate(r.check_in)}</p>
                       <p className="text-xs text-gray-400">→ {formatDate(r.check_out)} · {diffDays(r.check_in, r.check_out)}n</p>
                     </td>
-                    <td className="py-2.5 pr-3 text-gray-700 dark:text-gray-300">
-                      {MODE_LABELS[r.mode]}
+                    <td className="py-2.5 pr-3">
+                      {r.platform ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_LABELS[r.platform]?.color || 'bg-gray-100 text-gray-800'}`}>
+                          {PLATFORM_LABELS[r.platform]?.label || r.platform}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
                     </td>
                     <td className="py-2.5 pr-3 text-right font-medium text-gray-900 dark:text-white">
                       {formatCurrency(r.total_price)}
@@ -757,6 +852,39 @@ export default function ReservationsPage() {
                     </td>
                     <td className="py-2.5">
                       <div className="flex items-center gap-1">
+                        {/* Copy portal link */}
+                        {r.guest_token && (
+                          <button
+                            onClick={() => copyPortalLink(r.guest_token!)}
+                            title="Copiar link portal huésped"
+                            className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 transition-colors"
+                          >
+                            {copiedId === r.guest_token ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                        {/* Status transitions */}
+                        {r.status === 'confirmed' && (
+                          <button
+                            onClick={() => updateStatus(r.id, 'checked_in')}
+                            title="Marcar check-in"
+                            className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        )}
+                        {r.status === 'checked_in' && (
+                          <button
+                            onClick={() => updateStatus(r.id, 'checked_out')}
+                            title="Marcar check-out"
+                            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        )}
                         {r.payment_status !== 'paid' && r.status !== 'cancelled' && (
                           <button
                             onClick={() => markPaid(r.id, r.total_price)}

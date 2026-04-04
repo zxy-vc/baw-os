@@ -1,4 +1,3 @@
-// BaW OS — Guest Portal API: datos de reservación para huéspedes STR
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -17,48 +16,53 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { token: string } }
 ) {
+  const { token } = params
   const supabase = createPortalClient()
 
-  // Buscar reservación por guest_token
+  // Fetch reservation by guest_token
   const { data: reservation, error } = await supabase
     .from('reservations')
-    .select('id, guest_name, check_in, check_out, guests_count, status, unit_id, wifi_name, wifi_password, access_code, arrival_instructions, checkin_time, checkout_time')
-    .eq('guest_token', params.token)
+    .select('*')
+    .eq('guest_token', token)
     .single()
 
   if (error || !reservation) {
-    return NextResponse.json({ error: 'Reservación no encontrada' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Token inválido o expirado' },
+      { status: 404 }
+    )
   }
 
-  // Solo reservaciones confirmadas o checked_in
-  if (reservation.status !== 'confirmed' && reservation.status !== 'checked_in') {
-    return NextResponse.json({ error: 'Reservación no disponible' }, { status: 404 })
-  }
-
-  // Buscar datos de la unidad
-  const { data: unit } = await supabase
-    .from('units')
-    .select('number, floor, type')
-    .eq('id', reservation.unit_id)
-    .single()
+  // Fetch unit data
+  const { data: unit } = reservation.unit_id
+    ? await supabase
+        .from('units')
+        .select('number, floor, type')
+        .eq('id', reservation.unit_id)
+        .single()
+    : { data: null }
 
   return NextResponse.json({
     reservation: {
       id: reservation.id,
       guest_name: reservation.guest_name,
+      guest_email: reservation.guest_email,
+      guest_phone: reservation.guest_phone,
       check_in: reservation.check_in,
       check_out: reservation.check_out,
       guests_count: reservation.guests_count,
+      total_price: reservation.total_price,
+      platform: reservation.platform,
       status: reservation.status,
-    },
-    unit: unit ? { number: unit.number, floor: unit.floor, type: unit.type } : null,
-    portal_info: {
+      check_in_code: reservation.check_in_code,
       wifi_name: reservation.wifi_name,
       wifi_password: reservation.wifi_password,
-      access_code: reservation.access_code,
-      arrival_instructions: reservation.arrival_instructions,
-      checkin_time: reservation.checkin_time || '15:00',
-      checkout_time: reservation.checkout_time || '12:00',
+      house_rules: reservation.house_rules,
+      check_in_instructions: reservation.check_in_instructions,
+      notes: reservation.notes,
     },
+    unit: unit
+      ? { unit_number: unit.number, floor: unit.floor, type: unit.type }
+      : null,
   })
 }
