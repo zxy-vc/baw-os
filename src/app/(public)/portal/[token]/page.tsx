@@ -68,7 +68,8 @@ function formatCurrency(n: number): string {
   return new Intl.NumberFormat('es-MX', { minimumFractionDigits: 0 }).format(n)
 }
 
-function formatDate(d: string): string {
+function formatDate(d: string | null | undefined): string {
+  if (!d) return '—'
   const [year, month, day] = d.split('T')[0].split('-').map(Number)
   return new Date(year, month - 1, day).toLocaleDateString('es-MX', {
     day: 'numeric',
@@ -85,7 +86,8 @@ function formatMonth(d: string): string {
   })
 }
 
-function formatRelativeDate(d: string): string {
+function formatRelativeDate(d: string | null | undefined): string {
+  if (!d) return ''
   const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
   if (diff === 0) return 'Hoy'
   if (diff === 1) return 'Ayer'
@@ -280,7 +282,7 @@ export default function PortalPage() {
                   <div>
                     <p className="text-sm font-medium text-slate-900 capitalize">{formatMonth(p.month)}</p>
                     {p.paid_date && (
-                      <p className="text-xs text-slate-400 mt-0.5">Pagado {formatDate(p.paid_date)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Pagado {formatDate(p.paid_date!)}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
