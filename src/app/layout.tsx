@@ -1,10 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import Sidebar from '@/components/Sidebar'
-import AuthGuard from '@/components/AuthGuard'
-import ThemeProvider from '@/components/ThemeProvider'
-import { ToastProvider } from '@/components/Toast'
+import AppShell from '@/components/AppShell'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -33,16 +30,7 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          <ToastProvider>
-            <AuthGuard>
-              <Sidebar />
-              <main className="min-h-screen md:pl-64">
-                <div className="p-4 pt-16 md:p-8 md:pt-8">{children}</div>
-              </main>
-            </AuthGuard>
-          </ToastProvider>
-        </ThemeProvider>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   )
