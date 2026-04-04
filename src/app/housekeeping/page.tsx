@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ClipboardList, Plus, X, Play, CheckCircle2, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useToast } from '@/components/Toast'
 
 interface HKTask {
   id: string
@@ -54,10 +53,15 @@ function todayLabel() {
 }
 
 export default function HousekeepingPage() {
-  const toast = useToast()
   const [tasks, setTasks] = useState<HKTask[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [loading, setLoading] = useState(true)
+  const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  const showToast = useCallback((type: 'success' | 'error', msg: string) => {
+    setToastMsg({ type, msg })
+    setTimeout(() => setToastMsg(null), 4000)
+  }, [])
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -105,9 +109,9 @@ export default function HousekeepingPage() {
     })
     setSaving(false)
     if (error) {
-      toast.error('Error al crear tarea')
+      showToast('error', 'Error al crear tarea')
     } else {
-      toast.success('Tarea creada')
+      showToast('success', 'Tarea creada')
       setShowModal(false)
       setForm(EMPTY_FORM)
       fetchTasks()
@@ -121,7 +125,7 @@ export default function HousekeepingPage() {
       .eq('id', id)
 
     if (error) {
-      toast.error('Error al actualizar')
+      showToast('error', 'Error al actualizar')
     } else {
       setTasks((prev) =>
         prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
@@ -146,6 +150,13 @@ export default function HousekeepingPage() {
 
   return (
     <div className="space-y-6">
+      {toastMsg && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
+          toastMsg.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toastMsg.msg}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
