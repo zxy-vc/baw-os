@@ -212,7 +212,7 @@ export default function OnboardingWizard() {
                 <button
                   disabled={!step1Valid}
                   onClick={goToStep2}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium rounded-lg transition-colors"
                 >
                   Continuar <ArrowRight className="w-4 h-4" />
                 </button>
@@ -284,7 +284,7 @@ export default function OnboardingWizard() {
                 <button
                   disabled={!step2Valid}
                   onClick={() => setStep(2)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium rounded-lg transition-colors"
                 >
                   Continuar <ArrowRight className="w-4 h-4" />
                 </button>
@@ -383,7 +383,7 @@ export default function OnboardingWizard() {
                   </button>
                   <button
                     onClick={() => { setStep(3); handleSubmit() }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 text-black text-sm font-medium rounded-lg transition-colors"
                   >
                     Continuar <ArrowRight className="w-4 h-4" />
                   </button>
@@ -411,7 +411,7 @@ export default function OnboardingWizard() {
                   <p className="text-sm text-gray-400">{error}</p>
                   <button
                     onClick={handleSubmit}
-                    className="px-5 py-2.5 bg-white hover:bg-gray-100 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="px-5 py-2.5 bg-white hover:bg-gray-100 text-black text-sm font-medium rounded-lg transition-colors"
                   >
                     Reintentar
                   </button>
@@ -434,7 +434,7 @@ export default function OnboardingWizard() {
                   <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
                     <button
                       onClick={() => router.push('/')}
-                      className="px-6 py-2.5 bg-white hover:bg-gray-100 text-white text-sm font-medium rounded-lg transition-colors"
+                      className="px-6 py-2.5 bg-white hover:bg-gray-100 text-black text-sm font-medium rounded-lg transition-colors"
                     >
                       Ir al Dashboard →
                     </button>
