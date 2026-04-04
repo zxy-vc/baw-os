@@ -11,11 +11,7 @@ export async function GET(
   // Fetch contract by portal_token
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select(`
-      id, unit_id, monthly_amount, water_fee, start_date, end_date, status, payment_day,
-      occupant:occupants(name),
-      unit:units(number, floor, type)
-    `)
+    .select('id, unit_id, occupant_id, monthly_amount, water_fee, start_date, end_date, status, payment_day')
     .eq('portal_token', token)
     .eq('portal_enabled', true)
     .single()
@@ -27,10 +23,17 @@ export async function GET(
     )
   }
 
-  const occupantRaw = contract.occupant as unknown
-  const occupant = Array.isArray(occupantRaw) ? occupantRaw[0] as { name: string } | undefined : occupantRaw as { name: string } | null
-  const unitRaw = contract.unit as unknown
-  const unit = Array.isArray(unitRaw) ? unitRaw[0] as { number: string; floor: number; type: string } | undefined : unitRaw as { number: string; floor: number; type: string } | null
+  // Fetch unit separately
+  const { data: unit } = await supabase
+    .from('units')
+    .select('number, floor, type')
+    .eq('id', contract.unit_id)
+    .single()
+
+  // Fetch occupant separately
+  const { data: occupant } = contract.occupant_id
+    ? await supabase.from('occupants').select('name').eq('id', contract.occupant_id).single()
+    : { data: null }
 
   // Fetch last 6 payments
   const { data: payments } = await supabase
