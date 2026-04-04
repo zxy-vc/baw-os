@@ -202,7 +202,7 @@ export default function Dashboard() {
         const now = new Date()
         const in60Days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
         const expiringContracts = activeContracts.filter(
-          (c) => c.end_date && c.status === 'active' && new Date(c.end_date) <= in60Days
+          (c) => c.end_date && (c.status === 'active' || c.status === 'en_renovacion') && new Date(c.end_date) <= in60Days
         )
 
         // Paid this month — set of contract IDs that have a paid payment this month
@@ -343,8 +343,14 @@ export default function Dashboard() {
           (c) => c.status === 'active' || c.status === 'en_renovacion'
         ).length
         const occupancyPct = Math.round((activeContractCount / totalUnits) * 100)
-        const revenueConfirmed = (confirmedRevenueRes.data || []).reduce(
+        // Revenue confirmado = pagos paid este mes; si no hay, usar pending como proxy del mes actual
+        const paidRevenue = (confirmedRevenueRes.data || []).reduce(
           (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+        )
+        const revenueConfirmed = paidRevenue > 0 ? paidRevenue : (
+          pendingPayments
+            .filter(p => p.due_date && p.due_date >= monthStart && p.due_date < nextMonth)
+            .reduce((sum, p) => sum + Number(p.amount || 0), 0)
         )
         const revenueExpected = monthlyIncome
         const brecha = revenueExpected - revenueConfirmed
@@ -489,21 +495,21 @@ export default function Dashboard() {
             </div>
             {/* Revenue Confirmado */}
             <div className="bg-zinc-950 px-5 py-4">
-              <p className="text-3xl font-bold text-white">
+              <p className="text-xl font-bold text-white truncate">
                 {formatCurrency(execKpis.revenueConfirmed)}
               </p>
               <p className="text-xs text-zinc-500 mt-1">Revenue confirmado</p>
             </div>
             {/* Revenue Esperado */}
             <div className="bg-zinc-950 px-5 py-4">
-              <p className="text-3xl font-bold text-zinc-400">
+              <p className="text-xl font-bold text-zinc-400 truncate">
                 {formatCurrency(execKpis.revenueExpected)}
               </p>
               <p className="text-xs text-zinc-500 mt-1">Revenue esperado</p>
             </div>
             {/* Brecha */}
             <div className="bg-zinc-950 px-5 py-4">
-              <p className={`text-3xl font-bold ${
+              <p className={`text-xl font-bold truncate ${
                 execKpis.brechaPct > 20 ? 'text-amber-400' : 'text-emerald-400'
               }`}>
                 {formatCurrency(execKpis.brecha)}
