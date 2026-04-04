@@ -102,6 +102,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!validateApiKey(request)) return unauthorized()
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
 

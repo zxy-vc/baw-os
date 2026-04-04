@@ -1,12 +1,13 @@
 // BaW OS — Invoice detail: GET + DELETE (cancel)
 import { NextRequest } from 'next/server'
-import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk } from '@/lib/api-auth'
 import { cancelInvoice, isMockMode } from '@/lib/facturapi'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!validateApiKey(_request)) return unauthorized()
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
@@ -44,6 +45,7 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!validateApiKey(_request)) return unauthorized()
   const supabase = createServiceClient()
 
   const { data: invoice, error } = await supabase

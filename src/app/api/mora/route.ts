@@ -1,11 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getMoraLevel, type MoraStatus } from '@/lib/mora-engine'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zlcgxmllaeweypyodvzk.supabase.co'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsY2d4bWxsYWV3ZXlweW9kdnprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1ODE3OTYsImV4cCI6MjA5MDE1Nzc5Nn0.2i0sxb5JCCFiWxhDt9ElC5-EZE64JEg_uw_tHi4BGmI'
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 function createMoraClient() {
   return createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -13,7 +12,13 @@ function createMoraClient() {
   })
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const apiKey = request.headers.get('x-api-key')
+  const expected = process.env.BAWOS_API_KEY
+  if (!expected || apiKey !== expected) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const supabase = createMoraClient()
     const now = new Date()

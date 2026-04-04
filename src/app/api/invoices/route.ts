@@ -1,9 +1,10 @@
 // BaW OS — Invoices API: GET list + POST create CFDI
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk } from '@/lib/api-auth'
 import { createInvoice, isMockMode } from '@/lib/facturapi'
 
 export async function GET(request: NextRequest) {
+  if (!validateApiKey(request)) return unauthorized()
   const supabase = createServiceClient()
   const url = new URL(request.url)
   const contractId = url.searchParams.get('contract_id')
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!validateApiKey(request)) return unauthorized()
   const supabase = createServiceClient()
   const body = await request.json()
 

@@ -6,7 +6,7 @@ import AuthGuard from '@/components/AuthGuard'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding']
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply']
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Dashboard',
@@ -31,6 +31,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/notifications': 'Notificaciones',
   '/search': 'Buscar',
   '/api-docs': 'API Docs',
+  '/applications': 'Expedientes',
 }
 
 function getPageTitle(pathname: string): string {

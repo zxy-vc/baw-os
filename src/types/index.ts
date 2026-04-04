@@ -186,6 +186,58 @@ export interface Invoice {
   created_by?: string
 }
 
+// Tenant Intake types
+export type ApplicationStatus = 'draft' | 'submitted' | 'reviewing' | 'approved' | 'rejected'
+export type ContractTypeCode = 'A' | 'B' | 'C' | 'D' | 'E'
+export type DocType = 'ine_front' | 'ine_back' | 'income_proof' | 'domicilio_proof' | 'aval_ine' | 'aval_domicilio_proof'
+
+export interface Titular {
+  nombre: string
+  apellido_paterno: string
+  apellido_materno: string
+  curp: string
+  rfc: string
+  email: string
+  telefono: string
+  domicilio: string
+  estado_civil: string
+  nacionalidad: string
+  fecha_nacimiento: string
+  telefono_emergencia: string
+}
+
+export interface Aval {
+  nombre: string
+  rfc: string
+  curp: string
+  domicilio: string
+  telefono: string
+  relacion: string
+}
+
+export interface TenantApplication {
+  id: string
+  org_id: string
+  unit_id: string | null
+  contract_type: ContractTypeCode | null
+  status: ApplicationStatus
+  token: string
+  titulares: Titular[]
+  avales: Aval[]
+  contract_data: Record<string, unknown>
+  empresa: Record<string, unknown> | null
+  tercero_pagador: Record<string, unknown> | null
+  docs: Partial<Record<DocType, string>>
+  submitted_at: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Relations (joined)
+  unit?: Unit
+}
+
 // API Response types
 export interface ApiResponse<T> {
   data: T | null
