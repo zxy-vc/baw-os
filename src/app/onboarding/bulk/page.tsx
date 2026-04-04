@@ -5,8 +5,6 @@ export const dynamic = 'force-dynamic'
 import { useState, useRef, useCallback } from 'react'
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, X, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-// Toast imported via dynamic context
-import { useToast } from '@/components/Toast'
 
 interface CsvRow {
   numero_unidad: string
@@ -52,14 +50,19 @@ function validateRow(row: CsvRow, index: number): ParsedRow {
 }
 
 export default function BulkImportPage() {
-  const toast = useToast()
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
   const [headerError, setHeaderError] = useState('')
   const [fileName, setFileName] = useState('')
   const [importing, setImporting] = useState(false)
+  const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const [result, setResult] = useState<{ units_created: number; contracts_created: number; errors: number } | null>(null)
+
+  const showToast = useCallback((type: 'success' | 'error', msg: string) => {
+    setToastMsg({ type, msg })
+    setTimeout(() => setToastMsg(null), 4000)
+  }, [])
 
   const processFile = useCallback((file: File) => {
     setResult(null)
@@ -103,9 +106,9 @@ export default function BulkImportPage() {
     if (file && (file.name.endsWith('.csv') || file.type === 'text/csv')) {
       processFile(file)
     } else {
-      toast.error('Solo se aceptan archivos .csv')
+      showToast('error', 'Solo se aceptan archivos .csv')
     }
-  }, [processFile, toast])
+  }, [processFile])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -151,12 +154,12 @@ export default function BulkImportPage() {
           contracts_created: json.data.contracts_created,
           errors: errorRows.length,
         })
-        toast.success(`${json.data.units_created} unidades importadas`)
+        showToast('success', `${json.data.units_created} unidades importadas`)
       } else {
-        toast.error(json.error || 'Error al importar')
+        showToast('error', json.error || 'Error al importar')
       }
     } catch {
-      toast.error('Error de conexión')
+      showToast('error', 'Error de conexión')
     }
     setImporting(false)
   }
@@ -171,6 +174,13 @@ export default function BulkImportPage() {
 
   return (
     <div className="space-y-6">
+      {toastMsg && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
+          toastMsg.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toastMsg.msg}
+        </div>
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Importar CSV</h1>
