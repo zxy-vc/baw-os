@@ -15,6 +15,15 @@ interface UnitPrice {
   notes: string | null
 }
 
+interface Season {
+  id: string
+  name: string
+  start_date: string
+  end_date: string
+  price_multiplier: number
+  notes: string | null
+}
+
 type Modality = 'LTR' | 'STR' | 'Corporativo'
 
 interface Breakdown {
@@ -31,6 +40,7 @@ interface Breakdown {
 
 export default function QuotesPage() {
   const [prices, setPrices] = useState<UnitPrice[]>([])
+  const [seasons, setSeasons] = useState<Season[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUnit, setSelectedUnit] = useState('')
   const [modality, setModality] = useState<Modality>('LTR')
@@ -38,20 +48,27 @@ export default function QuotesPage() {
   const [nights, setNights] = useState(3)
   const [months, setMonths] = useState(6)
   const [discount, setDiscount] = useState(0)
+  const [checkInDate, setCheckInDate] = useState('')
   const [showQuote, setShowQuote] = useState(false)
   const quoteRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    async function fetch() {
-      const { data } = await supabase
-        .from('unit_prices')
-        .select('*')
-        .order('unit_id')
-      setPrices(data || [])
+    async function fetchData() {
+      const [pricesRes, seasonsRes] = await Promise.all([
+        supabase.from('unit_prices').select('*').order('unit_id'),
+        supabase.from('str_seasons').select('*').order('start_date'),
+      ])
+      setPrices(pricesRes.data || [])
+      setSeasons(seasonsRes.data || [])
       setLoading(false)
     }
-    fetch()
+    fetchData()
   }, [])
+
+  function getActiveSeason(date: string): Season | null {
+    if (!date) return null
+    return seasons.find(s => date >= s.start_date && date <= s.end_date) || null
+  }
 
   const unit = prices.find((p) => p.unit_id === selectedUnit)
 
@@ -88,11 +105,12 @@ export default function QuotesPage() {
     if (modality === 'STR' || modality === 'Corporativo') {
       if (!unit.str_price_per_person) return null
 
-      const pricePerPerson = unit.str_price_per_person
-      const billablePersons = Math.max(persons, 4) // Minimum 4 persons
-      const basePrice = pricePerPerson * 4 * nights // Base = rate × 4 persons × nights
-      const personsAdjustment = persons < 4 ? 0 : 0 // Price is always for min 4
+      const activeSeason = getActiveSeason(checkInDate)
+      const seasonMultiplier = activeSeason ? Number(activeSeason.price_multiplier) : 1
+      const pricePerPerson = unit.str_price_per_person * seasonMultiplier
       const extraPersons = Math.max(0, persons - 4)
+      const personsAdjustment = 0
+      const basePrice = pricePerPerson * 4 * nights // Base = rate × 4 persons × nights
       const extraPersonsFee = extraPersons * 250 * nights
       const subtotal = basePrice + extraPersonsFee
       const discountAmount = subtotal * (discount / 100)
@@ -106,9 +124,10 @@ export default function QuotesPage() {
         subtotal,
         discountAmount,
         total,
-        label: `${nights} noches · ${persons} personas`,
+        label: `${nights} noches · ${persons} personas${activeSeason ? ` · 🗓️ ${activeSeason.name}` : ''}`,
         details: [
-          `Tarifa: ${formatCurrency(pricePerPerson)}/persona/noche`,
+          ...(activeSeason ? [`✨ Temporada: ${activeSeason.name} (×${activeSeason.price_multiplier})`] : []),
+          `Tarifa: ${formatCurrency(pricePerPerson)}/persona/noche${activeSeason ? ` (base ${formatCurrency(unit.str_price_per_person!)} × ${activeSeason.price_multiplier})` : ''}`,
           `Base: ${formatCurrency(pricePerPerson)} × 4 pers × ${nights} noches`,
           ...(extraPersons > 0
             ? [`+${extraPersons} persona(s) extra: ${formatCurrency(250)}/pers/noche`]
@@ -253,6 +272,25 @@ export default function QuotesPage() {
                       onChange={(e) => setNights(Math.max(3, Number(e.target.value)))}
                       className="input-field"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Fecha check-in
+                    </label>
+                    <input
+                      type="date"
+                      value={checkInDate}
+                      onChange={(e) => setCheckInDate(e.target.value)}
+                      className="input-field"
+                    />
+                    {checkInDate && (() => {
+                      const s = getActiveSeason(checkInDate)
+                      return s ? (
+                        <p className="text-xs text-amber-500 mt-1">✨ Temporada: {s.name} (×{s.price_multiplier})</p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-1">Sin temporada especial</p>
+                      )
+                    })()}
                   </div>
                 </>
               )}
