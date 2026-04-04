@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw } from 'lucide-react'
+import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
@@ -39,18 +39,25 @@ export default function ContractsPage() {
     deposit_amount: 0,
     deposit_paid: false,
   })
+  const [alertsOpen, setAlertsOpen] = useState(true)
+
+  const [allContracts, setAllContracts] = useState<Contract[]>([])
 
   async function fetchContracts() {
     setLoading(true)
-    let query = supabase
+    // Always fetch all for alerts computation
+    const { data: all } = await supabase
       .from('contracts')
       .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
       .order('created_at', { ascending: false })
 
-    if (filterStatus !== 'all') query = query.eq('status', filterStatus)
+    setAllContracts(all || [])
 
-    const { data } = await query
-    setContracts(data || [])
+    if (filterStatus !== 'all') {
+      setContracts((all || []).filter(c => c.status === filterStatus))
+    } else {
+      setContracts(all || [])
+    }
     setLoading(false)
   }
 
@@ -179,6 +186,23 @@ export default function ContractsPage() {
     en_renovacion: 'badge-pending',
   }
 
+  // Compute alert groups from all active/en_renovacion contracts
+  const alertContracts = allContracts
+    .filter(c => ['active', 'en_renovacion'].includes(c.status) && c.end_date)
+    .map(c => {
+      const days = daysUntil(c.end_date!)
+      const level = getAlertLevel(c.end_date)
+      return { contract: c, days, level }
+    })
+    .filter(a => a.level !== null)
+    .sort((a, b) => a.days - b.days)
+
+  const expiredCount = alertContracts.filter(a => a.level === 'expired').length
+  const criticalCount = alertContracts.filter(a => a.level === 'critical').length
+  const warningCount = alertContracts.filter(a => a.level === 'warning').length
+  const infoCount = alertContracts.filter(a => a.level === 'info').length
+  const totalAlerts = alertContracts.length
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -196,6 +220,76 @@ export default function ContractsPage() {
           Nuevo contrato
         </Link>
       </div>
+
+      {/* Expiry Alerts Banner */}
+      {totalAlerts > 0 && (
+        <div className="card border-l-4 border-l-red-500 !p-0 overflow-hidden">
+          <button
+            onClick={() => setAlertsOpen(!alertsOpen)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                Alertas de vencimiento
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {expiredCount > 0 && <span className="text-red-500 font-semibold">{expiredCount} vencido(s)</span>}
+                {expiredCount > 0 && (criticalCount + warningCount + infoCount > 0) && ' · '}
+                {criticalCount > 0 && <span className="text-red-400 font-semibold">{criticalCount} crítico(s)</span>}
+                {criticalCount > 0 && (warningCount + infoCount > 0) && ' · '}
+                {warningCount > 0 && <span className="text-orange-500 font-semibold">{warningCount} atención</span>}
+                {warningCount > 0 && infoCount > 0 && ' · '}
+                {infoCount > 0 && <span className="text-yellow-500 font-semibold">{infoCount} próximo(s)</span>}
+              </span>
+            </div>
+            {alertsOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+          </button>
+
+          {alertsOpen && (
+            <div className="border-t border-gray-200 dark:border-gray-700">
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {alertContracts.map(({ contract, days, level }) => {
+                  const occupantName = (contract.occupant as { name: string } | null)?.name || 'Sin inquilino'
+                  const unitNumber = (contract.unit as { number: string } | null)?.number || '—'
+                  const unitFloor = (contract.unit as { floor: number } | null)?.floor
+                  return (
+                    <div key={contract.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
+                          {unitNumber}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900 dark:text-white">{occupantName}</span>
+                          {unitFloor != null && (
+                            <span className="text-gray-400 dark:text-gray-500 ml-2 text-xs">Piso {unitFloor}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+                          {contract.end_date ? formatDate(contract.end_date) : '—'}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getAlertColor(level!)}`}>
+                          {level === 'expired' ? '🔴' : level === 'critical' ? '🔴' : level === 'warning' ? '🟠' : '🟡'}
+                          {level === 'expired' ? 'VENCIDO' : `${days}d`}
+                        </span>
+                        <button
+                          onClick={() => openRenew(contract)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-medium transition-colors"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Renovar
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <select
