@@ -160,6 +160,32 @@ export interface Reservation {
   unit?: Unit
 }
 
+export type InvoiceStatus = 'draft' | 'valid' | 'cancelled'
+
+export interface Invoice {
+  id: string
+  org_id: string
+  payment_id?: string
+  contract_id?: string
+  facturapi_id?: string
+  folio_number?: number
+  series: string
+  status: InvoiceStatus
+  cfdi_use: string
+  tax_regime: string
+  subtotal: number
+  tax: number
+  total: number
+  pdf_url?: string
+  xml_url?: string
+  customer_rfc: string
+  customer_name: string
+  customer_email?: string
+  notes?: string
+  created_at: string
+  created_by?: string
+}
+
 // API Response types
 export interface ApiResponse<T> {
   data: T | null

@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Unidades', href: '/units', icon: Building2 },
   { name: 'Contratos', href: '/contracts', icon: FileText },
   { name: 'Cobros', href: '/cobros', icon: Receipt },
+  { name: 'Facturas', href: '/invoices', icon: FileText },
   { name: 'Morosidad', href: '/mora', icon: AlertOctagon },
   { name: 'Bitácora', href: '/ledger', icon: BookOpen },
   { name: 'Gastos', href: '/gastos', icon: TrendingDown },

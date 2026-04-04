@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Receipt, X, Save, Check } from 'lucide-react'
+import { Receipt, X, Save, Check, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
+import InvoiceModal from '@/components/InvoiceModal'
 
 interface ContractRow {
   id: string
@@ -66,6 +67,7 @@ export default function CobrosPage() {
   const [saving, setSaving] = useState(false)
   const [confirmedBy, setConfirmedBy] = useState('alicia')
   const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
+  const [invoicingRow, setInvoicingRow] = useState<BillingRow | null>(null)
 
   async function fetchBilling() {
     setLoading(true)
@@ -414,9 +416,21 @@ export default function CobrosPage() {
                           Marcar pagado
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          {row.payment?.method || '—'}
-                        </span>
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {row.payment?.method || '—'}
+                          </span>
+                          {row.payment && (
+                            <button
+                              onClick={() => setInvoicingRow(row)}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-500 rounded text-[11px] font-medium transition-colors"
+                              title="Generar factura CFDI"
+                            >
+                              <FileText className="w-3 h-3" />
+                              Facturar
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -425,6 +439,18 @@ export default function CobrosPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Invoice Modal */}
+      {invoicingRow && invoicingRow.payment && (
+        <InvoiceModal
+          paymentId={invoicingRow.payment.id}
+          paymentAmount={invoicingRow.payment.amount}
+          unitNumber={invoicingRow.contract.unit?.number}
+          tenantName={invoicingRow.contract.occupant?.name}
+          onClose={() => setInvoicingRow(null)}
+          onCreated={() => fetchBilling()}
+        />
       )}
 
       {/* Pay Modal */}
