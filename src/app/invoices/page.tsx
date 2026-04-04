@@ -113,7 +113,7 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6 text-indigo-500" />
+          <FileText className="w-6 h-6 text-gray-400" />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Facturas</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">CFDI — Facturación electrónica</p>
@@ -159,7 +159,7 @@ export default function InvoicesPage() {
             onClick={() => setFilter(f.key)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               filter === f.key
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-zinc-900 text-white border border-zinc-600'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
             }`}
           >
@@ -208,7 +208,7 @@ export default function InvoicesPage() {
                     {formatCurrency(inv.total)}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-400">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-700 text-zinc-300">
                       {inv.cfdi_use}
                     </span>
                   </td>
@@ -221,7 +221,7 @@ export default function InvoicesPage() {
                   <td className="px-4 py-3 text-center">
                     <Link
                       href={`/invoices/${inv.id}`}
-                      className="text-indigo-500 hover:text-indigo-400 text-xs font-medium"
+                      className="text-gray-400 hover:text-white text-xs font-medium"
                     >
                       Ver detalle
                     </Link>

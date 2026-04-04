@@ -51,7 +51,11 @@ export default function OnboardingWizard() {
 
   // Al avanzar del paso 1 al 2, precarga filas vacías
   function goToStep2() {
-    if (!building.name || !building.address || !building.city || building.total_units < 1) return
+    if (!building.name || !building.address || !building.city || building.total_units < 1) {
+      setError('Completa todos los campos antes de continuar.')
+      return
+    }
+    setError(null)
     if (units.length === 0) {
       const rows: UnitRow[] = Array.from({ length: building.total_units }, (_, i) => ({
         number: String(i + 1),
@@ -191,7 +195,7 @@ export default function OnboardingWizard() {
                   <label className="block text-sm font-medium text-gray-300 mb-1">Ciudad</label>
                   <input
                     className="input-field"
-                    placeholder="Ej: León, GTO"
+                    placeholder="Tu ciudad"
                     value={building.city}
                     onChange={(e) => setBuilding({ ...building, city: e.target.value })}
                   />
