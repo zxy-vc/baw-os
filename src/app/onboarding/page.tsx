@@ -2,327 +2,455 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, CheckCircle2, ChevronLeft, ChevronRight, Globe, User } from 'lucide-react'
+import { Building2, Plus, Trash2, CheckCircle, ArrowLeft, ArrowRight, SkipForward } from 'lucide-react'
 
-const STEPS = [
-  { label: 'Bienvenida', icon: User },
-  { label: 'Propiedad', icon: Building2 },
-  { label: 'Configuración', icon: Globe },
-  { label: 'Completado', icon: CheckCircle2 },
-]
-
-interface FormData {
-  pmName: string
-  portfolioName: string
-  city: string
-  buildingName: string
+// Tipos del wizard
+interface BuildingData {
+  name: string
   address: string
-  unitCount: string
-  currency: string
-  timezone: string
-  logoUrl: string
+  city: string
+  total_units: number
 }
 
-export default function OnboardingPage() {
+interface UnitRow {
+  number: string
+  type: 'STR' | 'MTR' | 'LTR'
+  floor: number
+}
+
+interface TenantRow {
+  name: string
+  phone: string
+  unit_number: string
+  monthly_amount: number
+  start_date: string
+}
+
+const STEPS = ['Edificio', 'Unidades', 'Inquilinos', 'Listo']
+
+export default function OnboardingWizard() {
   const router = useRouter()
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState<FormData>({
-    pmName: '',
-    portfolioName: '',
-    city: '',
-    buildingName: '',
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ units_created: number; contracts_created: number } | null>(null)
+
+  // Paso 1 — Edificio
+  const [building, setBuilding] = useState<BuildingData>({
+    name: '',
     address: '',
-    unitCount: '',
-    currency: 'MXN',
-    timezone: 'America/Mexico_City',
-    logoUrl: '',
+    city: '',
+    total_units: 4,
   })
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({})
 
-  function update(field: keyof FormData, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }))
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }))
-  }
+  // Paso 2 — Unidades
+  const [units, setUnits] = useState<UnitRow[]>([])
 
-  function validate(): boolean {
-    const newErrors: typeof errors = {}
-    if (step === 0) {
-      if (!form.pmName.trim()) newErrors.pmName = 'Nombre requerido'
-      if (!form.portfolioName.trim()) newErrors.portfolioName = 'Nombre del portafolio requerido'
+  // Paso 3 — Inquilinos
+  const [tenants, setTenants] = useState<TenantRow[]>([])
+
+  // Al avanzar del paso 1 al 2, precarga filas vacías
+  function goToStep2() {
+    if (!building.name || !building.address || !building.city || building.total_units < 1) return
+    if (units.length === 0) {
+      const rows: UnitRow[] = Array.from({ length: building.total_units }, (_, i) => ({
+        number: String(i + 1),
+        type: 'LTR',
+        floor: 1,
+      }))
+      setUnits(rows)
     }
-    if (step === 1) {
-      if (!form.buildingName.trim()) newErrors.buildingName = 'Nombre del edificio requerido'
+    setStep(1)
+  }
+
+  function addUnit() {
+    setUnits([...units, { number: '', type: 'LTR', floor: 1 }])
+  }
+
+  function removeUnit(idx: number) {
+    setUnits(units.filter((_, i) => i !== idx))
+  }
+
+  function updateUnit(idx: number, field: keyof UnitRow, value: string | number) {
+    const copy = [...units]
+    copy[idx] = { ...copy[idx], [field]: value }
+    setUnits(copy)
+  }
+
+  function addTenant() {
+    setTenants([...tenants, { name: '', phone: '', unit_number: '', monthly_amount: 0, start_date: '' }])
+  }
+
+  function removeTenant(idx: number) {
+    setTenants(tenants.filter((_, i) => i !== idx))
+  }
+
+  function updateTenant(idx: number, field: keyof TenantRow, value: string | number) {
+    const copy = [...tenants]
+    copy[idx] = { ...copy[idx], [field]: value }
+    setTenants(copy)
+  }
+
+  // Enviar todo al API en el paso final
+  async function handleSubmit() {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          building: { name: building.name, address: building.address, city: building.city },
+          units: units.map((u) => ({ number: u.number, type: u.type, floor: u.floor })),
+          tenants: tenants.filter((t) => t.name && t.unit_number),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Error al guardar')
+      setResult(data.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+    } finally {
+      setSubmitting(false)
     }
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
   }
 
-  function next() {
-    if (!validate()) return
-    if (step < STEPS.length - 1) setStep(s => s + 1)
-  }
-
-  function prev() {
-    if (step > 0) setStep(s => s - 1)
-  }
-
-  function finish() {
-    localStorage.setItem('baw-onboarding-complete', 'true')
-    localStorage.setItem('baw-onboarding-data', JSON.stringify(form))
-    router.push('/')
-  }
+  // Validaciones por paso
+  const step1Valid = building.name && building.address && building.city && building.total_units >= 1
+  const step2Valid = units.length >= 1 && units.every((u) => u.number)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center px-4 py-12">
-      {/* Stepper */}
-      <div className="flex items-center gap-2 mb-8">
-        {STEPS.map((s, i) => (
-          <div key={s.label} className="flex items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
-                i <= step
-                  ? 'bg-[#2563EB] text-white'
-                  : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
-              }`}
-            >
-              {i + 1}
-            </div>
-            <span
-              className={`hidden sm:inline text-sm ${
-                i <= step ? 'text-[#2563EB] font-medium' : 'text-gray-400'
-              }`}
-            >
-              {s.label}
-            </span>
-            {i < STEPS.length - 1 && (
+    <div className="min-h-screen flex items-start justify-center pt-12 px-4">
+      <div className="w-full max-w-2xl">
+        {/* Progress bar */}
+        <div className="flex items-center justify-between mb-8">
+          {STEPS.map((label, i) => (
+            <div key={label} className="flex items-center gap-2 flex-1">
               <div
-                className={`w-8 h-0.5 ${
-                  i < step ? 'bg-[#2563EB]' : 'bg-gray-200 dark:bg-gray-800'
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${
+                  i < step
+                    ? 'bg-emerald-500 text-white'
+                    : i === step
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-700 text-gray-400'
                 }`}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+              >
+                {i < step ? <CheckCircle className="w-4 h-4" /> : i + 1}
+              </div>
+              <span
+                className={`text-xs font-medium hidden sm:block ${
+                  i <= step ? 'text-white' : 'text-gray-500'
+                }`}
+              >
+                {label}
+              </span>
+              {i < STEPS.length - 1 && (
+                <div
+                  className={`flex-1 h-0.5 mx-2 rounded ${
+                    i < step ? 'bg-emerald-500' : 'bg-gray-700'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
 
-      {/* Card */}
-      <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-8">
-        {/* Step 0: Bienvenida */}
-        {step === 0 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bienvenido a BaW OS</h2>
-              <p className="text-gray-500 mt-1">Cuéntanos sobre ti y tu portafolio.</p>
-            </div>
-            <div className="space-y-4">
-              <Field
-                label="Tu nombre"
-                value={form.pmName}
-                onChange={v => update('pmName', v)}
-                error={errors.pmName}
-                placeholder="Ej: Andrea López"
-              />
-              <Field
-                label="Nombre del portafolio"
-                value={form.portfolioName}
-                onChange={v => update('portfolioName', v)}
-                error={errors.portfolioName}
-                placeholder="Ej: Grupo Inmobiliario XYZ"
-              />
-              <Field
-                label="Ciudad"
-                value={form.city}
-                onChange={v => update('city', v)}
-                placeholder="Ej: CDMX"
-              />
-            </div>
-          </div>
-        )}
+        {/* Card principal */}
+        <div className="card">
+          {/* ── Paso 1: Edificio ── */}
+          {step === 0 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <Building2 className="w-10 h-10 text-indigo-500 mx-auto mb-3" />
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Bienvenido a BaW OS</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Configura tu propiedad en BaW OS en menos de 5 minutos.
+                </p>
+              </div>
 
-        {/* Step 1: Primera propiedad */}
-        {step === 1 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Tu primera propiedad</h2>
-              <p className="text-gray-500 mt-1">Agrega el edificio o propiedad principal.</p>
-            </div>
-            <div className="space-y-4">
-              <Field
-                label="Nombre del edificio"
-                value={form.buildingName}
-                onChange={v => update('buildingName', v)}
-                error={errors.buildingName}
-                placeholder="Ej: Torre Reforma 123"
-              />
-              <Field
-                label="Dirección"
-                value={form.address}
-                onChange={v => update('address', v)}
-                placeholder="Ej: Av. Reforma 123, Col. Juárez"
-              />
-              <Field
-                label="Número de unidades"
-                value={form.unitCount}
-                onChange={v => update('unitCount', v)}
-                placeholder="Ej: 24"
-                type="number"
-              />
-            </div>
-          </div>
-        )}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Nombre del edificio</label>
+                  <input
+                    className="input-field"
+                    placeholder="Ej: ALM809P"
+                    value={building.name}
+                    onChange={(e) => setBuilding({ ...building, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Dirección completa</label>
+                  <input
+                    className="input-field"
+                    placeholder="Calle, número, colonia, CP"
+                    value={building.address}
+                    onChange={(e) => setBuilding({ ...building, address: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Ciudad</label>
+                  <input
+                    className="input-field"
+                    placeholder="Ej: León, GTO"
+                    value={building.city}
+                    onChange={(e) => setBuilding({ ...building, city: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Número total de unidades</label>
+                  <input
+                    className="input-field"
+                    type="number"
+                    min={1}
+                    value={building.total_units}
+                    onChange={(e) => setBuilding({ ...building, total_units: parseInt(e.target.value) || 1 })}
+                  />
+                </div>
+              </div>
 
-        {/* Step 2: Configuración */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Configuración básica</h2>
-              <p className="text-gray-500 mt-1">Ajusta las preferencias de tu workspace.</p>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Moneda
-                </label>
-                <select
-                  value={form.currency}
-                  onChange={e => update('currency', e.target.value)}
-                  className="input-field w-full"
+              <div className="flex justify-end">
+                <button
+                  disabled={!step1Valid}
+                  onClick={goToStep2}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  <option value="MXN">MXN — Peso Mexicano</option>
-                  <option value="USD">USD — Dólar Americano</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="COP">COP — Peso Colombiano</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Zona horaria
-                </label>
-                <select
-                  value={form.timezone}
-                  onChange={e => update('timezone', e.target.value)}
-                  className="input-field w-full"
-                >
-                  <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>
-                  <option value="America/Cancun">Cancún (GMT-5)</option>
-                  <option value="America/Tijuana">Tijuana (GMT-8)</option>
-                  <option value="America/Bogota">Bogotá (GMT-5)</option>
-                  <option value="America/New_York">Nueva York (GMT-5)</option>
-                </select>
-              </div>
-              <Field
-                label="Logo (URL, opcional)"
-                value={form.logoUrl}
-                onChange={v => update('logoUrl', v)}
-                placeholder="https://ejemplo.com/logo.png"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Completado */}
-        {step === 3 && (
-          <div className="space-y-6 text-center">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+                  Continuar <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                ¡Listo! Tu workspace está configurado
-              </h2>
-              <p className="text-gray-500 mt-2">
-                <span className="font-medium text-gray-900 dark:text-white">{form.portfolioName}</span>
-                {' '}ya está listo para usarse.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-left">
-              <QuickLink href="/units" label="Unidades" desc="Gestiona tus departamentos" />
-              <QuickLink href="/contracts" label="Contratos" desc="Crea tu primer contrato" />
-              <QuickLink href="/payments" label="Pagos" desc="Registra cobros" />
-              <QuickLink href="/tasks" label="Tareas" desc="Organiza pendientes" />
-            </div>
-          </div>
-        )}
-
-        {/* Navigation buttons */}
-        <div className="flex justify-between mt-8">
-          {step > 0 && step < 3 ? (
-            <button
-              onClick={prev}
-              className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" /> Anterior
-            </button>
-          ) : (
-            <div />
           )}
-          {step < 3 ? (
-            <button
-              onClick={next}
-              className="flex items-center gap-1 px-6 py-2.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-[#1d4ed8] rounded-lg transition-colors"
-            >
-              Siguiente <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={finish}
-              className="w-full px-6 py-2.5 text-sm font-medium text-white bg-[#2563EB] hover:bg-[#1d4ed8] rounded-lg transition-colors"
-            >
-              Ir al dashboard
-            </button>
+
+          {/* ── Paso 2: Unidades ── */}
+          {step === 1 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Agregar unidades</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Define las unidades de tu propiedad. Puedes ajustar el número, tipo y piso.
+                </p>
+              </div>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                {units.map((u, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      className="input-field w-24"
+                      placeholder="No."
+                      value={u.number}
+                      onChange={(e) => updateUnit(i, 'number', e.target.value)}
+                    />
+                    <select
+                      className="input-field w-28"
+                      value={u.type}
+                      onChange={(e) => updateUnit(i, 'type', e.target.value)}
+                    >
+                      <option value="LTR">LTR</option>
+                      <option value="MTR">MTR</option>
+                      <option value="STR">STR</option>
+                    </select>
+                    <input
+                      className="input-field w-20"
+                      type="number"
+                      min={0}
+                      placeholder="Piso"
+                      value={u.floor}
+                      onChange={(e) => updateUnit(i, 'floor', parseInt(e.target.value) || 0)}
+                    />
+                    <button
+                      onClick={() => removeUnit(i)}
+                      className="p-2 text-red-400 hover:text-red-300 transition-colors shrink-0"
+                      title="Eliminar unidad"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addUnit}
+                className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Agregar unidad
+              </button>
+
+              <div className="flex justify-between">
+                <button
+                  onClick={() => setStep(0)}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Atrás
+                </button>
+                <button
+                  disabled={!step2Valid}
+                  onClick={() => setStep(2)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Continuar <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Paso 3: Inquilinos (opcional) ── */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Agregar inquilinos</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Agrega tus inquilinos actuales. Puedes hacerlo después desde Contratos.
+                </p>
+              </div>
+
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                {tenants.map((t, i) => (
+                  <div key={i} className="p-3 rounded-lg bg-gray-800/50 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="input-field flex-1"
+                        placeholder="Nombre del inquilino"
+                        value={t.name}
+                        onChange={(e) => updateTenant(i, 'name', e.target.value)}
+                      />
+                      <button
+                        onClick={() => removeTenant(i)}
+                        className="p-2 text-red-400 hover:text-red-300 transition-colors shrink-0"
+                        title="Eliminar inquilino"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        className="input-field"
+                        placeholder="Teléfono (opcional)"
+                        value={t.phone}
+                        onChange={(e) => updateTenant(i, 'phone', e.target.value)}
+                      />
+                      <select
+                        className="input-field"
+                        value={t.unit_number}
+                        onChange={(e) => updateTenant(i, 'unit_number', e.target.value)}
+                      >
+                        <option value="">Seleccionar unidad</option>
+                        {units.map((u) => (
+                          <option key={u.number} value={u.number}>
+                            Unidad {u.number}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        className="input-field"
+                        type="number"
+                        min={0}
+                        placeholder="Renta mensual"
+                        value={t.monthly_amount || ''}
+                        onChange={(e) => updateTenant(i, 'monthly_amount', parseFloat(e.target.value) || 0)}
+                      />
+                      <input
+                        className="input-field"
+                        type="date"
+                        value={t.start_date}
+                        onChange={(e) => updateTenant(i, 'start_date', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addTenant}
+                className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Agregar inquilino
+              </button>
+
+              <div className="flex justify-between">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Atrás
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setTenants([]); setStep(3); handleSubmit() }}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                  >
+                    <SkipForward className="w-4 h-4" /> Omitir por ahora
+                  </button>
+                  <button
+                    onClick={() => { setStep(3); handleSubmit() }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Continuar <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Paso 4: Listo ── */}
+          {step === 3 && (
+            <div className="space-y-6 text-center py-4">
+              {submitting && (
+                <div className="space-y-3">
+                  <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-sm text-gray-400">Guardando configuración...</p>
+                </div>
+              )}
+
+              {error && (
+                <div className="space-y-4">
+                  <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+                    <span className="text-2xl">!</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-red-400">Error al guardar</h2>
+                  <p className="text-sm text-gray-400">{error}</p>
+                  <button
+                    onClick={handleSubmit}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              )}
+
+              {result && (
+                <div className="space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto">
+                    <CheckCircle className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Tu propiedad está configurada
+                  </h2>
+                  <div className="flex justify-center gap-4 text-sm text-gray-400">
+                    <span>{result.units_created} unidades creadas</span>
+                    <span>·</span>
+                    <span>{result.contracts_created} contratos creados</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => router.push('/')}
+                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      Ir al Dashboard →
+                    </button>
+                    <button
+                      onClick={() => router.push('/units')}
+                      className="px-6 py-2.5 border border-gray-700 text-gray-300 hover:text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      Ver mis unidades
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
-
-      <p className="mt-6 text-xs text-gray-400">Paso {step + 1} de {STEPS.length}</p>
     </div>
-  )
-}
-
-/* ---- Helper components ---- */
-
-function Field({
-  label,
-  value,
-  onChange,
-  error,
-  placeholder,
-  type = 'text',
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  error?: string
-  placeholder?: string
-  type?: string
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        {label}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`input-field w-full ${error ? 'border-red-500 focus:ring-red-500' : ''}`}
-      />
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-    </div>
-  )
-}
-
-function QuickLink({ href, label, desc }: { href: string; label: string; desc: string }) {
-  return (
-    <a
-      href={href}
-      className="block p-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-[#2563EB] hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors"
-    >
-      <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-      <p className="text-xs text-gray-500">{desc}</p>
-    </a>
   )
 }

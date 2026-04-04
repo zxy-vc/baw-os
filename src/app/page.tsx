@@ -20,6 +20,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import Link from 'next/link'
+import { Settings2 } from 'lucide-react'
 import { SkeletonDashboard } from '@/components/Skeleton'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import type { Unit, Contract, Payment, Occupant } from '@/types'
@@ -393,17 +394,51 @@ export default function Dashboard() {
     return <SkeletonDashboard />
   }
 
+  const unitsCount = kpis.total === 16 && units.length === 0 ? 0 : units.length
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Dashboard ejecutivo
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          ALM809P — Vista general de operación
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Dashboard ejecutivo
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            ALM809P — Vista general de operación
+          </p>
+        </div>
+        <Link
+          href="/onboarding"
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors"
+        >
+          <Settings2 className="w-4 h-4" />
+          Configurar propiedad
+        </Link>
       </div>
+
+      {/* Banner de onboarding si no hay unidades */}
+      {unitsCount === 0 && (
+        <Link
+          href="/onboarding"
+          className="block card border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-base font-semibold text-white flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-indigo-400" />
+                Configura tu propiedad
+              </p>
+              <p className="text-sm text-gray-400 mt-1">
+                Parece que aún no tienes unidades. Completa el setup inicial para empezar.
+              </p>
+            </div>
+            <span className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg shrink-0">
+              Iniciar configuración →
+            </span>
+          </div>
+        </Link>
+      )}
 
       {/* Contract Expiry Alerts Banner */}
       <ContractAlertsBanner />
