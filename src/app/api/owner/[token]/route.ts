@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://zlcgxmllaeweypyodvzk.supabase.co'
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsY2d4bWxsYWV3ZXlweW9kdnprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1ODE3OTYsImV4cCI6MjA5MDE1Nzc5Nn0.2i0sxb5JCCFiWxhDt9ElC5-EZE64JEg_uw_tHi4BGmI'
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const OWNER_TOKEN = process.env.OWNER_TOKEN || 'fran-baw-2026'
+const OWNER_TOKEN = process.env.OWNER_TOKEN!
 const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 function createPortalClient() {
