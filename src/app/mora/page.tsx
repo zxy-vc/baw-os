@@ -133,7 +133,7 @@ export default function MoraPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 [&>*:last-child]:col-span-2 [&>*:last-child]:lg:col-span-1">
         <div className="card">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total en mora</p>
           <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">{totalMora}</p>
@@ -151,7 +151,7 @@ export default function MoraPage() {
         </div>
         <div className="card">
           <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Monto total vencido</p>
-          <p className="text-lg font-bold text-gray-900 dark:text-white mt-1 leading-tight break-all">{formatCurrency(totalAmount)}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(totalAmount)}</p>
           <p className="text-xs text-gray-400 mt-1">suma de pagos no confirmados</p>
         </div>
       </div>
