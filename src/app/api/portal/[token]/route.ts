@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/api-auth'
+import { createClient } from '@supabase/supabase-js'
+
+function createPortalClient() {
+  // Use service role if available, fallback to anon (portal is public read-only)
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
+}
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { token: string } }
 ) {
   const { token } = params
-  const supabase = createServiceClient()
+  const supabase = createPortalClient()
 
   // Fetch contract by portal_token
   const { data: contract, error } = await supabase
