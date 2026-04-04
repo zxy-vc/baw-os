@@ -421,7 +421,7 @@ export default function Dashboard() {
       {unitsCount === 0 && (
         <Link
           href="/onboarding"
-          className="block card border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors"
+          className="block card hover:bg-[#1a1a1a] transition-colors"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -433,7 +433,7 @@ export default function Dashboard() {
                 Parece que aún no tienes unidades. Completa el setup inicial para empezar.
               </p>
             </div>
-            <span className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg shrink-0">
+            <span className="px-4 py-2 bg-white hover:bg-gray-100 text-black text-sm font-medium rounded-lg shrink-0">
               Iniciar configuración →
             </span>
           </div>
@@ -576,7 +576,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+              <div className="p-2 rounded-full bg-white/10 dark:bg-white/10">
                 <Receipt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cobros del mes</h2>
@@ -608,7 +608,7 @@ export default function Dashboard() {
       {/* Building Map */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+          <div className="p-2 rounded-full bg-white/10 dark:bg-white/10">
             <Home className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -734,7 +734,7 @@ export default function Dashboard() {
         {/* Recent Activity */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+            <div className="p-2 rounded-full bg-white/10 dark:bg-white/10">
               <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
