@@ -98,6 +98,15 @@ export default function Dashboard() {
   const [cobrosSummary, setCobrosSummary] = useState<{ total: number; paid: number; pending: number; overdue: number } | null>(null)
   const [moraCriticalCount, setMoraCriticalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [execKpis, setExecKpis] = useState<{
+    occupancyPct: number
+    revenueConfirmed: number
+    revenueExpected: number
+    brecha: number
+    brechaPct: number
+    moraCount: number
+    expiringCount: number
+  } | null>(null)
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -109,7 +118,7 @@ export default function Dashboard() {
           ? `${now0.getFullYear() + 1}-01-01`
           : `${now0.getFullYear()}-${String(now0.getMonth() + 2).padStart(2, '0')}-01`
 
-        const [unitsRes, contractsRes, paymentsRes, recentPmtsRes, paidThisMonthRes] = await Promise.all([
+        const [unitsRes, contractsRes, paymentsRes, recentPmtsRes, paidThisMonthRes, confirmedRevenueRes] = await Promise.all([
           supabase
             .from('units')
             .select('*')
@@ -131,6 +140,12 @@ export default function Dashboard() {
           supabase
             .from('payments')
             .select('contract_id, status, due_date')
+            .eq('status', 'paid')
+            .gte('due_date', monthStart)
+            .lt('due_date', nextMonth),
+          supabase
+            .from('payments')
+            .select('amount')
             .eq('status', 'paid')
             .gte('due_date', monthStart)
             .lt('due_date', nextMonth),
@@ -322,6 +337,34 @@ export default function Dashboard() {
             overdue: overdueCount,
           })
         }
+        // Executive KPIs
+        const totalUnits = allUnits.length || 1
+        const activeContractCount = activeContracts.filter(
+          (c) => c.status === 'active' || c.status === 'en_renovacion'
+        ).length
+        const occupancyPct = Math.round((activeContractCount / totalUnits) * 100)
+        const revenueConfirmed = (confirmedRevenueRes.data || []).reduce(
+          (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+        )
+        const revenueExpected = monthlyIncome
+        const brecha = revenueExpected - revenueConfirmed
+        const brechaPct = revenueExpected > 0 ? Math.round((brecha / revenueExpected) * 100) : 0
+        const moraPayments = pendingPayments.filter(
+          (p) => p.due_date && new Date(p.due_date) < now
+        )
+        const moraUnitIds = new Set(moraPayments.map((p) => p.contract?.unit_id).filter(Boolean))
+        const expiringCount = expiringContracts.length
+
+        setExecKpis({
+          occupancyPct,
+          revenueConfirmed,
+          revenueExpected,
+          brecha,
+          brechaPct,
+          moraCount: moraUnitIds.size,
+          expiringCount,
+        })
+
         // Mora critical count
         try {
           const moraRes = await fetch('/api/mora')
@@ -416,6 +459,80 @@ export default function Dashboard() {
           Configurar propiedad
         </Link>
       </div>
+
+      {/* Vista Ejecutiva — Developer Portfolio KPIs */}
+      {execKpis ? (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+          <div className="px-6 py-4 border-b border-zinc-800">
+            <h2 className="text-lg font-semibold text-white">Vista Ejecutiva — ALM809P</h2>
+            <p className="text-sm text-zinc-500">Desarrolladora: ZXY Ventures</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800">
+            {/* Ocupación */}
+            <div className="bg-zinc-950 px-5 py-4">
+              <p className={`text-3xl font-bold ${
+                execKpis.occupancyPct >= 80 ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {execKpis.occupancyPct}%
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">Ocupación</p>
+              <div className={`mt-2 h-1 rounded-full ${
+                execKpis.occupancyPct >= 80 ? 'bg-emerald-500/40' : 'bg-red-500/40'
+              }`}>
+                <div
+                  className={`h-full rounded-full ${
+                    execKpis.occupancyPct >= 80 ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                  style={{ width: `${Math.min(execKpis.occupancyPct, 100)}%` }}
+                />
+              </div>
+            </div>
+            {/* Revenue Confirmado */}
+            <div className="bg-zinc-950 px-5 py-4">
+              <p className="text-3xl font-bold text-white">
+                {formatCurrency(execKpis.revenueConfirmed)}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">Revenue confirmado</p>
+            </div>
+            {/* Revenue Esperado */}
+            <div className="bg-zinc-950 px-5 py-4">
+              <p className="text-3xl font-bold text-zinc-400">
+                {formatCurrency(execKpis.revenueExpected)}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">Revenue esperado</p>
+            </div>
+            {/* Brecha */}
+            <div className="bg-zinc-950 px-5 py-4">
+              <p className={`text-3xl font-bold ${
+                execKpis.brechaPct > 20 ? 'text-amber-400' : 'text-emerald-400'
+              }`}>
+                {formatCurrency(execKpis.brecha)}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                Brecha {execKpis.brechaPct > 0 ? `(${execKpis.brechaPct}%)` : ''}
+              </p>
+            </div>
+            {/* En Mora */}
+            <div className="bg-zinc-950 px-5 py-4">
+              <p className={`text-3xl font-bold ${
+                execKpis.moraCount > 0 ? 'text-red-400' : 'text-emerald-400'
+              }`}>
+                {execKpis.moraCount}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">Unidades en mora</p>
+            </div>
+            {/* Por Vencer */}
+            <div className="bg-zinc-950 px-5 py-4">
+              <p className={`text-3xl font-bold ${
+                execKpis.expiringCount > 0 ? 'text-amber-400' : 'text-zinc-400'
+              }`}>
+                {execKpis.expiringCount}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">Contratos por vencer</p>
+            </div>
+          </div>
+        </div>
+      ) : loading ? null : null}
 
       {/* Banner de onboarding si no hay unidades */}
       {unitsCount === 0 && (
