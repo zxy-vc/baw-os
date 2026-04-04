@@ -42,7 +42,7 @@ export async function GET(
     .from('contracts')
     .select('id, unit_id, occupant_id, monthly_amount, start_date, end_date, status')
     .eq('org_id', ORG_ID)
-    .eq('status', 'active')
+    .in('status', ['active', 'en_renovacion'])
 
   // 3. Occupant names
   const occupantIds = (contracts || []).map(c => c.occupant_id).filter(Boolean)
