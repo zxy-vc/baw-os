@@ -191,7 +191,7 @@ function TabDeptos() {
             <h3 className="text-lg font-bold text-slate-900">
               Depto {selected.number}
             </h3>
-            <StatusChip status={selected.status} />
+            <StatusChip status={selected.status} unitType={selected.type} />
           </div>
           {selected.floor != null && (
             <p className="text-sm text-slate-500 mb-4">Piso {selected.floor}</p>
@@ -242,7 +242,7 @@ function TabDeptos() {
               </span>
             )}
           </div>
-          <StatusChip status={u.status} />
+          <StatusChip status={u.status} unitType={u.type} />
         </button>
       ))}
       {units.length === 0 && (
@@ -580,8 +580,16 @@ function TabCobros() {
 
 // --------------- Shared Components ---------------
 
-function StatusChip({ status }: { status: string }) {
+function StatusChip({ status, unitType }: { status: string; unitType?: string }) {
   const isOccupied = status === 'occupied'
+  const isStr = unitType === 'str' || unitType === 'STR'
+  if (!isOccupied && isStr) {
+    return (
+      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-600">
+        STR
+      </span>
+    )
+  }
   return (
     <span
       className={`text-xs font-medium px-2.5 py-1 rounded-full ${

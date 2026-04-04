@@ -246,7 +246,7 @@ export default function LedgerPage() {
         </div>
         <button
           onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-700 border border-zinc-600 text-white rounded-lg text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" />
           Registrar cobro
