@@ -6,7 +6,7 @@ import AuthGuard from '@/components/AuthGuard'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje']
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding']
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
