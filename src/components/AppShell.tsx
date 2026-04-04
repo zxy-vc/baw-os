@@ -21,6 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/reportes': 'Reportes',
   '/reports': 'Reportes CSV',
   '/maintenance': 'Mantenimiento',
+  '/housekeeping': 'Housekeeping',
   '/pricing': 'Precios',
   '/quotes': 'Cotizador',
   '/reservations': 'Reservaciones',

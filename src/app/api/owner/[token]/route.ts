@@ -60,7 +60,7 @@ export async function GET(
   // 5. Expenses for current month
   const { data: expenses } = await supabase
     .from('expenses')
-    .select('id, category, amount, expense_date, provider, notes')
+    .select('id, unit_id, category, amount, expense_date, provider, notes')
     .eq('org_id', ORG_ID)
     .gte('expense_date', monthStart)
     .lte('expense_date', monthEnd)
@@ -69,7 +69,7 @@ export async function GET(
   // 6. Open incidents
   const { data: incidents } = await supabase
     .from('incidents')
-    .select('id, unit_id, title, description, status, priority, created_at')
+    .select('id, unit_id, title, description, status, priority, actual_cost, created_at')
     .eq('org_id', ORG_ID)
     .in('status', ['open', 'in_progress', 'waiting_parts'])
     .order('created_at', { ascending: false })
@@ -92,6 +92,21 @@ export async function GET(
     paymentByContract.set(p.contract_id, p)
   }
 
+  // Group expenses by unit_id (null = general)
+  const expensesByUnit = new Map<string | null, typeof expenses>()
+  for (const e of expenses || []) {
+    const key = e.unit_id || null
+    if (!expensesByUnit.has(key)) expensesByUnit.set(key, [])
+    expensesByUnit.get(key)!.push(e)
+  }
+
+  // Group incidents by unit_id
+  const incidentsByUnit = new Map<string, typeof incidents>()
+  for (const inc of incidents || []) {
+    if (!incidentsByUnit.has(inc.unit_id)) incidentsByUnit.set(inc.unit_id, [])
+    incidentsByUnit.get(inc.unit_id)!.push(inc)
+  }
+
   // Compute summary
   const totalUnits = (units || []).length
   const occupiedUnits = (contracts || []).length
@@ -104,6 +119,51 @@ export async function GET(
   const collectionRate = expectedMonthly > 0 ? Math.round((collectedMonthly / expectedMonthly) * 100) : 0
   const totalExpenses = (expenses || []).reduce((sum, e) => sum + (e.amount || 0), 0)
   const netIncome = collectedMonthly - totalExpenses
+
+  // Build per-unit monthly statements
+  const generalExpenses = expensesByUnit.get(null) || []
+  const generalExpensesTotal = generalExpenses.reduce((s, e) => s + (e.amount || 0), 0)
+  const generalExpensesPerUnit = occupiedUnits > 0 ? Math.round(generalExpensesTotal / occupiedUnits) : 0
+
+  const statements = (contracts || []).map(c => {
+    const unit = unitMap.get(c.unit_id)
+    const occupant = c.occupant_id ? occupantMap.get(c.occupant_id) : null
+    const payment = paymentByContract.get(c.id)
+    const unitExpenses = expensesByUnit.get(c.unit_id) || []
+    const unitIncidents = (incidentsByUnit.get(c.unit_id) || []).slice(0, 3)
+
+    const grossRent = c.monthly_amount || 0
+    const adminFee = Math.round(grossRent * 0.10)
+    const unitExpensesTotal = unitExpenses.reduce((s, e) => s + (e.amount || 0), 0)
+    const maintenanceCost = unitIncidents.reduce((s, inc) => s + (inc.actual_cost || 0), 0)
+    const netPayout = grossRent - adminFee - unitExpensesTotal - generalExpensesPerUnit - maintenanceCost
+
+    return {
+      unit_number: unit?.number || '?',
+      unit_id: c.unit_id,
+      tenant_name: occupant?.name || null,
+      gross_rent: grossRent,
+      admin_fee: adminFee,
+      unit_expenses: unitExpensesTotal,
+      general_expenses_share: generalExpensesPerUnit,
+      maintenance_cost: maintenanceCost,
+      net_payout: netPayout,
+      payment_status: payment?.status || 'pending',
+      paid_date: payment?.paid_date || null,
+      expenses_detail: unitExpenses.slice(0, 3).map(e => ({
+        category: e.category,
+        amount: e.amount,
+        provider: e.provider,
+      })),
+      incidents: unitIncidents.map(inc => ({
+        id: inc.id,
+        title: inc.title,
+        status: inc.status,
+        priority: inc.priority,
+        created_at: inc.created_at,
+      })),
+    }
+  }).sort((a, b) => a.unit_number.localeCompare(b.unit_number, 'es', { numeric: true }))
 
   // Build units detail array
   const unitsDetail = (units || []).map(u => {
@@ -122,7 +182,6 @@ export async function GET(
       paid_date: payment?.paid_date || null,
     }
   }).sort((a, b) => {
-    // Overdue first, then pending, then paid, then vacant
     const order: Record<string, number> = { late: 0, pending: 1, partial: 2, paid: 3 }
     const aOrder = a.payment_status ? (order[a.payment_status] ?? 4) : 5
     const bOrder = b.payment_status ? (order[b.payment_status] ?? 4) : 5
@@ -155,6 +214,7 @@ export async function GET(
       openIncidents: (incidents || []).length,
       expiringContracts: (expiringContracts || []).length,
     },
+    statements,
     units: unitsDetail,
     expenses: (expenses || []).map(e => ({
       category: e.category,

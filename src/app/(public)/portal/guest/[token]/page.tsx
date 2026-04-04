@@ -74,6 +74,18 @@ export default function GuestPortalPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [checkInForm, setCheckInForm] = useState({
+    nameConfirmed: false,
+    rulesAccepted: false,
+    vehiclePlate: '',
+    vehicleModel: '',
+    emergencyName: '',
+    emergencyPhone: '',
+  })
+  const [checkInSubmitting, setCheckInSubmitting] = useState(false)
+  const [checkInDone, setCheckInDone] = useState(false)
+  const [showVehicle, setShowVehicle] = useState(false)
+  const [showEmergency, setShowEmergency] = useState(false)
 
   useEffect(() => {
     fetch(`/api/portal/guest/${token}`)
@@ -90,6 +102,24 @@ export default function GuestPortalPage() {
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function handleCheckIn() {
+    setCheckInSubmitting(true)
+    try {
+      const res = await fetch(`/api/portal/guest/${token}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checkInForm),
+      })
+      if (res.ok) {
+        setCheckInDone(true)
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCheckInSubmitting(false)
+    }
   }
 
   // Loading state

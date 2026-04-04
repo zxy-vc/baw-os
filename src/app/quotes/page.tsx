@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Calculator, Printer, FileText } from 'lucide-react'
+import { Calculator, Printer, FileText, CalendarPlus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 
@@ -33,6 +33,8 @@ interface Breakdown {
   waterFee: number
   subtotal: number
   discountAmount: number
+  cleaningFee: number
+  iva: number
   total: number
   label: string
   details: string[]
@@ -49,8 +51,20 @@ export default function QuotesPage() {
   const [months, setMonths] = useState(6)
   const [discount, setDiscount] = useState(0)
   const [checkInDate, setCheckInDate] = useState('')
+  const [checkOutDate, setCheckOutDate] = useState('')
   const [showQuote, setShowQuote] = useState(false)
   const quoteRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (checkInDate && checkOutDate) {
+      const inDate = new Date(checkInDate + 'T00:00:00')
+      const outDate = new Date(checkOutDate + 'T00:00:00')
+      const diffDays = Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24))
+      if (diffDays >= 1) {
+        setNights(Math.max(3, diffDays))
+      }
+    }
+  }, [checkInDate, checkOutDate])
 
   useEffect(() => {
     async function fetchData() {
@@ -92,6 +106,8 @@ export default function QuotesPage() {
         waterFee,
         subtotal,
         discountAmount,
+        cleaningFee: 0,
+        iva: 0,
         total,
         label: `${months} meses`,
         details: [
@@ -114,7 +130,9 @@ export default function QuotesPage() {
       const extraPersonsFee = extraPersons * 250 * nights
       const subtotal = basePrice + extraPersonsFee
       const discountAmount = subtotal * (discount / 100)
-      const total = subtotal - discountAmount
+      const cleaningFee = 800
+      const iva = (subtotal - discountAmount + cleaningFee) * 0.16
+      const total = subtotal - discountAmount + cleaningFee + iva
 
       return {
         basePrice,
@@ -123,6 +141,8 @@ export default function QuotesPage() {
         waterFee: 0,
         subtotal,
         discountAmount,
+        cleaningFee,
+        iva,
         total,
         label: `${nights} noches · ${persons} personas${activeSeason ? ` · 🗓️ ${activeSeason.name}` : ''}`,
         details: [
@@ -292,6 +312,18 @@ export default function QuotesPage() {
                       )
                     })()}
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Fecha check-out
+                    </label>
+                    <input
+                      type="date"
+                      value={checkOutDate}
+                      onChange={(e) => setCheckOutDate(e.target.value)}
+                      min={checkInDate || undefined}
+                      className="input-field"
+                    />
+                  </div>
                 </>
               )}
 
@@ -361,6 +393,20 @@ export default function QuotesPage() {
                       </div>
                     )}
 
+                    {breakdown.cleaningFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Servicio de limpieza</span>
+                        <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(breakdown.cleaningFee)}</span>
+                      </div>
+                    )}
+
+                    {breakdown.iva > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">IVA (16%)</span>
+                        <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(breakdown.iva)}</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between border-t-2 border-gray-300 dark:border-gray-600 pt-3">
                       <span className="text-gray-900 dark:text-white font-bold text-base">TOTAL</span>
                       <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xl">
@@ -394,6 +440,14 @@ export default function QuotesPage() {
                 >
                   <Printer className="w-4 h-4" />
                   Generar cotización
+                </button>
+
+                <button
+                  onClick={() => { window.location.href = '/reservations' }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors w-full justify-center"
+                >
+                  <CalendarPlus className="w-4 h-4" />
+                  Crear reservación
                 </button>
               </>
             ) : (
@@ -469,6 +523,18 @@ export default function QuotesPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Descuento ({discount}%)</span>
                   <span className="text-red-600">-{formatCurrency(breakdown.discountAmount)}</span>
+                </div>
+              )}
+              {breakdown.cleaningFee > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Servicio de limpieza</span>
+                  <span className="font-medium">{formatCurrency(breakdown.cleaningFee)}</span>
+                </div>
+              )}
+              {breakdown.iva > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">IVA (16%)</span>
+                  <span className="font-medium">{formatCurrency(breakdown.iva)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t-2 border-gray-900 pt-3 mt-2">

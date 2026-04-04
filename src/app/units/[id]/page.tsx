@@ -2,13 +2,36 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Building2, FileText, CreditCard, Wrench, Download, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Building2, FileText, CreditCard, Wrench, Download, ExternalLink, Plus, X } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { SkeletonDashboard } from '@/components/Skeleton'
 import type { Unit, Contract, Payment, Incident } from '@/types'
+
+const maintenanceStatusBadge: Record<string, string> = {
+  open: 'bg-red-500/15 text-red-500',
+  in_progress: 'bg-yellow-500/15 text-yellow-500',
+  waiting_parts: 'bg-blue-500/15 text-blue-400',
+  resolved: 'bg-green-500/15 text-green-500',
+  cancelled: 'bg-gray-500/15 text-gray-400',
+}
+
+const maintenanceStatusLabel: Record<string, string> = {
+  open: 'Abierto',
+  in_progress: 'En proceso',
+  waiting_parts: 'Esperando piezas',
+  resolved: 'Resuelto',
+  cancelled: 'Cancelado',
+}
+
+const priorityLabel: Record<string, string> = {
+  low: 'Baja',
+  medium: 'Normal',
+  high: 'Alta',
+  urgent: 'Urgente',
+}
 
 const statusLabels: Record<string, string> = {
   available: 'Disponible',
@@ -42,6 +65,9 @@ export default function UnitDetailPage() {
   const [payments, setPayments] = useState<(Payment & { contract: { unit: { number: string } } | null })[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [newIncident, setNewIncident] = useState({ title: '', description: '', priority: 'medium' })
 
   async function fetchData() {
     const id = params.id as string
@@ -56,8 +82,7 @@ export default function UnitDetailPage() {
         .from('incidents')
         .select('*')
         .eq('unit_id', id)
-        .order('created_at', { ascending: false })
-        .limit(5),
+        .order('created_at', { ascending: false }),
     ])
 
     setUnit(unitRes.data)
@@ -92,6 +117,25 @@ export default function UnitDetailPage() {
 
   const activeContract = contracts.find((c) => ['active', 'en_renovacion'].includes(c.status))
   const pendingPayments = payments.filter((p) => ['pending', 'late'].includes(p.status))
+
+  async function submitIncident() {
+    if (!newIncident.title.trim()) return
+    setSaving(true)
+    const { error } = await supabase.from('incidents').insert({
+      org_id: unit!.org_id,
+      unit_id: params.id as string,
+      title: newIncident.title,
+      description: newIncident.description || null,
+      priority: newIncident.priority,
+      status: 'open',
+    })
+    setSaving(false)
+    if (!error) {
+      setShowModal(false)
+      setNewIncident({ title: '', description: '', priority: 'medium' })
+      fetchData()
+    }
+  }
 
   function exportCSV() {
     const header = ['Depto', 'Inquilino', 'Mes', 'Vencimiento', 'Renta', 'Agua', 'Total', 'Pagado', 'Fecha pago', 'Método', 'Referencia', 'Status']
@@ -302,32 +346,107 @@ export default function UnitDetailPage() {
         </div>
       )}
 
-      {/* Incidents */}
-      {incidents.length > 0 && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
+      {/* Historial de Mantenimiento */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
             <Wrench className="w-4 h-4 text-indigo-400" />
-            <h2 className="font-semibold text-gray-900 dark:text-white">Mantenimiento reciente</h2>
+            <h2 className="font-semibold text-gray-900 dark:text-white">Historial de Mantenimiento</h2>
+            <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+              {incidents.length} incidencia{incidents.length !== 1 ? 's' : ''} histórica{incidents.length !== 1 ? 's' : ''} · {incidents.filter((i) => !['resolved', 'cancelled'].includes(i.status)).length} activa{incidents.filter((i) => !['resolved', 'cancelled'].includes(i.status)).length !== 1 ? 's' : ''}
+            </span>
           </div>
-          <div className="space-y-2">
-            {incidents.map((inc) => (
-              <div key={inc.id} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-800/50 last:border-0">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{inc.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(inc.created_at)}</p>
-                </div>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                  inc.status === 'resolved' ? 'bg-green-500/15 text-green-500' :
-                  inc.priority === 'urgent' ? 'bg-red-500/15 text-red-500' :
-                  'bg-yellow-500/15 text-yellow-500'
-                }`}>
-                  {inc.status === 'resolved' ? 'Resuelto' : inc.status === 'open' ? 'Abierto' : 'En proceso'}
-                </span>
-              </div>
-            ))}
-          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Reportar incidencia
+          </button>
         </div>
-      )}
+
+        {/* Inline modal */}
+        {showModal && (
+          <div className="mb-4 p-4 rounded-lg border border-indigo-500/30 bg-indigo-500/5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Nueva incidencia</h3>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-300">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Título *"
+                value={newIncident.title}
+                onChange={(e) => setNewIncident({ ...newIncident, title: e.target.value })}
+                className="input-field col-span-1 sm:col-span-2"
+              />
+              <textarea
+                placeholder="Descripción"
+                value={newIncident.description}
+                onChange={(e) => setNewIncident({ ...newIncident, description: e.target.value })}
+                rows={2}
+                className="input-field col-span-1 sm:col-span-2"
+              />
+              <select
+                value={newIncident.priority}
+                onChange={(e) => setNewIncident({ ...newIncident, priority: e.target.value })}
+                className="input-field"
+              >
+                <option value="low">Baja</option>
+                <option value="medium">Normal</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
+              </select>
+              <button
+                onClick={submitIncident}
+                disabled={saving || !newIncident.title.trim()}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-500 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {saving ? 'Guardando...' : 'Crear incidencia'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {incidents.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Fecha</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Título</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Descripción</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Prioridad</th>
+                  <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">Asignado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {incidents.map((inc) => (
+                  <tr key={inc.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td className="py-2 px-2 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(inc.created_at)}</td>
+                    <td className="py-2 px-2 text-sm font-medium text-gray-900 dark:text-white">{inc.title}</td>
+                    <td className="py-2 px-2 text-xs text-gray-500 dark:text-gray-400 hidden sm:table-cell max-w-[200px] truncate">{inc.description || '—'}</td>
+                    <td className="py-2 px-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${maintenanceStatusBadge[inc.status] || 'bg-gray-500/15 text-gray-400'}`}>
+                        {maintenanceStatusLabel[inc.status] || inc.status}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 hidden sm:table-cell">
+                      <span className="text-xs text-gray-600 dark:text-gray-300">{priorityLabel[inc.priority] || inc.priority}</span>
+                    </td>
+                    <td className="py-2 px-2 text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{inc.assigned_to || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-6">Sin historial de mantenimiento.</p>
+        )}
+      </div>
 
       {/* No data */}
       {contracts.length === 0 && incidents.length === 0 && (
