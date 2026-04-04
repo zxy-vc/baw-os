@@ -22,7 +22,7 @@ export async function GET(
   // Fetch contract by portal_token
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, unit_id, occupant_id, monthly_amount, water_fee, start_date, end_date, status, payment_day')
+    .select('id, unit_id, occupant_id, monthly_amount, start_date, end_date, status, payment_day')
     .eq('portal_token', token)
     .eq('portal_enabled', true)
     .single()
@@ -66,7 +66,7 @@ export async function GET(
     contract: {
       unit_id: contract.unit_id,
       monthly_amount: contract.monthly_amount,
-      water_fee: contract.water_fee,
+      water_fee: 250, // default agua
       start_date: contract.start_date,
       end_date: contract.end_date,
       status: contract.status,
