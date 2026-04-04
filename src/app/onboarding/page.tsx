@@ -131,7 +131,7 @@ export default function OnboardingWizard() {
                   i < step
                     ? 'bg-emerald-500 text-white'
                     : i === step
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-white text-black'
                     : 'bg-gray-700 text-gray-400'
                 }`}
               >
@@ -161,7 +161,7 @@ export default function OnboardingWizard() {
           {step === 0 && (
             <div className="space-y-6">
               <div className="text-center">
-                <Building2 className="w-10 h-10 text-indigo-500 mx-auto mb-3" />
+                <Building2 className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Bienvenido a BaW OS</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Configura tu propiedad en BaW OS en menos de 5 minutos.
@@ -212,7 +212,7 @@ export default function OnboardingWizard() {
                 <button
                   disabled={!step1Valid}
                   onClick={goToStep2}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   Continuar <ArrowRight className="w-4 h-4" />
                 </button>
@@ -269,7 +269,7 @@ export default function OnboardingWizard() {
 
               <button
                 onClick={addUnit}
-                className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white font-medium transition-colors"
               >
                 <Plus className="w-4 h-4" /> Agregar unidad
               </button>
@@ -284,7 +284,7 @@ export default function OnboardingWizard() {
                 <button
                   disabled={!step2Valid}
                   onClick={() => setStep(2)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
                 >
                   Continuar <ArrowRight className="w-4 h-4" />
                 </button>
@@ -362,7 +362,7 @@ export default function OnboardingWizard() {
 
               <button
                 onClick={addTenant}
-                className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white font-medium transition-colors"
               >
                 <Plus className="w-4 h-4" /> Agregar inquilino
               </button>
@@ -383,7 +383,7 @@ export default function OnboardingWizard() {
                   </button>
                   <button
                     onClick={() => { setStep(3); handleSubmit() }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-100 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     Continuar <ArrowRight className="w-4 h-4" />
                   </button>
@@ -411,7 +411,7 @@ export default function OnboardingWizard() {
                   <p className="text-sm text-gray-400">{error}</p>
                   <button
                     onClick={handleSubmit}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="px-5 py-2.5 bg-white hover:bg-gray-100 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     Reintentar
                   </button>
@@ -434,7 +434,7 @@ export default function OnboardingWizard() {
                   <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
                     <button
                       onClick={() => router.push('/')}
-                      className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                      className="px-6 py-2.5 bg-white hover:bg-gray-100 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       Ir al Dashboard →
                     </button>
