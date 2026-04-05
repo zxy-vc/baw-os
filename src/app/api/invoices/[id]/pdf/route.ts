@@ -1,12 +1,13 @@
 // BaW OS — Download invoice PDF
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/api-auth'
+import { createServiceClient, validateApiKey, unauthorized } from '@/lib/api-auth'
 import { downloadInvoice } from '@/lib/facturapi'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!validateApiKey(request)) return unauthorized()
   const supabase = createServiceClient()
 
   const { data: invoice, error } = await supabase

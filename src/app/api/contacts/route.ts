@@ -29,22 +29,42 @@ export async function GET(request: NextRequest) {
 
   if (error) return apiError(error.message, 500)
 
-  // Enrich with reservation count
+  // Enrich with reservation count — indexed lookup O(n+m) instead of O(n×m)
+  const names = (contacts || []).map((c) => c.name).filter(Boolean)
+  const emails = (contacts || []).map((c) => c.email).filter(Boolean)
+
+  if (!contacts?.length) return apiOk([])
+
   const { data: resCounts } = await supabase
     .from('reservations')
     .select('guest_name, guest_email, check_in')
     .eq('organization_id', orgId)
+    .or(`guest_name.in.(${names.map((n: string) => `"${n}"`).join(',')}),guest_email.in.(${emails.map((e: string) => `"${e}"`).join(',')})`)
     .order('check_in', { ascending: false })
 
-  const enriched = (contacts || []).map((c) => {
-    const matching = (resCounts || []).filter(
-      (r) => r.guest_name === c.name || (c.email && r.guest_email === c.email)
-    )
-    return {
-      ...c,
-      reservation_count: matching.length,
-      last_reservation: matching[0]?.check_in || null,
+  // Build lookup maps for O(1) access
+  const countByName = new Map<string, { count: number; last: string | null }>()
+  const countByEmail = new Map<string, { count: number; last: string | null }>()
+
+  for (const r of resCounts || []) {
+    if (r.guest_name) {
+      const entry = countByName.get(r.guest_name)
+      if (entry) { entry.count++ }
+      else { countByName.set(r.guest_name, { count: 1, last: r.check_in }) }
     }
+    if (r.guest_email) {
+      const entry = countByEmail.get(r.guest_email)
+      if (entry) { entry.count++ }
+      else { countByEmail.set(r.guest_email, { count: 1, last: r.check_in }) }
+    }
+  }
+
+  const enriched = contacts.map((c) => {
+    const byName = countByName.get(c.name)
+    const byEmail = c.email ? countByEmail.get(c.email) : undefined
+    const reservation_count = Math.max(byName?.count || 0, byEmail?.count || 0)
+    const last_reservation = byName?.last || byEmail?.last || null
+    return { ...c, reservation_count, last_reservation }
   })
 
   return apiOk(enriched)

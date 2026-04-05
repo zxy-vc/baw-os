@@ -16,10 +16,17 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
 
   const now = new Date()
-  const year = searchParams.get('year') || now.getFullYear().toString()
-  const month = searchParams.get('month') || (now.getMonth() + 1).toString().padStart(2, '0')
-  const from = `${year}-${month}-01`
-  const to = `${year}-${month}-31`
+  const year = parseInt(searchParams.get('year') || now.getFullYear().toString(), 10)
+  const month = parseInt(searchParams.get('month') || (now.getMonth() + 1).toString(), 10)
+
+  if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+    return apiError('Invalid year or month parameter')
+  }
+
+  const from = `${year}-${String(month).padStart(2, '0')}-01`
+  // Day 0 of next month = last day of current month
+  const lastDay = new Date(year, month, 0).getDate()
+  const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   const { data, error } = await supabase
     .from('expenses')
