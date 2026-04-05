@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const PUBLIC_PATHS = ['/portal', '/tenant']
+const PUBLIC_PATHS = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply', '/login']
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
