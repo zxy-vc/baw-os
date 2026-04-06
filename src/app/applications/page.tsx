@@ -66,7 +66,8 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { fetchApps() }, [fetchApps])
 
