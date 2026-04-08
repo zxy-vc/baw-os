@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           reference: paymentIntent.id,
           confirmed_by: 'stripe',
           confirmed_at: new Date().toISOString(),
-          payment_method: 'otro',
+          payment_method: 'stripe',
         })
         .eq('id', paymentId)
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
           amount: payment.amount - (payment.water_fee || 0),
           water_fee: payment.water_fee || 0,
           total: payment.amount,
-          payment_method: 'otro',
+          payment_method: 'stripe',
           confirmed_by: 'stripe',
           notes: `Stripe PI: ${paymentIntent.id}`,
         })

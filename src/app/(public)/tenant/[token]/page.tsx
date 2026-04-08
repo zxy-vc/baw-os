@@ -173,7 +173,6 @@ export default function TenantPortalPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           payment_id: payment.id,
-          contract_id: data?.contract?.id || '',
           amount: payment.amount,
           description: `Renta ${formatMonth(payment.month)}`,
         }),
