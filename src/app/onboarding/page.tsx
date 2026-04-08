@@ -126,6 +126,14 @@ export default function OnboardingWizard() {
   return (
     <div className="min-h-screen flex items-start justify-center pt-12 px-4 bg-black">
       <div className="w-full max-w-2xl">
+        {/* Regresar al dashboard */}
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-white transition-colors mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" /> Regresar al dashboard
+        </button>
+
         {/* Progress bar */}
         <div className="flex items-center justify-between mb-8">
           {STEPS.map((label, i) => (
