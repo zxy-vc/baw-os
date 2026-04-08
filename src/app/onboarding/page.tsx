@@ -166,7 +166,7 @@ export default function OnboardingWizard() {
             <div className="space-y-6">
               <div className="text-center">
                 <Building2 className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Bienvenido a BaW OS</h2>
+                <h2 className="text-xl font-bold text-white">Bienvenido a BaW OS</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Configura tu propiedad en BaW OS en menos de 5 minutos.
                 </p>
