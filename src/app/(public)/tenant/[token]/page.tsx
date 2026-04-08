@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 
 interface PortalData {
   contract: {
+    id?: string
     unit_id: string
     monthly_amount: number
     water_fee?: number
@@ -20,11 +21,13 @@ interface PortalData {
     type: string
   } | null
   payments: {
+    id: string
     month: string
     amount: number
     water_fee?: number
     status: string
     paid_date?: string
+    method?: string
   }[]
   incidents: {
     id: string
@@ -115,6 +118,11 @@ export default function TenantPortalPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null)
 
+  // Stripe payment state
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [paymentSuccess, setPaymentSuccess] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+
   useEffect(() => {
     fetch(`/api/tenant/${token}`)
       .then((res) => {
@@ -154,6 +162,55 @@ export default function TenantPortalPage() {
       setSubmitting(false)
     }
   }
+
+  async function handleStripePay(payment: PortalData['payments'][0]) {
+    setPayingId(payment.id)
+    setPaymentError(null)
+    setPaymentSuccess(false)
+    try {
+      const res = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_id: payment.id,
+          amount: payment.amount,
+          description: `Renta ${formatMonth(payment.month)}`,
+        }),
+      })
+      if (!res.ok) throw new Error('Error al crear sesión de pago')
+      const { clientSecret } = await res.json()
+
+      const { loadStripe } = await import('@stripe/stripe-js')
+      const stripeClient = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
+      )
+      if (!stripeClient) throw new Error('Stripe no disponible')
+
+      const { error: stripeError } = await stripeClient.confirmPayment({
+        clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/tenant/${token}?paid=1`,
+        },
+      })
+
+      if (stripeError) {
+        setPaymentError(stripeError.message || 'Error en el pago')
+      }
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : 'Error en el pago')
+    } finally {
+      setPayingId(null)
+    }
+  }
+
+  // Check for successful return from Stripe
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('paid=1')) {
+      setPaymentSuccess(true)
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   // Loading state
   if (loading) {
@@ -229,6 +286,32 @@ export default function TenantPortalPage() {
           </div>
         )}
 
+        {/* Payment success banner */}
+        {paymentSuccess && (
+          <div className="bg-green-50 border border-green-100 rounded-2xl p-4 flex items-start gap-3">
+            <span className="text-lg mt-0.5">✅</span>
+            <div>
+              <p className="text-green-800 font-semibold text-sm">
+                Pago procesado exitosamente
+              </p>
+              <p className="text-green-600 text-xs mt-1">
+                Tu pago con tarjeta fue recibido. Se actualizará en unos momentos.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Payment error banner */}
+        {paymentError && (
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start gap-3">
+            <span className="text-lg mt-0.5">❌</span>
+            <div>
+              <p className="text-red-800 font-semibold text-sm">Error en el pago</p>
+              <p className="text-red-600 text-xs mt-1">{paymentError}</p>
+            </div>
+          </div>
+        )}
+
         {/* Section 1 — Mi Depto */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex items-start justify-between mb-4">
@@ -292,24 +375,45 @@ export default function TenantPortalPage() {
               {payments.map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between p-3 bg-slate-50 rounded-xl transition-all duration-200 hover:shadow-sm"
+                  className="p-3 bg-slate-50 rounded-xl transition-all duration-200 hover:shadow-sm"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-slate-900 capitalize">{formatMonth(p.month)}</p>
-                    {p.paid_date && (
-                      <p className="text-xs text-slate-400 mt-0.5">Pagado {formatDate(p.paid_date)}</p>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 capitalize">{formatMonth(p.month)}</p>
+                      {p.paid_date && (
+                        <p className="text-xs text-slate-400 mt-0.5">Pagado {formatDate(p.paid_date)}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm font-bold text-slate-900">${formatCurrency(p.amount)}</p>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                          paymentStatusColors[p.status] || 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {paymentStatusLabels[p.status] || p.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm font-bold text-slate-900">${formatCurrency(p.amount)}</p>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                        paymentStatusColors[p.status] || 'bg-slate-100 text-slate-500'
-                      }`}
+                  {(p.status === 'pending' || p.status === 'late') && (
+                    <button
+                      onClick={() => handleStripePay(p)}
+                      disabled={payingId === p.id}
+                      className="mt-2 w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3 py-2 transition-all duration-200 flex items-center justify-center gap-2"
                     >
-                      {paymentStatusLabels[p.status] || p.status}
-                    </span>
-                  </div>
+                      {payingId === p.id ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Procesando...
+                        </>
+                      ) : (
+                        <>💳 Pagar con tarjeta</>
+                      )}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

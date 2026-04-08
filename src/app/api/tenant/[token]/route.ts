@@ -35,7 +35,7 @@ export async function GET(
   // Fetch last 6 payments
   const { data: payments } = await supabase
     .from('payments')
-    .select('due_date, amount, status, paid_date, water_fee')
+    .select('id, due_date, amount, status, paid_date, water_fee, method')
     .eq('contract_id', contract.id)
     .order('due_date', { ascending: false })
     .limit(6)
@@ -50,6 +50,7 @@ export async function GET(
 
   return NextResponse.json({
     contract: {
+      id: contract.id,
       unit_id: contract.unit_id,
       monthly_amount: contract.monthly_amount,
       water_fee: contract.water_fee,
@@ -63,11 +64,13 @@ export async function GET(
       ? { unit_number: unit.number, floor: unit.floor, type: unit.type }
       : null,
     payments: (payments || []).map((p) => ({
+      id: p.id,
       month: p.due_date,
       amount: p.amount,
       water_fee: p.water_fee,
       status: p.status,
       paid_date: p.paid_date,
+      method: p.method,
     })),
     incidents: incidents || [],
   })
