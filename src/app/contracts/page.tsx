@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw, ChevronDown, ChevronUp, PenTool, CheckCircle2, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
@@ -48,7 +48,7 @@ export default function ContractsPage() {
     // Always fetch all for alerts computation
     const { data: all } = await supabase
       .from('contracts')
-      .select('*, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
+      .select('*, signature_status, mifiel_document_id, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
       .order('created_at', { ascending: false })
 
     setAllContracts(all || [])
@@ -356,6 +356,26 @@ export default function ContractsPage() {
                               <AlertTriangle className="w-3 h-3" />
                               {getAlertText(alertLevel, days)}
                             </span>
+                          )}
+                          {contract.signature_status === 'signed' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Firmado
+                            </span>
+                          ) : contract.signature_status === 'pending' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                              <Clock className="w-3 h-3" />
+                              En proceso
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/contracts/${contract.id}`}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <PenTool className="w-3 h-3" />
+                              Firmar
+                            </Link>
                           )}
                         </div>
                       </div>

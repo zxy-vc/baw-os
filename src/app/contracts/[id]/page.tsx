@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink, RefreshCw, Copy, Send } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Trash2, Check, ExternalLink, RefreshCw, Copy, Send, PenTool, Loader2, CheckCircle2, Clock, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
@@ -25,6 +25,12 @@ export default function ContractDetailPage() {
   const [savingDrive, setSavingDrive] = useState(false)
   const [togglingPortal, setTogglingPortal] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [signatureModal, setSignatureModal] = useState(false)
+  const [signerEmail, setSignerEmail] = useState('')
+  const [sendingSignature, setSendingSignature] = useState(false)
+  const [signatureResult, setSignatureResult] = useState<{ widgetUrl?: string } | null>(null)
+  const [signatureSigners, setSignatureSigners] = useState<{ email: string; signed: boolean; signedAt: string | null }[]>([])
+  const [loadingSignature, setLoadingSignature] = useState(false)
   const toast = useToast()
 
   async function fetchData() {
@@ -32,7 +38,7 @@ export default function ContractDetailPage() {
     const [contractRes, paymentsRes] = await Promise.all([
       supabase
         .from('contracts')
-        .select('*, portal_token, portal_enabled, unit:units(number, floor, type), occupant:occupants(name, phone, email, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
+        .select('*, portal_token, portal_enabled, mifiel_document_id, signature_status, unit:units(number, floor, type), occupant:occupants(name, phone, email, rfc, razon_social, regimen_fiscal, cp_fiscal, email_factura, requiere_factura)')
         .eq('id', contractId)
         .single(),
       supabase
@@ -47,9 +53,54 @@ export default function ContractDetailPage() {
     setLoading(false)
   }
 
+  async function fetchSignatureStatus(docId: string) {
+    setLoadingSignature(true)
+    try {
+      const res = await fetch(`/api/mifiel/status/${docId}`)
+      const json = await res.json()
+      if (json.success) {
+        setSignatureSigners(json.data.signers || [])
+      }
+    } catch { /* ignore */ }
+    setLoadingSignature(false)
+  }
+
+  async function handleSendSignature() {
+    if (!contract || !signerEmail) return
+    setSendingSignature(true)
+    try {
+      const occupantName = (contract.occupant as { name: string } | null)?.name || 'Firmante'
+      const res = await fetch('/api/mifiel/create-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contract_id: contract.id,
+          signers: [{ name: occupantName, email: signerEmail }],
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setSignatureResult({ widgetUrl: json.data.widgetUrl })
+        setContract({ ...contract, signature_status: 'pending', mifiel_document_id: json.data.documentId })
+        toast.success('Documento enviado para firma')
+      } else {
+        toast.error(json.error || 'Error al crear documento')
+      }
+    } catch {
+      toast.error('Error de conexión')
+    }
+    setSendingSignature(false)
+  }
+
   useEffect(() => {
     fetchData()
   }, [params.id])
+
+  useEffect(() => {
+    if (contract?.mifiel_document_id && contract.signature_status === 'pending') {
+      fetchSignatureStatus(contract.mifiel_document_id)
+    }
+  }, [contract?.mifiel_document_id])
 
   async function handleDeleteOccupant() {
     if (!contract) return
@@ -488,6 +539,150 @@ export default function ContractDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Firma Digital */}
+      <div className="card">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+          Firma Digital
+        </h3>
+        {contract.signature_status === 'signed' ? (
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
+                Contrato firmado digitalmente
+              </span>
+            </div>
+          </div>
+        ) : contract.signature_status === 'pending' ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-yellow-400" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded-full text-xs font-medium">
+                Pendiente de firma
+              </span>
+            </div>
+            {loadingSignature ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Consultando estado...
+              </div>
+            ) : signatureSigners.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 dark:text-gray-500">Firmantes:</p>
+                {signatureSigners.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    {s.signed ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-yellow-400" />
+                    )}
+                    <span className="text-gray-700 dark:text-gray-300">{s.email}</span>
+                    {s.signed && s.signedAt && (
+                      <span className="text-xs text-gray-400">
+                        — {new Date(s.signedAt).toLocaleDateString('es-MX')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div>
+            <button
+              onClick={() => {
+                setSignerEmail(occupant?.email || '')
+                setSignatureResult(null)
+                setSignatureModal(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <PenTool className="w-4 h-4" />
+              Enviar para firma digital
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Signature Modal */}
+      {signatureModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="card w-full max-w-md mx-4 relative">
+            <button
+              onClick={() => setSignatureModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              Firma digital — Mifiel
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Se enviará un email al firmante con el link para firmar el contrato.
+            </p>
+            {signatureResult?.widgetUrl ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="text-sm font-medium">Documento creado</span>
+                </div>
+                <p className="text-sm text-gray-400">
+                  El firmante recibirá un email con instrucciones. También puedes compartir el link del widget:
+                </p>
+                <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3">
+                  <p className="text-xs text-gray-300 font-mono break-all">{signatureResult.widgetUrl}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(signatureResult.widgetUrl!)
+                    toast.success('Link copiado')
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copiar link
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    Email del firmante
+                  </label>
+                  <input
+                    type="email"
+                    value={signerEmail}
+                    onChange={(e) => setSignerEmail(e.target.value)}
+                    className="input-field w-full"
+                    placeholder="inquilino@email.com"
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setSignatureModal(false)}
+                    className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSendSignature}
+                    disabled={sendingSignature || !signerEmail}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {sendingSignature ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <PenTool className="w-4 h-4" />
+                    )}
+                    Enviar para firma
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Portal Inquilino */}
       <div className="card">

@@ -417,9 +417,15 @@ export default function CobrosPage() {
                         </button>
                       ) : (
                         <div className="flex items-center justify-center gap-2">
-                          <span className="text-xs text-gray-400 dark:text-gray-500">
-                            {row.payment?.method || '—'}
-                          </span>
+                          {row.payment?.method === 'stripe' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                              Pagado por Stripe
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {row.payment?.method || '—'}
+                            </span>
+                          )}
                           {row.payment && (
                             <button
                               onClick={() => setInvoicingRow(row)}

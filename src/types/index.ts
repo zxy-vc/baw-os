@@ -87,6 +87,9 @@ export interface Contract {
   // Portal Inquilino
   portal_token?: string
   portal_enabled?: boolean
+  // Mifiel digital signature
+  mifiel_document_id?: string
+  signature_status?: 'none' | 'pending' | 'signed'
   created_at: string
   updated_at: string
   // Relations (joined)
