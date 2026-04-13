@@ -52,6 +52,10 @@ CREATE POLICY "service_role_intake" ON tenant_applications
 CREATE POLICY "anon_read_by_token" ON tenant_applications
   FOR SELECT TO anon USING (true);
 
+-- Anon puede crear borradores (link público / vista interna simple)
+CREATE POLICY "anon_insert_intake" ON tenant_applications
+  FOR INSERT TO anon WITH CHECK (true);
+
 -- Anon puede actualizar por token (para envío del form público)
 CREATE POLICY "anon_update_by_token" ON tenant_applications
   FOR UPDATE TO anon USING (true);

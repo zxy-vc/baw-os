@@ -25,11 +25,11 @@ interface Unit {
 const TASK_TYPES = ['Limpieza', 'Check-in', 'Check-out', 'Mantenimiento', 'Revisión']
 
 const TYPE_BADGE: Record<string, string> = {
-  Limpieza: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  'Check-in': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  'Check-out': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  Mantenimiento: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  Revisión: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  Limpieza: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/20 dark:text-cyan-300',
+  'Check-in': 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-300',
+  'Check-out': 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-300',
+  Mantenimiento: 'bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-300',
+  Revisión: 'bg-purple-500/10 text-purple-700 border-purple-500/20 dark:text-purple-300',
 }
 
 const EMPTY_FORM = {
@@ -164,10 +164,10 @@ export default function HousekeepingPage() {
             <ClipboardList className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
               Housekeeping
             </h1>
-            <p className="text-sm text-gray-400 [html.light_&]:text-gray-500 capitalize">
+            <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
               {todayLabel()}
             </p>
           </div>
@@ -185,15 +185,15 @@ export default function HousekeepingPage() {
       <div className="grid grid-cols-3 gap-3">
         <div className="card p-3 text-center">
           <p className="text-2xl font-bold text-amber-400">{pending.length}</p>
-          <p className="text-xs text-gray-400 [html.light_&]:text-gray-500">Pendientes</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Pendientes</p>
         </div>
         <div className="card p-3 text-center">
           <p className="text-2xl font-bold text-blue-400">{inProgress.length}</p>
-          <p className="text-xs text-gray-400 [html.light_&]:text-gray-500">En progreso</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400">En progreso</p>
         </div>
         <div className="card p-3 text-center">
           <p className="text-2xl font-bold text-emerald-400">{done.length}</p>
-          <p className="text-xs text-gray-400 [html.light_&]:text-gray-500">Completadas</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Completadas</p>
         </div>
       </div>
 
@@ -213,16 +213,16 @@ export default function HousekeepingPage() {
             <div key={group.key}>
               <div className="flex items-center gap-2 mb-3">
                 <div className={`w-2.5 h-2.5 rounded-full ${group.color}`} />
-                <h2 className="text-sm font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
                   {group.emoji} {group.label}
                 </h2>
-                <span className="text-xs text-gray-500 bg-gray-800/50 [html.light_&]:bg-gray-100 px-2 py-0.5 rounded-full">
+                <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50 px-2 py-0.5 rounded-full">
                   {group.items.length}
                 </span>
               </div>
 
               {group.items.length === 0 ? (
-                <p className="text-xs text-gray-600 [html.light_&]:text-gray-400 py-3 px-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 py-3 px-4">
                   Sin tareas {group.label.toLowerCase()}
                 </p>
               ) : (
@@ -234,7 +234,7 @@ export default function HousekeepingPage() {
                     >
                       {/* Unit */}
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+                        <span className="text-base font-semibold text-gray-900 dark:text-white">
                           {extractUnit(task)}
                         </span>
                         {task.task_type && (
@@ -252,7 +252,7 @@ export default function HousekeepingPage() {
                               {task.assigned_to.charAt(0)}
                             </span>
                           </div>
-                          <span className="text-xs text-gray-400 [html.light_&]:text-gray-500 capitalize">
+                          <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">
                             {task.assigned_to}
                           </span>
                         </div>
@@ -260,11 +260,11 @@ export default function HousekeepingPage() {
 
                       {/* Notes */}
                       {task.description && (
-                        <p className="text-xs text-gray-500 line-clamp-2">{task.description}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{task.description}</p>
                       )}
 
                       {/* Time */}
-                      <div className="flex items-center gap-1 text-xs text-gray-600 [html.light_&]:text-gray-400">
+                      <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                         <Clock className="w-3 h-3" />
                         {new Date(task.created_at).toLocaleTimeString('es-MX', {
                           hour: '2-digit',
@@ -277,7 +277,7 @@ export default function HousekeepingPage() {
                         {group.key === 'pending' && (
                           <button
                             onClick={() => updateStatus(task.id, 'in_progress')}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
                           >
                             <Play className="w-3 h-3" /> Iniciar
                           </button>
@@ -285,13 +285,13 @@ export default function HousekeepingPage() {
                         {(group.key === 'pending' || group.key === 'in_progress') && (
                           <button
                             onClick={() => updateStatus(task.id, 'done')}
-                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
                           >
                             <CheckCircle2 className="w-3 h-3" /> Completar
                           </button>
                         )}
                         {group.key === 'done' && (
-                          <span className="text-xs text-gray-600 [html.light_&]:text-gray-400 py-1.5">
+                          <span className="text-xs text-gray-600 dark:text-gray-400 py-1.5">
                             ✓ Completada
                           </span>
                         )}
@@ -310,17 +310,17 @@ export default function HousekeepingPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="card w-full max-w-md mx-4 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Nueva tarea de housekeeping
               </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white [html.light_&]:hover:text-gray-900">
+              <button onClick={() => setShowModal(false)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-400 [html.light_&]:text-gray-500 mb-1">Unidad *</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-400 mb-1">Unidad *</label>
                 <select
                   value={form.unit}
                   onChange={(e) => setForm({ ...form, unit: e.target.value })}
@@ -334,7 +334,7 @@ export default function HousekeepingPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 [html.light_&]:text-gray-500 mb-1">Tipo *</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-400 mb-1">Tipo *</label>
                 <select
                   value={form.task_type}
                   onChange={(e) => setForm({ ...form, task_type: e.target.value })}
@@ -347,7 +347,7 @@ export default function HousekeepingPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 [html.light_&]:text-gray-500 mb-1">Asignado a</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-400 mb-1">Asignado a</label>
                 <input
                   type="text"
                   value={form.assigned_to}
@@ -358,7 +358,7 @@ export default function HousekeepingPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 [html.light_&]:text-gray-500 mb-1">Notas</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-400 mb-1">Notas</label>
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -372,7 +372,7 @@ export default function HousekeepingPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900"
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               >
                 Cancelar
               </button>
