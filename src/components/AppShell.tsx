@@ -56,7 +56,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
   const title = getPageTitle(pathname)
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3">
+    <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 pl-20 pr-4 md:px-6 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="hidden sm:inline-flex items-center px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-xs font-medium">

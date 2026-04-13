@@ -51,16 +51,14 @@ export default function ApplicationsPage() {
   const fetchApps = useCallback(async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('tenant_applications')
-        .select('*, unit:units(id, number, floor, type)')
-        .order('created_at', { ascending: false })
+      const res = await fetch('/api/applications', { cache: 'no-store' })
+      const json = await res.json()
 
-      if (error) {
-        toast.error(error.message)
+      if (!res.ok || !json.success) {
+        toast.error(json.error || 'Error al cargar expedientes')
         return
       }
-      setApps((data as TenantApplication[]) || [])
+      setApps((json.data as TenantApplication[]) || [])
     } catch {
       toast.error('Error al cargar aplicaciones')
     } finally {
@@ -74,17 +72,19 @@ export default function ApplicationsPage() {
   async function handleCreate() {
     setCreating(true)
     try {
-      const { data, error } = await supabase
-        .from('tenant_applications')
-        .insert({ org_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2' })
-        .select()
-        .single()
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      })
+      const json = await res.json()
 
-      if (error) {
-        toast.error(error.message)
+      if (!res.ok || !json.success) {
+        toast.error(json.error || 'Error al crear aplicación')
         return
       }
 
+      const data = json.data
       const appUrl = window.location.origin
       const link = `${appUrl}/apply/${data.token}`
       await navigator.clipboard.writeText(link)

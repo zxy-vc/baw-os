@@ -3,8 +3,6 @@ import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
-
   try {
     const supabase = createServiceClient()
     const orgId = getOrgId()
@@ -29,8 +27,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
-
   try {
     const supabase = createServiceClient()
     const orgId = getOrgId()

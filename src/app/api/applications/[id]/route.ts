@@ -6,8 +6,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!validateApiKey(request)) return unauthorized()
-
   try {
     const { id } = await params
     const supabase = createServiceClient()
@@ -31,8 +29,6 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!validateApiKey(request)) return unauthorized()
-
   try {
     const { id } = await params
     const supabase = createServiceClient()

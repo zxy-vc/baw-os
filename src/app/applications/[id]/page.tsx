@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
 import { SkeletonTable } from '@/components/Skeleton'
 import {
@@ -46,19 +45,16 @@ export default function ApplicationDetailPage() {
 
   const fetchApp = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('tenant_applications')
-        .select('*, unit:units(id, number, floor, type)')
-        .eq('id', id)
-        .single()
+      const res = await fetch(`/api/applications/${id}`, { cache: 'no-store' })
+      const json = await res.json()
 
-      if (error || !data) {
+      if (!res.ok || !json.success || !json.data) {
         toast.error('Expediente no encontrado')
         router.push('/applications')
         return
       }
-      setApp(data as TenantApplication)
-      setNotes(data.notes || '')
+      setApp(json.data as TenantApplication)
+      setNotes(json.data.notes || '')
     } catch {
       toast.error('Error al cargar')
     } finally {
@@ -72,18 +68,15 @@ export default function ApplicationDetailPage() {
     if (!app) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('tenant_applications')
-        .update({
-          status,
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: 'admin',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', app.id)
+      const res = await fetch(`/api/applications/${app.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, reviewed_by: 'admin' })
+      })
+      const json = await res.json()
 
-      if (error) {
-        toast.error(error.message)
+      if (!res.ok || !json.success) {
+        toast.error(json.error || 'Error al actualizar')
         return
       }
       toast.success(status === 'approved' ? 'Aplicación aprobada' : status === 'rejected' ? 'Aplicación rechazada' : 'Status actualizado')
@@ -99,13 +92,15 @@ export default function ApplicationDetailPage() {
     if (!app) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('tenant_applications')
-        .update({ notes, updated_at: new Date().toISOString() })
-        .eq('id', app.id)
+      const res = await fetch(`/api/applications/${app.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes })
+      })
+      const json = await res.json()
 
-      if (error) {
-        toast.error(error.message)
+      if (!res.ok || !json.success) {
+        toast.error(json.error || 'Error al guardar')
         return
       }
       toast.success('Notas guardadas')
