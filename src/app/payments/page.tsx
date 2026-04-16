@@ -257,7 +257,7 @@ export default function PaymentsPage() {
         </div>
         <button
           onClick={openPayModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Registrar pago
@@ -581,7 +581,7 @@ export default function PaymentsPage() {
                 <button
                   type="submit"
                   disabled={savingPayment}
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <CreditCard className="w-4 h-4" />
                   {savingPayment ? 'Guardando...' : 'Registrar pago'}

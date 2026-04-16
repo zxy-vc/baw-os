@@ -548,7 +548,7 @@ export default function ContractsPage() {
                 <button
                   onClick={handleSaveEdit}
                   disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
                   Guardar
