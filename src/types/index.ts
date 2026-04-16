@@ -19,9 +19,35 @@ export interface Organization {
   name: string
   slug: string
   logo_url?: string
+  phone?: string
+  email?: string
+  address?: string
+  city?: string
   settings: Record<string, unknown>
   created_at: string
   updated_at: string
+}
+
+export interface UserProfile {
+  id: string
+  full_name?: string
+  phone?: string
+  job_title?: string
+  avatar_url?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface OrgMember {
+  id: string
+  org_id: string
+  user_id: string
+  role: MemberRole
+  is_active: boolean
+  invited_email?: string
+  created_at: string
+  profile?: UserProfile | null
+  email?: string | null
 }
 
 export interface Unit {
