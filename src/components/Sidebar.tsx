@@ -3,38 +3,58 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageSquare, MessageCircle, ClipboardList, CheckSquare, BookOpen, AlertOctagon, Settings2, FileCheck, FileUp, Globe } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageCircle, ClipboardList, CheckSquare, BookOpen, AlertOctagon, Settings2, FileCheck, FileUp, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Notificaciones', href: '/notifications', icon: Bell },
-  { name: 'Unidades', href: '/units', icon: Building2 },
-  { name: 'Contratos', href: '/contracts', icon: FileText },
-  { name: 'Expedientes', href: '/applications', icon: FileCheck },
-  { name: 'Cobros', href: '/cobros', icon: Receipt },
-  { name: 'Facturas', href: '/invoices', icon: FileText },
-  { name: 'Morosidad', href: '/mora', icon: AlertOctagon },
-  { name: 'Bitácora', href: '/ledger', icon: BookOpen },
-  { name: 'Gastos', href: '/gastos', icon: TrendingDown },
-  { name: 'Reportes', href: '/reportes', icon: BarChart3 },
-  { name: 'Pagos', href: '/payments', icon: CreditCard },
-  { name: 'Reportes CSV', href: '/reports', icon: BarChart3 },
-  { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
-  { name: 'Housekeeping', href: '/housekeeping', icon: ClipboardList },
-  { name: 'Precios', href: '/pricing', icon: DollarSign },
-  { name: 'Cotizador', href: '/quotes', icon: Calculator },
-  { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
-  { name: 'Canales', href: '/channels', icon: Globe },
-  { name: 'API Docs', href: '/api-docs', icon: Code2 },
-  { name: 'Contactos', href: '/contacts', icon: Users },
-  { name: 'Tareas', href: '/tasks', icon: CheckSquare },
-  { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle },
-  { name: 'Audit Log', href: '/audit', icon: ClipboardList },
-  { name: 'Importar CSV', href: '/onboarding/bulk', icon: FileUp },
-  { name: 'Configuración', href: '/onboarding', icon: Settings2 },
+const navigationGroups = [
+  {
+    title: 'Operación',
+    items: [
+      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { name: 'Notificaciones', href: '/notifications', icon: Bell },
+      { name: 'Unidades', href: '/units', icon: Building2 },
+      { name: 'Expedientes', href: '/applications', icon: FileCheck },
+      { name: 'Contratos', href: '/contracts', icon: FileText },
+      { name: 'Cobros', href: '/cobros', icon: Receipt },
+      { name: 'Pagos', href: '/payments', icon: CreditCard },
+      { name: 'Morosidad', href: '/mora', icon: AlertOctagon },
+      { name: 'Bitácora', href: '/ledger', icon: BookOpen },
+    ],
+  },
+  {
+    title: 'Servicio',
+    items: [
+      { name: 'Tareas', href: '/tasks', icon: CheckSquare },
+      { name: 'Housekeeping', href: '/housekeeping', icon: ClipboardList },
+      { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
+      { name: 'Contactos', href: '/contacts', icon: Users },
+      { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle },
+    ],
+  },
+  {
+    title: 'Comercial STR',
+    items: [
+      { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
+      { name: 'Precios', href: '/pricing', icon: DollarSign },
+      { name: 'Cotizador', href: '/quotes', icon: Calculator },
+      { name: 'Canales', href: '/channels', icon: Globe },
+    ],
+  },
+  {
+    title: 'Administración',
+    items: [
+      { name: 'Facturas', href: '/invoices', icon: FileText },
+      { name: 'Gastos', href: '/gastos', icon: TrendingDown },
+      { name: 'Reportes', href: '/reportes', icon: BarChart3 },
+      { name: 'Reportes CSV', href: '/reports', icon: BarChart3 },
+      { name: 'Audit Log', href: '/audit', icon: ClipboardList },
+      { name: 'Importar CSV', href: '/onboarding/bulk', icon: FileUp },
+      { name: 'Configuración', href: '/onboarding', icon: Settings2 },
+      { name: 'API Docs', href: '/api-docs', icon: Code2 },
+    ],
+  },
 ]
 
 export default function Sidebar() {
@@ -130,33 +150,40 @@ export default function Sidebar() {
           </Link>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {navigation.map((item) => {
-            const isActive =
-              item.href === '/'
-                ? pathname === '/'
-                : pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-gray-800 text-white [html.light_&]:bg-gray-100 [html.light_&]:text-gray-700'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200'
-                )}
-              >
-                <item.icon className="w-5 h-5" />
-                {item.name}
-                {item.name === 'Notificaciones' && unreadCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+          {navigationGroups.map((group) => (
+            <div key={group.title} className="space-y-1">
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 [html.light_&]:text-gray-500">
+                {group.title}
+              </p>
+              {group.items.map((item) => {
+                const isActive =
+                  item.href === '/'
+                    ? pathname === '/'
+                    : pathname.startsWith(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-gray-800 text-white [html.light_&]:bg-gray-100 [html.light_&]:text-gray-700'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200'
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.name}
+                    {item.name === 'Notificaciones' && unreadCount > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="px-3 py-3 border-t border-gray-800 [html.light_&]:border-gray-200 space-y-2">
