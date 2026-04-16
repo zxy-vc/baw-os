@@ -101,7 +101,7 @@ export default function NotificationsPage() {
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white dark:text-white [html.light_&]:text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Notificaciones
           </h1>
           <p className="text-sm text-gray-400 [html.light_&]:text-gray-500 mt-1">
