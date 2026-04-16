@@ -34,8 +34,55 @@ export interface Unit {
   area_m2?: number
   bedrooms?: number
   bathrooms?: number
-  amenities?: string[]
+  title?: string
+  slug?: string
+  description_short?: string
+  description_long?: string
+  amenities?: string[] | AmenityItem[]
   notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export type SpaceKind = 'bedroom' | 'bathroom' | 'kitchen' | 'living_room' | 'dining_room' | 'workspace' | 'balcony' | 'terrace' | 'laundry' | 'exterior' | 'other'
+export type MediaKind = 'image' | 'floorplan' | 'document' | 'video'
+export type MediaVisibility = 'internal' | 'public'
+
+export interface AmenityItem {
+  label: string
+  category?: string
+}
+
+export interface UnitSpace {
+  id: string
+  org_id?: string
+  unit_id: string
+  name: string
+  kind: SpaceKind
+  sort_order: number
+  description?: string
+  cover_asset_id?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface MediaAsset {
+  id: string
+  org_id?: string
+  unit_id: string
+  unit_space_id?: string
+  kind: MediaKind
+  visibility: MediaVisibility
+  title?: string
+  alt_text?: string
+  caption?: string
+  storage_bucket?: string
+  storage_path?: string
+  file_url?: string
+  mime_type?: string
+  sort_order: number
+  is_cover: boolean
+  metadata?: Record<string, unknown>
   created_at: string
   updated_at: string
 }
