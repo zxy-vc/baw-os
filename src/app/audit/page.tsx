@@ -79,10 +79,10 @@ export default function AuditPage() {
           <ClipboardList className="w-5 h-5 text-indigo-400" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+          <h1 className="text-xl font-semibold page-title">
             Audit Log
           </h1>
-          <p className="text-sm text-gray-400 [html.light_&]:text-gray-500">
+          <p className="text-sm page-subtitle">
             Registro de acciones del sistema
           </p>
         </div>

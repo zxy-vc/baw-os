@@ -623,11 +623,11 @@ export default function ApiDocsPage() {
           <div className="p-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30">
             <Code2 className="w-5 h-5 text-indigo-400" />
           </div>
-          <h1 className="text-2xl font-bold text-white [html.light_&]:text-gray-900">
+          <h1 className="text-2xl font-bold page-title">
             API Documentation
           </h1>
         </div>
-        <p className="text-sm text-gray-400 [html.light_&]:text-gray-500 mt-2">
+        <p className="text-sm page-subtitle mt-2">
           BaW OS REST API — {endpoints.length} endpoints disponibles
         </p>
       </div>
@@ -667,7 +667,7 @@ export default function ApiDocsPage() {
       {/* Endpoints by group */}
       {groups.map(group => (
         <div key={group} className="mb-10">
-          <h2 className="text-lg font-bold text-white [html.light_&]:text-gray-900 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold section-title mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-500" />
             {group}
           </h2>

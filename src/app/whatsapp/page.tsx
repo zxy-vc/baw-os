@@ -142,7 +142,7 @@ export default function WhatsAppPage() {
         </div>
         <div>
           <h1 className="text-lg font-semibold text-gray-100 [html.light_&]:text-gray-900">WhatsApp</h1>
-          <p className="text-sm text-gray-400 [html.light_&]:text-gray-500">Meta Cloud API — Mensajería automatizada</p>
+          <p className="text-sm page-subtitle">Meta Cloud API — Mensajería automatizada</p>
         </div>
       </div>
 

@@ -118,10 +118,10 @@ export default function TasksPage() {
             <CheckSquare className="w-5 h-5 text-indigo-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+            <h1 className="text-xl font-semibold page-title">
               Tareas
             </h1>
-            <p className="text-sm text-gray-400 [html.light_&]:text-gray-500">
+            <p className="text-sm page-subtitle">
               {tasks.length} tareas · {tasksByStatus('done').length} completadas
             </p>
           </div>
@@ -150,7 +150,7 @@ export default function TasksPage() {
             <div key={col.key} className="card p-4">
               <div className="flex items-center gap-2 mb-4">
                 <div className={`w-2.5 h-2.5 rounded-full ${col.color}`} />
-                <h2 className="text-sm font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+                <h2 className="text-sm font-semibold section-title">
                   {col.label}
                 </h2>
                 <span className="ml-auto text-xs text-gray-500 bg-gray-800/50 [html.light_&]:bg-gray-100 px-2 py-0.5 rounded-full">
@@ -169,7 +169,7 @@ export default function TasksPage() {
                       key={task.id}
                       className="rounded-lg border border-gray-800 dark:border-gray-800 [html.light_&]:border-gray-200 p-3 space-y-2 bg-gray-900/50 [html.light_&]:bg-white"
                     >
-                      <p className="text-sm font-medium text-white dark:text-white [html.light_&]:text-gray-900">
+                      <p className="text-sm font-medium section-title">
                         {task.title}
                       </p>
 
@@ -235,7 +235,7 @@ export default function TasksPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="card w-full max-w-md mx-4 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white dark:text-white [html.light_&]:text-gray-900">
+              <h2 className="text-lg font-semibold section-title">
                 Nueva tarea
               </h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white [html.light_&]:hover:text-gray-900">

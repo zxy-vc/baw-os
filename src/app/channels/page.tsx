@@ -124,7 +124,7 @@ export default function ChannelsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <Globe className="w-6 h-6 text-gray-400" />
-          <h1 className="text-2xl font-bold text-white [html.light_&]:text-gray-900">
+          <h1 className="text-2xl font-bold page-title">
             Channel Manager
           </h1>
           <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-gray-800 text-gray-400 border border-gray-700 [html.light_&]:bg-gray-100 [html.light_&]:text-gray-500 [html.light_&]:border-gray-300">
@@ -174,7 +174,7 @@ export default function ChannelsPage() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{ch.logo}</span>
-                <span className="text-sm font-semibold text-white [html.light_&]:text-gray-900">
+                <span className="text-sm font-semibold section-title">
                   {ch.label}
                 </span>
               </div>
@@ -188,7 +188,7 @@ export default function ChannelsPage() {
                 {ch.connected ? 'Conectado' : 'Sin datos'}
               </span>
             </div>
-            <p className="text-2xl font-bold text-white [html.light_&]:text-gray-900">
+            <p className="text-2xl font-bold section-title">
               {ch.count}
             </p>
             <p className="text-xs text-gray-500 mt-1">reservaciones activas</p>
@@ -199,7 +199,7 @@ export default function ChannelsPage() {
       {/* Reservations table */}
       <div className="rounded-xl border border-gray-800 overflow-hidden [html.light_&]:border-gray-200">
         <div className="px-5 py-4 border-b border-gray-800 [html.light_&]:border-gray-200">
-          <h2 className="text-sm font-semibold text-white [html.light_&]:text-gray-900">
+          <h2 className="text-sm font-semibold section-title">
             Reservaciones recientes por canal
           </h2>
         </div>
@@ -247,7 +247,7 @@ export default function ChannelsPage() {
                     <td className="px-5 py-3 text-gray-300 [html.light_&]:text-gray-700">
                       {(Array.isArray(r.units) ? r.units[0]?.label : r.units?.label) || '—'}
                     </td>
-                    <td className="px-5 py-3 text-white font-medium [html.light_&]:text-gray-900">
+                    <td className="px-5 py-3 text-gray-900 dark:text-white font-medium">
                       {r.guest_name}
                     </td>
                     <td className="px-5 py-3">
