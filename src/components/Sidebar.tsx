@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageCircle, ClipboardList, CheckSquare, BookOpen, AlertOctagon, Settings2, FileCheck, FileUp, Globe } from 'lucide-react'
+import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageCircle, ClipboardList, CheckSquare, BookOpen, AlertOctagon, Settings2, FileCheck, FileUp, Globe, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useTheme } from '@/components/ThemeProvider'
@@ -61,6 +61,12 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    Operación: false,
+    Servicio: true,
+    'Comercial STR': true,
+    Administración: true,
+  })
   const { theme, toggleTheme } = useTheme()
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -84,6 +90,25 @@ export default function Sidebar() {
   useEffect(() => {
     setOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('baw-sidebar-groups')
+      if (raw) {
+        setCollapsedGroups((prev) => ({ ...prev, ...JSON.parse(raw) }))
+      }
+    } catch {}
+  }, [])
+
+  function toggleGroup(title: string) {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [title]: !prev[title] }
+      try {
+        window.localStorage.setItem('baw-sidebar-groups', JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -153,10 +178,15 @@ export default function Sidebar() {
         <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
           {navigationGroups.map((group) => (
             <div key={group.title} className="space-y-1">
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 [html.light_&]:text-gray-500">
-                {group.title}
-              </p>
-              {group.items.map((item) => {
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.title)}
+                className="w-full flex items-center justify-between px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 [html.light_&]:text-gray-500 hover:text-gray-300 [html.light_&]:hover:text-gray-700 transition-colors"
+              >
+                <span>{group.title}</span>
+                {collapsedGroups[group.title] ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+              {!collapsedGroups[group.title] && group.items.map((item) => {
                 const isActive =
                   item.href === '/'
                     ? pathname === '/'
