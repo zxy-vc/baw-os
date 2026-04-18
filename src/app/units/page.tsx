@@ -100,43 +100,43 @@ export default function UnitsPage() {
     fetchUnits()
   }
 
-  const displayTotal = Math.max(counts.total, 120)
+  const displayTotal = counts.total
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-            Units
+            Unidades
           </h1>
           <p className="text-[13px] muted-text mt-0.5">
-            Torre Ópalo · {counts.total || 120} units
+            ALM809P · {counts.total} unidades
           </p>
         </div>
         <button onClick={handleNew} className="btn-primary flex items-center gap-2 self-start sm:self-auto">
           <Plus className="w-4 h-4" />
-          New unit
+          Nueva unidad
         </button>
       </div>
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total" value={displayTotal} />
-        <StatCard label="Occupied" value={counts.occupied || 113} accent="#60A5FA" />
-        <StatCard label="Vacant" value={counts.vacant || 4} accent="#4ADE80" />
-        <StatCard label="Maintenance" value={counts.maintenance || 2} accent="#FBBF24" />
-        <StatCard label="Reserved" value={counts.reserved || 1} accent="#A78BFA" />
+        <StatCard label="Ocupadas" value={counts.occupied} accent="#60A5FA" />
+        <StatCard label="Disponibles" value={counts.vacant} accent="#4ADE80" />
+        <StatCard label="Mantenimiento" value={counts.maintenance} accent="#FBBF24" />
+        <StatCard label="Reservadas" value={counts.reserved} accent="#A78BFA" />
       </div>
 
       {/* Filter chips */}
       <div className="flex flex-wrap gap-2">
         {([
-          ['all', 'All'],
-          ['occupied', 'Occupied'],
-          ['vacant', 'Vacant'],
-          ['maintenance', 'Maintenance'],
-          ['reserved', 'Reserved'],
-          ['delinquent', 'Delinquent'],
+          ['all', 'Todas'],
+          ['occupied', 'Ocupadas'],
+          ['vacant', 'Disponibles'],
+          ['maintenance', 'Mantenimiento'],
+          ['reserved', 'Reservadas'],
+          ['delinquent', 'Morosas'],
         ] as [FilterChip, string][]).map(([key, label]) => {
           const active = filterChip === key
           return (
@@ -161,9 +161,9 @@ export default function UnitsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No units match this filter"
-          description="Try a different filter or add a new unit"
-          actionLabel="Create unit"
+          title="No hay unidades para este filtro"
+          description="Prueba otro filtro o agrega una nueva unidad"
+          actionLabel="Crear unidad"
           actionHref="/units"
         />
       ) : (
@@ -174,12 +174,12 @@ export default function UnitsPage() {
           <table className="w-full text-[13px]">
             <thead className="table-header">
               <tr>
-                <th className="text-left px-4 py-2">Unit</th>
-                <th className="text-left px-4 py-2">Floor</th>
-                <th className="text-left px-4 py-2">Type</th>
-                <th className="text-left px-4 py-2">Status</th>
-                <th className="text-left px-4 py-2">Details</th>
-                <th className="text-left px-4 py-2">Actions</th>
+                <th className="text-left px-4 py-2">Unidad</th>
+                <th className="text-left px-4 py-2">Piso</th>
+                <th className="text-left px-4 py-2">Tipo</th>
+                <th className="text-left px-4 py-2">Estado</th>
+                <th className="text-left px-4 py-2">Detalles</th>
+                <th className="text-left px-4 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -209,7 +209,7 @@ export default function UnitsPage() {
                         className="text-[12px]"
                         style={{ color: 'var(--baw-primary)' }}
                       >
-                        Edit
+                        Editar
                       </button>
                       <select
                         value={unit.status}

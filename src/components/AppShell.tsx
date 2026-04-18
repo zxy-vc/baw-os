@@ -11,31 +11,31 @@ const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboardi
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Mission Control',
-  '/units': 'Units',
-  '/contracts': 'Contracts',
-  '/cobros': 'Collections',
-  '/payments': 'Payments',
-  '/invoices': 'Invoices',
-  '/mora': 'Arrears',
-  '/ledger': 'Ledger',
-  '/gastos': 'Expenses',
-  '/reportes': 'Reports',
-  '/reports': 'Reports (CSV)',
-  '/maintenance': 'Maintenance',
+  '/units': 'Unidades',
+  '/contracts': 'Contratos',
+  '/cobros': 'Cobros',
+  '/payments': 'Pagos',
+  '/invoices': 'Facturas',
+  '/mora': 'Morosidad',
+  '/ledger': 'Bitácora',
+  '/gastos': 'Gastos',
+  '/reportes': 'Reportes',
+  '/reports': 'Reportes (CSV)',
+  '/maintenance': 'Mantenimiento',
   '/housekeeping': 'Housekeeping',
-  '/pricing': 'Pricing',
-  '/quotes': 'Quotes',
-  '/reservations': 'Reservations',
-  '/contacts': 'Contacts',
-  '/tasks': 'Operations',
+  '/pricing': 'Precios',
+  '/quotes': 'Cotizador',
+  '/reservations': 'Reservaciones',
+  '/contacts': 'Contactos',
+  '/tasks': 'Operaciones',
   '/whatsapp': 'WhatsApp',
   '/audit': 'Timeline',
-  '/notifications': 'Notifications',
-  '/search': 'Search',
+  '/notifications': 'Notificaciones',
+  '/search': 'Buscar',
   '/api-docs': 'API Docs',
-  '/applications': 'Applications',
-  '/agents': 'Agents',
-  '/settings': 'Settings',
+  '/applications': 'Expedientes',
+  '/agents': 'Agentes',
+  '/settings': 'Configuración',
 }
 
 function getPageTitle(pathname: string): string {
@@ -48,7 +48,7 @@ function getPageTitle(pathname: string): string {
 
 function GlobalHeader({ pathname }: { pathname: string }) {
   const title = getPageTitle(pathname)
-  const unread = 3 // mock count for header bell
+  const unread = 0
 
   return (
     <header
@@ -95,10 +95,10 @@ function GlobalHeader({ pathname }: { pathname: string }) {
               color: 'var(--baw-muted)',
               border: '1px solid var(--baw-border)',
             }}
-            title="Search"
+            title="Buscar"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Search</span>
+            <span className="hidden sm:inline">Buscar</span>
             <kbd
               className="hidden sm:inline-flex items-center px-1 py-0 rounded text-[10px] font-mono"
               style={{
@@ -116,7 +116,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
             type="button"
             className="relative inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
             style={{ color: 'var(--baw-muted)' }}
-            title="Notifications"
+            title="Notificaciones"
           >
             <Bell className="w-4 h-4" />
             {unread > 0 && (

@@ -1,6 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { formatCurrency, daysUntil } from '@/lib/utils'
 import {
   StatusBadge,
   AgentBadge,
@@ -52,12 +55,22 @@ interface MaintRow {
   sla: string
 }
 
+interface DashboardMetrics {
+  totalUnits: number
+  occupiedUnits: number
+  availableUnits: number
+  monthlyRevenue: number
+  overdueAmount: number
+  overdueCount: number
+  expiringCount: number
+}
+
 const ATTENTION_ITEMS: AttentionItem[] = [
   {
     id: '1',
     type: 'APPROVAL',
     isAgent: true,
-    description: 'Carmen wants to send rent reminders to 4 delinquent units',
+    description: 'El agente de cobranza propone enviar recordatorios a unidades con atraso',
     assignedTo: 'Carmen',
     assignedType: 'agent',
     priority: 'high',
@@ -67,8 +80,8 @@ const ATTENTION_ITEMS: AttentionItem[] = [
     id: '2',
     type: 'ESCALATION',
     isAgent: false,
-    description: 'Duplicate payment on Unit 1807 — $42,000 MXN',
-    assignedTo: 'María Reyes',
+    description: 'Pago duplicado detectado en una unidad, requiere revisión humana',
+    assignedTo: 'Operación',
     assignedType: 'human',
     priority: 'critical',
     elapsed: '2h',
@@ -77,71 +90,11 @@ const ATTENTION_ITEMS: AttentionItem[] = [
     id: '3',
     type: 'APPROVAL',
     isAgent: true,
-    description: 'Alicia proposes +4.2% renewal for Unit 1204',
+    description: 'Renovación sugerida por agente para contrato próximo a vencer',
     assignedTo: 'Alicia',
     assignedType: 'agent',
     priority: 'medium',
     elapsed: '22m',
-  },
-  {
-    id: '4',
-    type: 'DECISION',
-    isAgent: false,
-    description: 'Draft eviction notice requires PM approval — Unit 1102',
-    assignedTo: 'María Reyes',
-    assignedType: 'human',
-    priority: 'critical',
-    elapsed: '18m',
-  },
-  {
-    id: '5',
-    type: 'BLOCKED',
-    isAgent: true,
-    description: 'Felix blocked on insurance cert upload — vendor 403',
-    assignedTo: 'Felix',
-    assignedType: 'agent',
-    priority: 'medium',
-    elapsed: '1h',
-  },
-  {
-    id: '6',
-    type: 'APPROVAL',
-    isAgent: true,
-    description: 'Diego requests HVAC contractor dispatch for Unit 905',
-    assignedTo: 'Diego',
-    assignedType: 'agent',
-    priority: 'high',
-    elapsed: '12m',
-  },
-  {
-    id: '7',
-    type: 'ESCALATION',
-    isAgent: true,
-    description: 'Elena escalated guest complaint — noise at Unit 1502',
-    assignedTo: 'Elena',
-    assignedType: 'agent',
-    priority: 'medium',
-    elapsed: '34m',
-  },
-  {
-    id: '8',
-    type: 'DECISION',
-    isAgent: false,
-    description: 'Budget variance approval — Q4 capex overrun 6.1%',
-    assignedTo: 'Javier Solís',
-    assignedType: 'human',
-    priority: 'high',
-    elapsed: '3h',
-  },
-  {
-    id: '9',
-    type: 'APPROVAL',
-    isAgent: true,
-    description: 'Carmen drafted late-fee waiver for Unit 304 tenant',
-    assignedTo: 'Carmen',
-    assignedType: 'agent',
-    priority: 'low',
-    elapsed: '45m',
   },
 ]
 
@@ -150,117 +103,39 @@ const ACTIVITY_ENTRIES: ActivityEntry[] = [
     id: 'a1',
     time: '2m ago',
     agent: 'Carmen',
-    role: 'Collections',
-    action: 'Drafted 4 rent reminders for Nov arrears',
+    role: 'Cobranza',
+    action: 'Preparó borradores de recordatorios para pagos vencidos',
     status: 'pending_approval',
     reasoning:
-      'Identified 4 tenants >7 days past due totaling $186K MXN. Drafted personalized reminders in Spanish referencing prior payment patterns. Awaiting PM approval before sending via WhatsApp.',
+      'Detectó pagos atrasados y preparó seguimiento automático. Pendiente de aprobación humana antes del envío.',
     expanded: true,
   },
   {
     id: 'a2',
     time: '6m ago',
     agent: 'Alicia',
-    role: 'Operations',
-    action: 'Computed renewal rate for Unit 1204 (+4.2%)',
+    role: 'Operación',
+    action: 'Calculó propuesta de renovación para contratos por vencer',
     status: 'executing',
   },
   {
     id: 'a3',
     time: '11m ago',
     agent: 'Hugo',
-    role: 'Chief of Staff',
-    action: 'Compiled weekly executive briefing',
-    status: 'completed',
-  },
-  {
-    id: 'a4',
-    time: '14m ago',
-    agent: 'Elena',
-    role: 'Guest Experience',
-    action: 'Sent check-in instructions to Unit 702',
-    status: 'completed',
-  },
-  {
-    id: 'a5',
-    time: '18m ago',
-    agent: 'Diego',
-    role: 'Maintenance',
-    action: 'Pool chemistry auto-adjust failed — sensor anomaly',
-    status: 'failed',
-  },
-  {
-    id: 'a6',
-    time: '22m ago',
-    agent: 'Alicia',
-    role: 'Operations',
-    action: 'Prepared renewal package for Unit 1204',
-    status: 'executing',
-  },
-  {
-    id: 'a7',
-    time: '34m ago',
-    agent: 'Elena',
-    role: 'Guest Experience',
-    action: 'Escalated guest complaint — noise at Unit 1502',
-    status: 'escalated',
-  },
-  {
-    id: 'a8',
-    time: '41m ago',
-    agent: 'Felix',
-    role: 'Compliance',
-    action: 'Blocked on vendor insurance cert — upload 403',
-    status: 'blocked',
-  },
-  {
-    id: 'a9',
-    time: '58m ago',
-    agent: 'Carmen',
-    role: 'Collections',
-    action: 'Negotiated late-fee waiver draft for Unit 304',
-    status: 'suggested_by_agent',
-  },
-  {
-    id: 'a10',
-    time: '1h ago',
-    agent: 'Diego',
-    role: 'Maintenance',
-    action: 'Requested vendor quotes for HVAC inspection',
-    status: 'pending_approval',
-  },
-  {
-    id: 'a11',
-    time: '1h ago',
-    agent: 'Hugo',
-    role: 'Chief of Staff',
-    action: 'Reconciled ledger entries for November',
-    status: 'completed',
-  },
-  {
-    id: 'a12',
-    time: '2h ago',
-    agent: 'Alicia',
-    role: 'Operations',
-    action: 'Auto-generated rent roll snapshot',
+    role: 'Coordinación',
+    action: 'Consolidó resumen ejecutivo de operación',
     status: 'completed',
   },
 ]
 
-const COLLECTIONS: CollectionRow[] = [
-  { unit: '1102', tenant: 'Rodrigo Pérez', amount: 52400, status: 'late', daysOverdue: 18 },
-  { unit: '304', tenant: 'Laura Medina', amount: 38200, status: 'late', daysOverdue: 11 },
-  { unit: '807', tenant: 'Carlos Villanueva', amount: 46800, status: 'late', daysOverdue: 9 },
-  { unit: '1408', tenant: 'Ana Ortega', amount: 48600, status: 'late', daysOverdue: 7 },
-  { unit: '602', tenant: 'Felipe Guzmán', amount: 41200, status: 'pending', daysOverdue: 2 },
+const COLLECTIONS_FALLBACK: CollectionRow[] = [
+  { unit: '—', tenant: 'Sin datos conectados', amount: 0, status: 'pending', daysOverdue: 0 },
 ]
 
 const MAINT_QUEUE: MaintRow[] = [
-  { unit: '905', issue: 'HVAC failure — bedroom unit', priority: 'critical', assignedTo: 'Diego', sla: '4h' },
-  { unit: '1502', issue: 'Water leak — bathroom', priority: 'high', assignedTo: 'Diego', sla: '8h' },
-  { unit: '702', issue: 'Appliance: oven replacement', priority: 'medium', assignedTo: 'Vendor TBD', sla: '2d' },
-  { unit: '1204', issue: 'Paint touch-up pre-renewal', priority: 'low', assignedTo: 'Alicia', sla: '5d' },
-  { unit: 'Common', issue: 'Pool chemistry sensor replace', priority: 'high', assignedTo: 'Diego', sla: '24h' },
+  { unit: 'D102', issue: 'Revisión general de mantenimiento', priority: 'medium', assignedTo: 'Operación', sla: '24h' },
+  { unit: 'D302', issue: 'Seguimiento a incidencia abierta', priority: 'high', assignedTo: 'Operación', sla: '8h' },
+  { unit: 'Áreas comunes', issue: 'Chequeo preventivo', priority: 'low', assignedTo: 'Operación', sla: '48h' },
 ]
 
 function fmtMoney(n: number) {
@@ -268,11 +143,11 @@ function fmtMoney(n: number) {
 }
 
 function typeBadge(type: AttentionType) {
-  const MAP: Record<AttentionType, { bg: string; color: string; border: string }> = {
-    APPROVAL: { bg: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)' },
-    ESCALATION: { bg: 'rgba(249, 115, 22, 0.15)', color: '#FB923C', border: 'rgba(249, 115, 22, 0.3)' },
-    DECISION: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)' },
-    BLOCKED: { bg: 'rgba(239, 68, 68, 0.15)', color: '#F87171', border: 'rgba(239, 68, 68, 0.3)' },
+  const MAP: Record<AttentionType, { bg: string; color: string; border: string; label: string }> = {
+    APPROVAL: { bg: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)', label: 'Aprobación' },
+    ESCALATION: { bg: 'rgba(249, 115, 22, 0.15)', color: '#FB923C', border: 'rgba(249, 115, 22, 0.3)', label: 'Escalado' },
+    DECISION: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)', label: 'Decisión' },
+    BLOCKED: { bg: 'rgba(239, 68, 68, 0.15)', color: '#F87171', border: 'rgba(239, 68, 68, 0.3)', label: 'Bloqueado' },
   }
   const s = MAP[type]
   return (
@@ -280,57 +155,124 @@ function typeBadge(type: AttentionType) {
       className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
       style={{ backgroundColor: s.bg, color: s.color, border: `1px solid ${s.border}` }}
     >
-      {type}
+      {s.label}
     </span>
   )
 }
 
 export default function MissionControl() {
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    totalUnits: 0,
+    occupiedUnits: 0,
+    availableUnits: 0,
+    monthlyRevenue: 0,
+    overdueAmount: 0,
+    overdueCount: 0,
+    expiringCount: 0,
+  })
+  const [collections, setCollections] = useState<CollectionRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchDashboard() {
+      try {
+        const now = new Date()
+
+        const [unitsRes, contractsRes, paymentsRes] = await Promise.all([
+          supabase.from('units').select('*').order('floor').order('number'),
+          supabase
+            .from('contracts')
+            .select('id, unit_id, monthly_amount, end_date, status, unit:units(number), occupant:occupants(name)')
+            .in('status', ['active', 'en_renovacion']),
+          supabase
+            .from('payments')
+            .select('amount, due_date, status, contract:contracts(unit:units(number), occupant:occupants(name))')
+            .in('status', ['pending', 'late'])
+            .order('due_date', { ascending: true }),
+        ])
+
+        const units = unitsRes.data || []
+        const contracts = contractsRes.data || []
+        const payments = paymentsRes.data || []
+
+        const totalUnits = units.length
+        const occupiedUnits = units.filter((u: { status: string }) => u.status === 'occupied').length
+        const availableUnits = units.filter((u: { status: string }) => u.status === 'available').length
+        const monthlyRevenue = contracts.reduce((sum: number, c: { monthly_amount: number | null }) => sum + Number(c.monthly_amount || 0), 0)
+        const overdue = payments.filter((p: { status: string }) => p.status === 'late')
+        const overdueAmount = overdue.reduce((sum: number, p: { amount: number | null }) => sum + Number(p.amount || 0), 0)
+        const expiringCount = contracts.filter((c: { end_date: string | null }) => c.end_date && daysUntil(c.end_date) <= 60).length
+
+        setMetrics({
+          totalUnits,
+          occupiedUnits,
+          availableUnits,
+          monthlyRevenue,
+          overdueAmount,
+          overdueCount: overdue.length,
+          expiringCount,
+        })
+
+        setCollections(
+          payments.slice(0, 5).map((p: any) => ({
+            unit: p.contract?.[0]?.unit?.[0]?.number || p.contract?.unit?.number || '—',
+            tenant: p.contract?.[0]?.occupant?.[0]?.name || p.contract?.occupant?.name || 'Sin ocupante',
+            amount: Number(p.amount || 0),
+            status: p.status === 'late' ? 'late' : 'pending',
+            daysOverdue: Math.max(0, Math.floor((now.getTime() - new Date(p.due_date).getTime()) / (1000 * 60 * 60 * 24))),
+          }))
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboard()
+  }, [])
+
+  const occupancyPct = metrics.totalUnits > 0 ? ((metrics.occupiedUnits / metrics.totalUnits) * 100).toFixed(1) : '0.0'
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
             Mission Control
           </h1>
           <p className="text-[13px] muted-text mt-0.5">
-            Torre Ópalo · Polanco, CDMX · Live
+            ALM809P · Operación en vivo
           </p>
         </div>
         <div className="flex items-center gap-2 text-[12px]">
           <span className="inline-flex items-center gap-1.5 muted-text">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
-            6 agents live
+            Vista híbrida humano-agente
           </span>
         </div>
       </div>
 
-      {/* TOP ROW — KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPICard label="Occupancy" value="94.2%" delta={0.4} deltaLabel="">
-          <span className="text-[11px] muted-text tabular-nums">113 of 120 units</span>
+        <KPICard label="Ocupación" value={`${occupancyPct}%`} delta={0} deltaLabel="">
+          <span className="text-[11px] muted-text tabular-nums">{metrics.occupiedUnits} de {metrics.totalUnits} unidades</span>
         </KPICard>
-        <KPICard label="Monthly Revenue" value="$2.40M" delta={8.3}>
-          <span className="text-[11px] muted-text tabular-nums">MXN · November</span>
+        <KPICard label="Ingreso mensual" value={formatCurrency(metrics.monthlyRevenue)} delta={0}>
+          <span className="text-[11px] muted-text tabular-nums">Contratos activos y en renovación</span>
         </KPICard>
-        <KPICard label="Arrears" value="$186K" delta={-15.2} warning>
-          <span className="text-[11px] muted-text tabular-nums">MXN · 4 units critical</span>
+        <KPICard label="Morosidad" value={formatCurrency(metrics.overdueAmount)} warning={metrics.overdueCount > 0}>
+          <span className="text-[11px] muted-text tabular-nums">{metrics.overdueCount} pagos vencidos</span>
         </KPICard>
-        <KPICard label="Active Contracts" value="113">
-          <span className="text-[11px] muted-text tabular-nums">3 expiring this week</span>
+        <KPICard label="Contratos activos" value={metrics.occupiedUnits}>
+          <span className="text-[11px] muted-text tabular-nums">{metrics.expiringCount} por vencer en 60 días</span>
         </KPICard>
-        <KPICard label="Open Incidents" value="7">
-          <span className="text-[11px] muted-text tabular-nums">2 critical</span>
+        <KPICard label="Disponibles" value={metrics.availableUnits}>
+          <span className="text-[11px] muted-text tabular-nums">Inventario listo para ocupación</span>
         </KPICard>
-        <KPICard label="Agent Actions Today" value="47" accent="agent">
-          <span className="text-[11px] muted-text tabular-nums">3 pending approval</span>
+        <KPICard label="Actividad agente" value={loading ? '…' : ACTIVITY_ENTRIES.length} accent="agent">
+          <span className="text-[11px] muted-text tabular-nums">Capa visual agent-native en preview</span>
         </KPICard>
       </div>
 
-      {/* MIDDLE ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Requires Attention */}
         <section
           className="rounded-lg overflow-hidden"
           style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
@@ -338,7 +280,7 @@ export default function MissionControl() {
           <header className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
             <div className="flex items-center gap-2">
               <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-                Requires Attention
+                Requiere atención
               </h2>
               <span
                 className="text-[11px] px-1.5 py-0.5 rounded tabular-nums font-medium"
@@ -348,7 +290,7 @@ export default function MissionControl() {
               </span>
             </div>
             <Link href="/agents" className="text-[12px]" style={{ color: 'var(--baw-primary)' }}>
-              View all →
+              Ver todo →
             </Link>
           </header>
           <ul className="divide-y" style={{ borderColor: 'var(--baw-border)' }}>
@@ -379,7 +321,6 @@ export default function MissionControl() {
           </ul>
         </section>
 
-        {/* Agent Activity */}
         <section
           className="rounded-lg overflow-hidden"
           style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
@@ -387,13 +328,13 @@ export default function MissionControl() {
           <header className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
             <div className="flex items-center gap-2">
               <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-                Agent Activity
+                Actividad de agentes
               </h2>
               <span className="text-[11px] muted-text tabular-nums">{ACTIVITY_ENTRIES.length}</span>
             </div>
             <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: '#4ADE80' }}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
-              6 agents live
+              Preview conceptual
             </span>
           </header>
           <ul className="divide-y" style={{ borderColor: 'var(--baw-border)' }}>
@@ -434,31 +375,29 @@ export default function MissionControl() {
         </section>
       </div>
 
-      {/* BOTTOM ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Collections Due */}
         <section
           className="rounded-lg overflow-hidden"
           style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
         >
           <header className="px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
             <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-              Collections Due
+              Cobros pendientes
             </h2>
           </header>
           <table className="w-full text-[13px]">
             <thead className="table-header">
               <tr>
-                <th className="text-left px-4 py-2">Unit</th>
-                <th className="text-left px-4 py-2">Tenant</th>
-                <th className="text-right px-4 py-2">Amount</th>
-                <th className="text-left px-4 py-2">Status</th>
-                <th className="text-right px-4 py-2">Overdue</th>
+                <th className="text-left px-4 py-2">Unidad</th>
+                <th className="text-left px-4 py-2">Inquilino</th>
+                <th className="text-right px-4 py-2">Monto</th>
+                <th className="text-left px-4 py-2">Estado</th>
+                <th className="text-right px-4 py-2">Mora</th>
               </tr>
             </thead>
             <tbody>
-              {COLLECTIONS.map((r) => (
-                <tr key={r.unit} className="table-row">
+              {(collections.length > 0 ? collections : COLLECTIONS_FALLBACK).map((r) => (
+                <tr key={`${r.unit}-${r.tenant}`} className="table-row">
                   <td className="px-4 py-2 font-medium tabular-nums" style={{ color: 'var(--baw-text)' }}>
                     {r.unit}
                   </td>
@@ -476,23 +415,22 @@ export default function MissionControl() {
           </table>
         </section>
 
-        {/* Maintenance Queue */}
         <section
           className="rounded-lg overflow-hidden"
           style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
         >
           <header className="px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
             <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-              Maintenance Queue
+              Cola de mantenimiento
             </h2>
           </header>
           <table className="w-full text-[13px]">
             <thead className="table-header">
               <tr>
-                <th className="text-left px-4 py-2">Unit</th>
-                <th className="text-left px-4 py-2">Issue</th>
-                <th className="text-left px-4 py-2">Priority</th>
-                <th className="text-left px-4 py-2">Assigned</th>
+                <th className="text-left px-4 py-2">Unidad</th>
+                <th className="text-left px-4 py-2">Incidencia</th>
+                <th className="text-left px-4 py-2">Prioridad</th>
+                <th className="text-left px-4 py-2">Asignado</th>
                 <th className="text-right px-4 py-2">SLA</th>
               </tr>
             </thead>

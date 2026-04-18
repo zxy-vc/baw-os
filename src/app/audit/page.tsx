@@ -109,19 +109,19 @@ export default function AuditPage() {
         </div>
         <div>
           <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-            Activity Timeline
+Timeline de actividad
           </h1>
-          <p className="text-[13px] muted-text mt-0.5">Unified human + agent activity across the system</p>
+          <p className="text-[13px] muted-text mt-0.5">Actividad unificada de humanos y agentes dentro del sistema</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2">
         {([
-          ['all', 'All'],
-          ['human', 'Humans'],
-          ['agent', 'Agents'],
-          ['system', 'System'],
+          ['all', 'Todas'],
+          ['human', 'Humanos'],
+          ['agent', 'Agentes'],
+          ['system', 'Sistema'],
         ] as [TabFilter, string][]).map(([key, label]) => {
           const active = tab === key
           return (
@@ -141,11 +141,11 @@ export default function AuditPage() {
         })}
         <div className="ml-auto flex flex-wrap gap-2">
           {([
-            ['all', 'All Types'],
-            ['approvals', 'Approvals'],
-            ['actions', 'Actions'],
-            ['escalations', 'Escalations'],
-            ['records', 'Record Changes'],
+            ['all', 'Todos los tipos'],
+            ['approvals', 'Aprobaciones'],
+            ['actions', 'Acciones'],
+            ['escalations', 'Escalados'],
+            ['records', 'Cambios de registro'],
           ] as [TypeFilter, string][]).map(([key, label]) => {
             const active = typeFilter === key
             return (
@@ -172,12 +172,12 @@ export default function AuditPage() {
         style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
       >
         <div>
-          <label className="block text-[11px] font-medium muted-text mb-1 uppercase tracking-wide">Search</label>
+          <label className="block text-[11px] font-medium muted-text mb-1 uppercase tracking-wide">Buscar</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--baw-muted)' }} />
             <input
               type="text"
-              placeholder="Search actions..."
+              placeholder="Buscar acciones..."
               value={actionSearch}
               onChange={(e) => setActionSearch(e.target.value)}
               className="input-field w-full pl-9"
@@ -185,11 +185,11 @@ export default function AuditPage() {
           </div>
         </div>
         <div>
-          <label className="block text-[11px] font-medium muted-text mb-1 uppercase tracking-wide">From</label>
+          <label className="block text-[11px] font-medium muted-text mb-1 uppercase tracking-wide">Desde</label>
           <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input-field w-full" />
         </div>
         <div>
-          <label className="block text-[11px] font-medium muted-text mb-1 uppercase tracking-wide">To</label>
+          <label className="block text-[11px] font-medium muted-text mb-1 uppercase tracking-wide">Hasta</label>
           <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input-field w-full" />
         </div>
       </div>
@@ -204,7 +204,7 @@ export default function AuditPage() {
             <SkeletonTable />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center muted-text">No activity entries match the current filters.</div>
+          <div className="p-12 text-center muted-text">No hay movimientos para los filtros seleccionados.</div>
         ) : (
           <ul className="divide-y" style={{ borderColor: 'var(--baw-border)' }}>
             {filtered.map((entry) => {
@@ -263,11 +263,11 @@ export default function AuditPage() {
                       >
                         {isExpanded ? (
                           <>
-                            Collapse <ChevronUp className="w-3 h-3" />
+                            Colapsar <ChevronUp className="w-3 h-3" />
                           </>
                         ) : (
                           <>
-                            Details <ChevronDown className="w-3 h-3" />
+                            Detalles <ChevronDown className="w-3 h-3" />
                           </>
                         )}
                       </button>
@@ -283,14 +283,14 @@ export default function AuditPage() {
                       >
                         {actorType === 'agent' ? (
                           <>
-                            <span style={{ color: '#A78BFA' }}>Reasoning: </span>
-                            Action executed under supervised autonomy. Related entity {entry.entity_type || 'n/a'}
-                            {entry.entity_id ? ` (${entry.entity_id.slice(0, 8)}…)` : ''}. Full trace available in agent log.
+                            <span style={{ color: '#A78BFA' }}>Razonamiento: </span>
+                            Acción ejecutada bajo autonomía supervisada. Entidad relacionada {entry.entity_type || 'n/a'}
+                            {entry.entity_id ? ` (${entry.entity_id.slice(0, 8)}…)` : ''}. Traza completa disponible en el log del agente.
                           </>
                         ) : (
                           <>
-                            <span className="font-medium" style={{ color: 'var(--baw-text)' }}>Context: </span>
-                            Entity: {entry.entity_type || 'n/a'}
+                            <span className="font-medium" style={{ color: 'var(--baw-text)' }}>Contexto: </span>
+                            Entidad: {entry.entity_type || 'n/a'}
                             {entry.entity_id ? ` · ${entry.entity_id}` : ''}
                           </>
                         )}
@@ -309,7 +309,7 @@ export default function AuditPage() {
             style={{ borderTop: '1px solid var(--baw-border)' }}
           >
             <p className="text-[11px] muted-text tabular-nums">
-              {total} entries · Page {page + 1} of {totalPages}
+              {total} entradas · Página {page + 1} de {totalPages}
             </p>
             <div className="flex gap-2">
               <button

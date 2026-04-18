@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Fragment } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -33,18 +33,18 @@ type NavEntry = NavItem | { separator: true }
 
 const navigation: NavEntry[] = [
   { name: 'Mission Control', href: '/', icon: LayoutDashboard },
-  { name: 'Operations', href: '/tasks', icon: ListTodo },
-  { name: 'Units', href: '/units', icon: Building2 },
-  { name: 'Contracts', href: '/contracts', icon: FileText },
-  { name: 'Collections', href: '/cobros', icon: Receipt },
-  { name: 'Maintenance', href: '/maintenance', icon: Wrench },
+  { name: 'Operaciones', href: '/tasks', icon: ListTodo },
+  { name: 'Unidades', href: '/units', icon: Building2 },
+  { name: 'Contratos', href: '/contracts', icon: FileText },
+  { name: 'Cobros', href: '/cobros', icon: Receipt },
+  { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
   { separator: true },
-  { name: 'Reservations', href: '/reservations', icon: CalendarDays },
-  { name: 'Invoices', href: '/invoices', icon: FileText },
+  { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
+  { name: 'Facturas', href: '/invoices', icon: FileText },
   { separator: true },
-  { name: 'Agents', href: '/agents', icon: Bot, badgeKey: 'agents' },
+  { name: 'Agentes', href: '/agents', icon: Bot, badgeKey: 'agents' },
   { name: 'Timeline', href: '/audit', icon: Clock },
-  { name: 'Settings', href: '/settings', icon: Settings2 },
+  { name: 'Configuración', href: '/settings', icon: Settings2 },
 ]
 
 const COLLAPSED_WIDTH = 56
@@ -121,7 +121,7 @@ export default function Sidebar() {
           border: '1px solid var(--baw-border)',
           color: 'var(--baw-text)',
         }}
-        aria-label="Open menu"
+        aria-label="Abrir menú"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -169,14 +169,14 @@ export default function Sidebar() {
               <div className="min-w-0">
                 <div className="text-[14px] font-semibold text-white truncate">BaW OS</div>
                 <div className="text-[11px] truncate" style={{ color: 'var(--baw-muted)' }}>
-                  Command Center
+                  Centro de control
                 </div>
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
                 className="p-1 md:hidden"
                 style={{ color: 'var(--baw-muted)' }}
-                aria-label="Close menu"
+                aria-label="Cerrar menú"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -184,8 +184,8 @@ export default function Sidebar() {
                 onClick={togglePinned}
                 className="hidden md:inline-flex p-1 rounded transition-colors"
                 style={{ color: pinned ? 'var(--baw-primary)' : 'var(--baw-muted)' }}
-                aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
-                title={pinned ? 'Unpin sidebar' : 'Pin sidebar'}
+                aria-label={pinned ? 'Desfijar barra lateral' : 'Fijar barra lateral'}
+                title={pinned ? 'Desfijar barra lateral' : 'Fijar barra lateral'}
               >
                 <ChevronRight
                   className={cn('w-4 h-4 transition-transform', pinned && 'rotate-180')}
@@ -292,7 +292,7 @@ export default function Sidebar() {
             type="button"
             className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
             style={{ color: 'var(--baw-text)' }}
-            title={!expanded ? 'Torre Ópalo' : undefined}
+            title={!expanded ? 'ALM809P' : undefined}
           >
             <span className="flex items-center justify-center w-[40px] shrink-0">
               <Building2 className="w-[18px] h-[18px]" style={{ color: 'var(--baw-muted)' }} />
@@ -300,7 +300,7 @@ export default function Sidebar() {
             {expanded && (
               <span className="flex items-center justify-between flex-1 min-w-0 pr-3">
                 <span className="flex flex-col items-start min-w-0">
-                  <span className="text-[12px] font-medium truncate">Torre Ópalo</span>
+                  <span className="text-[12px] font-medium truncate">ALM809P</span>
                   <span className="text-[10px]" style={{ color: 'var(--baw-muted)' }}>
                     ALM809P
                   </span>
@@ -314,13 +314,13 @@ export default function Sidebar() {
             onClick={handleLogout}
             className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
             style={{ color: 'var(--baw-muted)' }}
-            title={!expanded ? 'Logout' : undefined}
+            title={!expanded ? 'Cerrar sesión' : undefined}
           >
             <span className="flex items-center justify-center w-[40px] shrink-0">
               <LogOut className="w-[18px] h-[18px]" />
             </span>
             {expanded && (
-              <span className="text-[13px] font-medium">Logout</span>
+              <span className="text-[13px] font-medium">Cerrar sesión</span>
             )}
           </button>
         </div>
