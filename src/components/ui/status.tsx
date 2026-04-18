@@ -113,7 +113,7 @@ const STATUS_MAP: Record<StatusKind, StatusStyle> = {
   expired: {
     label: 'Expired',
     bg: 'rgba(139, 139, 149, 0.08)',
-    color: '#8B8B95',
+    color: '#A0A0AB',
     border: 'rgba(139, 139, 149, 0.2)',
   },
   occupied: {
@@ -228,7 +228,7 @@ const PRIORITY_MAP: Record<Priority, { label: string; color: string; bg: string;
   },
   low: {
     label: 'Low',
-    color: '#8B8B95',
+    color: '#A0A0AB',
     bg: 'rgba(139, 139, 149, 0.1)',
     border: 'rgba(139, 139, 149, 0.25)',
   },
@@ -369,7 +369,7 @@ export function ActorAvatar({
       style={{
         ...dim,
         backgroundColor: 'rgba(139, 139, 149, 0.15)',
-        color: '#8B8B95',
+        color: '#A0A0AB',
         border: '1px solid rgba(139, 139, 149, 0.3)',
       }}
     >

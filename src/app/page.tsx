@@ -359,7 +359,7 @@ export default function MissionControl() {
                     <p
                       className="mt-2 text-[12px] leading-relaxed p-2 rounded"
                       style={{
-                        color: 'var(--baw-muted)',
+                        color: 'var(--baw-text)',
                         backgroundColor: 'rgba(139, 92, 246, 0.06)',
                         border: '1px solid rgba(139, 92, 246, 0.18)',
                       }}

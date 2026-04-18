@@ -8,8 +8,8 @@
   --baw-elevated: #1E1E24;
   --baw-border: #2A2A32;
   --baw-text: #E8E8EC;
-  --baw-muted: #8B8B95;
-  --baw-faint: #55555E;
+  --baw-muted: #A0A0AB;
+  --baw-faint: #6E6E78;
   --baw-primary: #3B82F6;
   --baw-agent: #8B5CF6;
   --baw-agent-subtle: rgba(139, 92, 246, 0.1);
@@ -120,7 +120,7 @@
   .badge-expired {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
     background-color: rgba(139, 139, 149, 0.08);
-    color: #8B8B95;
+    color: #A0A0AB;
     border: 1px solid rgba(139, 139, 149, 0.2);
   }
   .badge-en-renovacion {

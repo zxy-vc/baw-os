@@ -285,12 +285,12 @@ export default function AgentControlCenter() {
                           : a.status === 'idle'
                           ? 'rgba(139, 139, 149, 0.15)'
                           : 'rgba(245, 158, 11, 0.15)',
-                      color: a.status === 'active' ? '#4ADE80' : a.status === 'idle' ? '#8B8B95' : '#FBBF24',
+                      color: a.status === 'active' ? '#4ADE80' : a.status === 'idle' ? '#A0A0AB' : '#FBBF24',
                     }}
                   >
                     <span
                       className="w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: a.status === 'active' ? '#4ADE80' : a.status === 'idle' ? '#8B8B95' : '#FBBF24' }}
+                      style={{ backgroundColor: a.status === 'active' ? '#4ADE80' : a.status === 'idle' ? '#A0A0AB' : '#FBBF24' }}
                     />
                     {a.status[0].toUpperCase() + a.status.slice(1)}
                   </span>
@@ -454,7 +454,7 @@ export default function AgentControlCenter() {
                   <ul
                     className="text-[12px] rounded p-2 space-y-1 list-disc list-inside"
                     style={{
-                      color: 'var(--baw-muted)',
+                      color: 'var(--baw-text)',
                       backgroundColor: 'rgba(139, 92, 246, 0.06)',
                       border: '1px solid rgba(139, 92, 246, 0.18)',
                     }}

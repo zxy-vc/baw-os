@@ -233,7 +233,7 @@ Timeline de actividad
                               : actorType === 'system'
                               ? 'rgba(139, 139, 149, 0.12)'
                               : 'rgba(59, 130, 246, 0.12)',
-                          color: actorType === 'agent' ? '#A78BFA' : actorType === 'system' ? '#8B8B95' : '#60A5FA',
+                          color: actorType === 'agent' ? '#A78BFA' : actorType === 'system' ? '#A0A0AB' : '#60A5FA',
                         }}
                       >
                         {actorType}
@@ -276,7 +276,7 @@ Timeline de actividad
                       <div
                         className="mt-2 text-[12px] leading-relaxed p-2 rounded"
                         style={{
-                          color: 'var(--baw-muted)',
+                          color: 'var(--baw-text)',
                           backgroundColor: actorType === 'agent' ? 'rgba(139, 92, 246, 0.06)' : 'rgba(255, 255, 255, 0.03)',
                           border: `1px solid ${actorType === 'agent' ? 'rgba(139, 92, 246, 0.18)' : 'var(--baw-border)'}`,
                         }}
