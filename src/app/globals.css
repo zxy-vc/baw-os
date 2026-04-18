@@ -29,6 +29,18 @@ html.light {
   --baw-faint: #9CA3AF;
 }
 
+/* Sidebar keeps its dark chrome regardless of app theme, so any element
+   inside it that consumes --baw-* tokens renders legibly on the dark surface. */
+aside[data-sidebar] {
+  --baw-bg: #0F0F12;
+  --baw-surface: #17171C;
+  --baw-elevated: #1E1E24;
+  --baw-border: #2A2A32;
+  --baw-text: #E8E8EC;
+  --baw-muted: #A0A0AB;
+  --baw-faint: #6E6E78;
+}
+
 /* Page-level h1 headings: always use the design-system text color.
    Placed outside @layer so it overrides Tailwind utility classes
    like text-gray-900 / dark:text-white that some pages still carry. */

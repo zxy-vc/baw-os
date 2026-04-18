@@ -135,6 +135,7 @@ export default function Sidebar() {
       )}
 
       <aside
+        data-sidebar
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
         className={cn(
