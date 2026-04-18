@@ -2,60 +2,170 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --baw-bg: #0F0F12;
+  --baw-surface: #17171C;
+  --baw-elevated: #1E1E24;
+  --baw-border: #2A2A32;
+  --baw-text: #E8E8EC;
+  --baw-muted: #8B8B95;
+  --baw-faint: #55555E;
+  --baw-primary: #3B82F6;
+  --baw-agent: #8B5CF6;
+  --baw-agent-subtle: rgba(139, 92, 246, 0.1);
+  --baw-human-subtle: rgba(59, 130, 246, 0.1);
+  --baw-success: #22C55E;
+  --baw-warning: #F59E0B;
+  --baw-danger: #EF4444;
+}
+
 @layer base {
+  html {
+    font-variant-numeric: tabular-nums;
+  }
   body {
-    @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
+    @apply antialiased;
+    background-color: var(--baw-bg);
+    color: var(--baw-text);
+    font-variant-numeric: tabular-nums;
+  }
+  html.light body {
+    background-color: #F7F7F8;
+    color: #1A1A1F;
+  }
+  /* Numeric tabular by default in tables */
+  table, td, th, tbody, input, .num {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white border border-gray-200 rounded-xl p-6 dark:bg-gray-900 dark:border-gray-800;
+    @apply rounded-lg p-5 border;
+    background-color: var(--baw-surface);
+    border-color: var(--baw-border);
   }
-  .badge-available {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20;
-  }
-  .badge-occupied {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20;
-  }
-  .badge-maintenance {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20;
-  }
-  .badge-reserved {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20;
-  }
-  .badge-paid {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20;
-  }
-  .badge-pending {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20;
-  }
-  .badge-late {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20;
-  }
-  .badge-active {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20;
-  }
-  .badge-expired {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20;
-  }
-  .badge-en-renovacion {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20;
+  html.light .card {
+    background-color: #FFFFFF;
+    border-color: #E5E7EB;
   }
 
-  /* Improved table styles */
+  /* Accent borders for actor attribution */
+  .agent-border {
+    border-left: 2px solid var(--baw-agent);
+  }
+  .human-border {
+    border-left: 2px solid var(--baw-primary);
+  }
+  .system-border {
+    border-left: 2px solid var(--baw-faint);
+  }
+
+  .agent-badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: var(--baw-agent-subtle);
+    color: var(--baw-agent);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+
+  /* ---- Badges ---- */
+  .badge-available {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(34, 197, 94, 0.1);
+    color: #4ADE80;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+  .badge-occupied {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #60A5FA;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+  .badge-maintenance {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #FBBF24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+  .badge-reserved {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(139, 92, 246, 0.1);
+    color: #A78BFA;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+  }
+  .badge-paid {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(34, 197, 94, 0.1);
+    color: #4ADE80;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+  .badge-pending {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #FBBF24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+  .badge-late {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #F87171;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+  .badge-active {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(34, 197, 94, 0.1);
+    color: #4ADE80;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+  .badge-expired {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(139, 139, 149, 0.08);
+    color: #8B8B95;
+    border: 1px solid rgba(139, 139, 149, 0.2);
+  }
+  .badge-en-renovacion {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #60A5FA;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+
+  /* ---- Tables (denser, operational) ---- */
   .table-header {
-    @apply bg-slate-50 dark:bg-gray-800/50 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wide font-semibold;
+    background-color: var(--baw-surface);
+    color: var(--baw-muted);
+    @apply text-[11px] uppercase tracking-wide font-semibold;
   }
   .table-header th,
   .table-header td {
-    @apply py-3 px-4;
+    @apply py-2 px-3;
+    border-bottom: 1px solid var(--baw-border);
   }
   .table-row {
-    @apply hover:bg-slate-50 dark:hover:bg-gray-800/30 transition-colors;
+    @apply transition-colors;
+  }
+  .table-row:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+  html.light .table-row:hover {
+    background-color: rgba(0, 0, 0, 0.03);
   }
   .table-row td {
-    @apply py-3 px-4;
+    @apply py-2 px-3 text-[13px];
+    border-bottom: 1px solid var(--baw-border);
+    color: var(--baw-text);
+  }
+  html.light .table-header {
+    background-color: #F3F4F6;
+    color: #4B5563;
+  }
+  html.light .table-header th,
+  html.light .table-header td,
+  html.light .table-row td {
+    border-bottom: 1px solid #E5E7EB;
+  }
+  html.light .table-row td {
+    color: #111827;
   }
 
   /* Toast animation */
@@ -72,6 +182,14 @@
       opacity: 1;
       transform: translateX(0);
     }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  .animate-pulse-soft {
+    animation: pulse-soft 1.6s ease-in-out infinite;
   }
 
   /* Print styles for PDF export */
@@ -93,47 +211,96 @@
     }
   }
 
-  /* Light/dark form inputs */
+  /* ---- Form inputs ---- */
   .input-field {
-    @apply w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 text-sm
-           focus:ring-indigo-500 focus:border-indigo-500
-           dark:bg-gray-800 dark:border-gray-700 dark:text-white;
+    @apply w-full rounded-md px-3 py-2 text-[13px] transition-colors;
+    background-color: var(--baw-surface);
+    border: 1px solid var(--baw-border);
+    color: var(--baw-text);
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: var(--baw-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+  html.light .input-field {
+    background-color: #FFFFFF;
+    border-color: #D1D5DB;
+    color: #111827;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors
-           bg-gray-900 text-white hover:bg-gray-800
-           dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100;
+    @apply inline-flex items-center justify-center rounded-md px-3.5 py-2 text-[13px] font-medium transition-colors;
+    background-color: var(--baw-primary);
+    color: #FFFFFF;
+  }
+  .btn-primary:hover {
+    background-color: #2563EB;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors
-           border border-gray-300 text-gray-700 hover:text-gray-900 hover:border-gray-400
-           dark:border-gray-700 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-500;
+    @apply inline-flex items-center justify-center rounded-md px-3.5 py-2 text-[13px] font-medium transition-colors;
+    background-color: transparent;
+    border: 1px solid var(--baw-border);
+    color: var(--baw-text);
+  }
+  .btn-secondary:hover {
+    border-color: var(--baw-muted);
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+  html.light .btn-secondary {
+    border-color: #D1D5DB;
+    color: #111827;
+  }
+  html.light .btn-secondary:hover {
+    background-color: #F3F4F6;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors
-           bg-red-600 text-white hover:bg-red-700;
+    @apply inline-flex items-center justify-center rounded-md px-3.5 py-2 text-[13px] font-medium transition-colors;
+    background-color: var(--baw-danger);
+    color: #FFFFFF;
+  }
+  .btn-danger:hover {
+    background-color: #DC2626;
   }
 
   .page-title {
-    @apply text-gray-900 dark:text-white;
+    @apply text-[20px] font-semibold;
+    color: var(--baw-text);
+  }
+  html.light .page-title {
+    color: #111827;
   }
 
   .page-subtitle {
-    @apply text-gray-500 dark:text-gray-400;
+    @apply text-[13px];
+    color: var(--baw-muted);
+  }
+  html.light .page-subtitle {
+    color: #6B7280;
   }
 
   .section-title {
-    @apply text-gray-900 dark:text-white;
+    @apply text-[16px] font-semibold;
+    color: var(--baw-text);
+  }
+  html.light .section-title {
+    color: #111827;
   }
 
   .field-label {
-    @apply text-gray-500 dark:text-gray-400;
+    @apply text-[11px] uppercase tracking-wide font-medium;
+    color: var(--baw-muted);
+  }
+  html.light .field-label {
+    color: #6B7280;
   }
 
   .muted-text {
-    @apply text-gray-500 dark:text-gray-400;
+    color: var(--baw-muted);
+  }
+  html.light .muted-text {
+    color: #6B7280;
   }
 }
