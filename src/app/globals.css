@@ -8,8 +8,8 @@
   --baw-elevated: #1E1E24;
   --baw-border: #2A2A32;
   --baw-text: #E8E8EC;
-  --baw-muted: #8B8B95;
-  --baw-faint: #55555E;
+  --baw-muted: #A3A3AD;
+  --baw-faint: #666672;
   --baw-primary: #3B82F6;
   --baw-agent: #8B5CF6;
   --baw-agent-subtle: rgba(139, 92, 246, 0.1);
@@ -17,6 +17,16 @@
   --baw-success: #22C55E;
   --baw-warning: #F59E0B;
   --baw-danger: #EF4444;
+}
+
+html.light {
+  --baw-bg: #F7F7F8;
+  --baw-surface: #FFFFFF;
+  --baw-elevated: #F3F4F6;
+  --baw-border: #D1D5DB;
+  --baw-text: #111827;
+  --baw-muted: #4B5563;
+  --baw-faint: #9CA3AF;
 }
 
 @layer base {
@@ -30,8 +40,8 @@
     font-variant-numeric: tabular-nums;
   }
   html.light body {
-    background-color: #F7F7F8;
-    color: #1A1A1F;
+    background-color: var(--baw-bg);
+    color: var(--baw-text);
   }
   /* Numeric tabular by default in tables */
   table, td, th, tbody, input, .num {
@@ -156,8 +166,8 @@
     color: var(--baw-text);
   }
   html.light .table-header {
-    background-color: #F3F4F6;
-    color: #4B5563;
+    background-color: #EEF2F7;
+    color: #374151;
   }
   html.light .table-header th,
   html.light .table-header td,
@@ -301,6 +311,11 @@
     color: var(--baw-muted);
   }
   html.light .muted-text {
-    color: #6B7280;
+    color: #4B5563;
+  }
+
+  .surface-contrast {
+    background-color: var(--baw-surface);
+    border: 1px solid var(--baw-border);
   }
 }

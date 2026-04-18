@@ -1,10 +1,10 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Search, Bell } from 'lucide-react'
+import { Search, Bell, Sun, Moon } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import AuthGuard from '@/components/AuthGuard'
-import ThemeProvider from '@/components/ThemeProvider'
+import ThemeProvider, { useTheme } from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 
 const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply']
@@ -49,6 +49,7 @@ function getPageTitle(pathname: string): string {
 function GlobalHeader({ pathname }: { pathname: string }) {
   const title = getPageTitle(pathname)
   const unread = 0
+  const { theme, toggleTheme } = useTheme()
 
   return (
     <header
@@ -109,6 +110,20 @@ function GlobalHeader({ pathname }: { pathname: string }) {
             >
               ⌘K
             </kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+            style={{
+              color: 'var(--baw-muted)',
+              backgroundColor: 'var(--baw-surface)',
+              border: '1px solid var(--baw-border)',
+            }}
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
           {/* Notification bell */}
