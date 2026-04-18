@@ -120,7 +120,7 @@ export default function InvoiceDetailPage() {
         </button>
         <FileText className="w-6 h-6 text-indigo-500" />
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold">
             Factura {invoice.series}-{invoice.folio_number || '—'}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-0.5 text-sm">

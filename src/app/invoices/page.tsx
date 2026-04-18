@@ -115,7 +115,7 @@ export default function InvoicesPage() {
         <div className="flex items-center gap-3">
           <FileText className="w-6 h-6 text-gray-400" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Facturas</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Facturas</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">CFDI — Facturación electrónica</p>
           </div>
         </div>

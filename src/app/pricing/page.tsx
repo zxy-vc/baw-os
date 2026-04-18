@@ -171,7 +171,7 @@ export default function PricingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Administrador de Precios</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Administrador de Precios</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
           {prices.length} unidades · Precios LTR y STR
         </p>

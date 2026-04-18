@@ -141,7 +141,7 @@ export default function WhatsAppPage() {
           <MessageCircle className="w-5 h-5 text-green-500" />
         </div>
         <div>
-          <h1 className="text-lg font-semibold text-gray-100 [html.light_&]:text-gray-900">WhatsApp</h1>
+          <h1 className="text-lg font-semibold">WhatsApp</h1>
           <p className="text-sm page-subtitle">Meta Cloud API — Mensajería automatizada</p>
         </div>
       </div>

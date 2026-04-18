@@ -276,7 +276,7 @@ export default function CobrosPage() {
         <div className="flex items-center gap-3">
           <Receipt className="w-6 h-6 text-gray-400" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Cobros</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Cobros</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
               Estado de pagos mensuales — Contratos LTR / MTR
             </p>

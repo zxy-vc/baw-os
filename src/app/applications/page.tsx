@@ -144,7 +144,7 @@ export default function ApplicationsPage() {
     return (
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Expedientes</h1>
+          <h1 className="text-lg font-semibold">Expedientes</h1>
           <button
             onClick={handleCreate}
             disabled
@@ -169,7 +169,7 @@ export default function ApplicationsPage() {
     return (
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Expedientes</h1>
+          <h1 className="text-lg font-semibold">Expedientes</h1>
           <button
             onClick={handleCreate}
             disabled={creating}
@@ -191,7 +191,7 @@ export default function ApplicationsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Expedientes</h1>
+        <h1 className="text-lg font-semibold">Expedientes</h1>
         <button
           onClick={handleCreate}
           disabled={creating}

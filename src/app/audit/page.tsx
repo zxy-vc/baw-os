@@ -108,7 +108,7 @@ export default function AuditPage() {
           <ClipboardList className="w-5 h-5" style={{ color: '#A78BFA' }} />
         </div>
         <div>
-          <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+          <h1 className="text-[22px] font-semibold">
 Timeline de actividad
           </h1>
           <p className="text-[13px] muted-text mt-0.5">Actividad unificada de humanos y agentes dentro del sistema</p>

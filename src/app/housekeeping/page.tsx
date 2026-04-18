@@ -164,7 +164,7 @@ export default function HousekeepingPage() {
             <ClipboardList className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h1 className="text-xl font-semibold">
               Housekeeping
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">

@@ -19,6 +19,23 @@
   --baw-danger: #EF4444;
 }
 
+html.light {
+  --baw-bg: #F7F7F8;
+  --baw-surface: #FFFFFF;
+  --baw-elevated: #F3F4F6;
+  --baw-border: #E5E7EB;
+  --baw-text: #111827;
+  --baw-muted: #6B7280;
+  --baw-faint: #9CA3AF;
+}
+
+/* Page-level h1 headings: always use the design-system text color.
+   Placed outside @layer so it overrides Tailwind utility classes
+   like text-gray-900 / dark:text-white that some pages still carry. */
+main h1 {
+  color: var(--baw-text);
+}
+
 @layer base {
   html {
     font-variant-numeric: tabular-nums;

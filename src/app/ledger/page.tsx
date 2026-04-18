@@ -234,7 +234,7 @@ export default function LedgerPage() {
         <div className="flex items-center gap-3">
           <BookOpen className="w-6 h-6 text-gray-400" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Bitácora de Cobros</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Bitácora de Cobros</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
                 <Lock className="w-3 h-3" />

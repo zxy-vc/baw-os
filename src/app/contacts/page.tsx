@@ -423,7 +423,7 @@ export default function ContactsPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-xl font-bold">
                   {selectedContact.name}
                 </h1>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[selectedContact.type || 'both']}`}>
@@ -604,7 +604,7 @@ export default function ContactsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Contactos</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Contactos</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             {contacts.length} contacto(s) en directorio
           </p>

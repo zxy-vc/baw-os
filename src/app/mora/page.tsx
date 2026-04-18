@@ -162,7 +162,7 @@ export default function MoraPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <AlertOctagon className="w-6 h-6 text-red-500" />
             Motor de Morosidad
           </h1>

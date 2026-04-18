@@ -165,7 +165,7 @@ export default function UnitMediaPage() {
           <Link href={`/units/${unit.id}`} className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white mb-2">
             <ArrowLeft className="w-4 h-4" /> Volver a unidad
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Media y espacios · Depto {unit.number}</h1>
+          <h1 className="text-2xl font-bold">Media y espacios · Depto {unit.number}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Tier 1A interno. Carga, ordena y persiste assets por unidad y espacio.</p>
         </div>
         <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium cursor-pointer">

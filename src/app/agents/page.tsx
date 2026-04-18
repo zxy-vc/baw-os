@@ -239,7 +239,7 @@ export default function AgentControlCenter() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+        <h1 className="text-[22px] font-semibold">
           Agent Control Center
         </h1>
         <p className="text-[13px] muted-text mt-0.5">Monitor, approve, and tune your six operational agents</p>

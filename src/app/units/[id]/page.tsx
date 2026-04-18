@@ -181,7 +181,7 @@ export default function UnitDetailPage() {
         </button>
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-bold">
               Depto {unit.number}
             </h1>
             <span className={statusBadgeClass[unit.status]}>{statusLabels[unit.status]}</span>

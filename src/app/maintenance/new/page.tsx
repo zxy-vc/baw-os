@@ -73,7 +73,7 @@ export default function NewIncidentPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Nueva incidencia</h1>
+          <h1 className="text-2xl font-bold">Nueva incidencia</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Reportar problema o mantenimiento</p>
         </div>
       </div>

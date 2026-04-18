@@ -236,7 +236,7 @@ export default function MissionControl() {
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+          <h1 className="text-[22px] font-semibold">
             Mission Control
           </h1>
           <p className="text-[13px] muted-text mt-0.5">

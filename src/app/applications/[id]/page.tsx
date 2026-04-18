@@ -130,7 +130,7 @@ export default function ApplicationDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h1 className="text-lg font-semibold">
               Expediente {app.unit ? `— Depto ${app.unit.number}` : ''}
             </h1>
             <div className="flex items-center gap-2 mt-1">

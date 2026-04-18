@@ -216,7 +216,7 @@ export default function GastosPage() {
         <div className="flex items-center gap-3">
           <TrendingDown className="w-6 h-6 text-red-500" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Gastos</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Gastos</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
               Control de gastos operativos
             </p>

@@ -106,7 +106,7 @@ export default function NewContractPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Nuevo contrato</h1>
+          <h1 className="text-2xl font-bold">Nuevo contrato</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Registrar contrato LTR / MTR</p>
         </div>
       </div>

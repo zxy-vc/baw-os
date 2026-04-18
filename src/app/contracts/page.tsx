@@ -207,7 +207,7 @@ export default function ContractsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Contratos LTR / MTR</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Contratos LTR / MTR</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
             {contracts.length} contrato(s) registrado(s)
           </p>

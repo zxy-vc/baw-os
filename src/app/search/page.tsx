@@ -132,7 +132,7 @@ export default function SearchPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <Search className="w-6 h-6 text-indigo-500" />
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Buscar</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Buscar</h1>
       </div>
 
       <div className="relative">

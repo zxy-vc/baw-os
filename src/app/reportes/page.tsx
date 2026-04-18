@@ -112,7 +112,7 @@ export default function ReportesPage() {
         <div className="flex items-center gap-3">
           <BarChart3 className="w-6 h-6 text-indigo-500" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Reportes</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Reportes</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
               Historial de pagos — todas las unidades
             </p>
