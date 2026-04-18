@@ -18,21 +18,27 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem('baw-theme') as Theme | null
-    const initial = stored || 'dark'
+    // Default to dark; only honor explicit 'light' override
+    const stored = (typeof window !== 'undefined'
+      ? (localStorage.getItem('baw-theme') as Theme | null)
+      : null)
+    const initial: Theme = stored === 'light' ? 'light' : 'dark'
     setTheme(initial)
     document.documentElement.classList.toggle('dark', initial === 'dark')
+    document.documentElement.classList.toggle('light', initial === 'light')
     setMounted(true)
   }, [])
 
   function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
-    localStorage.setItem('baw-theme', next)
+    try {
+      localStorage.setItem('baw-theme', next)
+    } catch {}
     document.documentElement.classList.toggle('dark', next === 'dark')
+    document.documentElement.classList.toggle('light', next === 'light')
   }
 
-  // Prevent flash of wrong theme
   if (!mounted) {
     return <>{children}</>
   }

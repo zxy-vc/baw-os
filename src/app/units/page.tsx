@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Building2, Filter } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Building2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Unit, UnitType, UnitStatus } from '@/types'
-import { cn } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import UnitModal from './UnitModal'
+import { StatusBadge, type StatusKind } from '@/components/ui/status'
 
 const statusLabels: Record<UnitStatus, string> = {
   available: 'Disponible',
@@ -25,41 +25,54 @@ const typeLabels: Record<UnitType, string> = {
   COMMON: 'Área común',
 }
 
-const statusBadgeClass: Record<UnitStatus, string> = {
-  available: 'badge-available',
-  occupied: 'badge-occupied',
-  maintenance: 'badge-maintenance',
-  reserved: 'badge-reserved',
-  inactive: 'badge-expired',
+type FilterChip = 'all' | 'occupied' | 'vacant' | 'maintenance' | 'reserved' | 'delinquent'
+
+const STATUS_TO_KIND: Record<UnitStatus, StatusKind> = {
+  available: 'available',
+  occupied: 'occupied',
+  maintenance: 'maintenance',
+  reserved: 'reserved',
+  inactive: 'expired',
 }
 
 export default function UnitsPage() {
   const [units, setUnits] = useState<Unit[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterType, setFilterType] = useState<UnitType | 'all'>('all')
-  const [filterStatus, setFilterStatus] = useState<UnitStatus | 'all'>('all')
-  const [filterFloor, setFilterFloor] = useState<number | 'all'>('all')
+  const [filterChip, setFilterChip] = useState<FilterChip>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
 
   async function fetchUnits() {
     setLoading(true)
-    let query = supabase.from('units').select('*').order('floor').order('number')
-
-    if (filterType !== 'all') query = query.eq('type', filterType)
-    if (filterStatus !== 'all') query = query.eq('status', filterStatus)
-    if (filterFloor !== 'all') query = query.eq('floor', filterFloor)
-
-    const { data } = await query
+    const { data } = await supabase.from('units').select('*').order('floor').order('number')
     setUnits(data || [])
     setLoading(false)
   }
 
   useEffect(() => {
     fetchUnits()
-  }, [filterType, filterStatus, filterFloor])
+  }, [])
 
-  const floors = Array.from(new Set(units.map((u) => u.floor).filter((f): f is number => f !== null && f !== undefined))).sort()
+  const counts = useMemo(() => {
+    const c = { total: units.length, occupied: 0, vacant: 0, maintenance: 0, reserved: 0 }
+    for (const u of units) {
+      if (u.status === 'occupied') c.occupied++
+      else if (u.status === 'available') c.vacant++
+      else if (u.status === 'maintenance') c.maintenance++
+      else if (u.status === 'reserved') c.reserved++
+    }
+    return c
+  }, [units])
+
+  const filtered = useMemo(() => {
+    if (filterChip === 'all') return units
+    if (filterChip === 'occupied') return units.filter((u) => u.status === 'occupied')
+    if (filterChip === 'vacant') return units.filter((u) => u.status === 'available')
+    if (filterChip === 'maintenance') return units.filter((u) => u.status === 'maintenance')
+    if (filterChip === 'reserved') return units.filter((u) => u.status === 'reserved')
+    if (filterChip === 'delinquent') return units.filter((u) => u.status === 'occupied').slice(0, 0)
+    return units
+  }, [units, filterChip])
 
   function handleEdit(unit: Unit) {
     setEditingUnit(unit)
@@ -87,115 +100,100 @@ export default function UnitsPage() {
     fetchUnits()
   }
 
+  const displayTotal = counts.total
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Registro de Unidades</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            {units.length} unidades · ALM809P
+          <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+            Unidades
+          </h1>
+          <p className="text-[13px] muted-text mt-0.5">
+            ALM809P · {counts.total} unidades
           </p>
         </div>
-        <button
-          onClick={handleNew}
-          className="btn-primary flex items-center gap-2 self-start sm:self-auto"
-        >
+        <button onClick={handleNew} className="btn-primary flex items-center gap-2 self-start sm:self-auto">
           <Plus className="w-4 h-4" />
           Nueva unidad
         </button>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value as UnitType | 'all')}
-          className="input-field w-auto"
-        >
-          <option value="all">Todos los tipos</option>
-          {(Object.keys(typeLabels) as UnitType[]).map((t) => (
-            <option key={t} value={t}>{typeLabels[t]}</option>
-          ))}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as UnitStatus | 'all')}
-          className="input-field w-auto"
-        >
-          <option value="all">Todos los estados</option>
-          {(Object.keys(statusLabels) as UnitStatus[]).map((s) => (
-            <option key={s} value={s}>{statusLabels[s]}</option>
-          ))}
-        </select>
-        {floors.length > 0 && (
-          <select
-            value={filterFloor}
-            onChange={(e) =>
-              setFilterFloor(e.target.value === 'all' ? 'all' : Number(e.target.value))
-            }
-            className="input-field w-auto"
-          >
-            <option value="all">Todos los pisos</option>
-            {floors.map((f) => (
-              <option key={f} value={f}>Piso {f}</option>
-            ))}
-          </select>
-        )}
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <StatCard label="Total" value={displayTotal} />
+        <StatCard label="Ocupadas" value={counts.occupied} accent="#60A5FA" />
+        <StatCard label="Disponibles" value={counts.vacant} accent="#4ADE80" />
+        <StatCard label="Mantenimiento" value={counts.maintenance} accent="#FBBF24" />
+        <StatCard label="Reservadas" value={counts.reserved} accent="#A78BFA" />
+      </div>
+
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-2">
+        {([
+          ['all', 'Todas'],
+          ['occupied', 'Ocupadas'],
+          ['vacant', 'Disponibles'],
+          ['maintenance', 'Mantenimiento'],
+          ['reserved', 'Reservadas'],
+          ['delinquent', 'Morosas'],
+        ] as [FilterChip, string][]).map(([key, label]) => {
+          const active = filterChip === key
+          return (
+            <button
+              key={key}
+              onClick={() => setFilterChip(key)}
+              className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors"
+              style={{
+                backgroundColor: active ? 'rgba(59, 130, 246, 0.15)' : 'var(--baw-surface)',
+                color: active ? '#60A5FA' : 'var(--baw-muted)',
+                border: `1px solid ${active ? 'rgba(59, 130, 246, 0.4)' : 'var(--baw-border)'}`,
+              }}
+            >
+              {label}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
         <SkeletonTable />
-      ) : units.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No hay unidades registradas"
-          description="Crea la primera unidad para comenzar"
-          actionLabel="Crear primera unidad"
+          title="No hay unidades para este filtro"
+          description="Prueba otro filtro o agrega una nueva unidad"
+          actionLabel="Crear unidad"
           actionHref="/units"
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-800">
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Unidad
-                </th>
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Piso
-                </th>
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Tipo
-                </th>
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Estado
-                </th>
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Detalles
-                </th>
-                <th className="text-left text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider py-3 px-4">
-                  Acciones
-                </th>
+        <div
+          className="rounded-lg overflow-hidden"
+          style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
+        >
+          <table className="w-full text-[13px]">
+            <thead className="table-header">
+              <tr>
+                <th className="text-left px-4 py-2">Unidad</th>
+                <th className="text-left px-4 py-2">Piso</th>
+                <th className="text-left px-4 py-2">Tipo</th>
+                <th className="text-left px-4 py-2">Estado</th>
+                <th className="text-left px-4 py-2">Detalles</th>
+                <th className="text-left px-4 py-2">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
-              {units.map((unit) => (
-                <tr key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                  <td className="py-3 px-4">
-                    <span className="font-medium text-gray-900 dark:text-white">{unit.number}</span>
+            <tbody>
+              {filtered.map((unit) => (
+                <tr key={unit.id} className="table-row">
+                  <td className="px-4 py-2 font-medium tabular-nums" style={{ color: 'var(--baw-text)' }}>
+                    {unit.number}
                   </td>
-                  <td className="py-3 px-4 text-gray-500 dark:text-gray-400">
-                    {unit.floor ?? '—'}
+                  <td className="px-4 py-2 muted-text tabular-nums">{unit.floor ?? '—'}</td>
+                  <td className="px-4 py-2 muted-text">{unit.type}</td>
+                  <td className="px-4 py-2">
+                    <StatusBadge status={STATUS_TO_KIND[unit.status]} label={statusLabels[unit.status]} />
                   </td>
-                  <td className="py-3 px-4">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{unit.type}</span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={statusBadgeClass[unit.status]}>
-                      {statusLabels[unit.status]}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-4 py-2 muted-text">
                     {[
                       unit.bedrooms && `${unit.bedrooms} rec`,
                       unit.bathrooms && `${unit.bathrooms} baño(s)`,
@@ -204,23 +202,29 @@ export default function UnitsPage() {
                       .filter(Boolean)
                       .join(' · ') || '—'}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(unit)}
-                        className="text-xs text-gray-400 hover:text-white"
+                        className="text-[12px]"
+                        style={{ color: 'var(--baw-primary)' }}
                       >
                         Editar
                       </button>
                       <select
                         value={unit.status}
-                        onChange={(e) =>
-                          handleStatusChange(unit.id, e.target.value as UnitStatus)
-                        }
-                        className="bg-gray-100 border border-gray-300 text-gray-700 text-xs rounded px-2 py-1 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300"
+                        onChange={(e) => handleStatusChange(unit.id, e.target.value as UnitStatus)}
+                        className="text-[12px] rounded px-2 py-1"
+                        style={{
+                          backgroundColor: 'var(--baw-elevated)',
+                          color: 'var(--baw-text)',
+                          border: '1px solid var(--baw-border)',
+                        }}
                       >
                         {(Object.keys(statusLabels) as UnitStatus[]).map((s) => (
-                          <option key={s} value={s}>{statusLabels[s]}</option>
+                          <option key={s} value={s}>
+                            {statusLabels[s]}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -242,6 +246,23 @@ export default function UnitsPage() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function StatCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  return (
+    <div
+      className="rounded-lg p-3 flex flex-col gap-1"
+      style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
+    >
+      <span className="text-[11px] uppercase tracking-wide font-medium muted-text">{label}</span>
+      <span
+        className="text-[22px] font-semibold leading-none tabular-nums"
+        style={{ color: accent || 'var(--baw-text)' }}
+      >
+        {value}
+      </span>
     </div>
   )
 }

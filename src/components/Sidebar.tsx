@@ -3,73 +3,63 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, FileText, CreditCard, LayoutDashboard, LogOut, Menu, X, Sun, Moon, DollarSign, Calculator, Wrench, CalendarDays, Users, Receipt, TrendingDown, BarChart3, Search, Bell, Code2, MessageCircle, ClipboardList, CheckSquare, BookOpen, AlertOctagon, Settings2, FileCheck, FileUp, Globe, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Building2,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  X,
+  Wrench,
+  CalendarDays,
+  Receipt,
+  ListTodo,
+  Bot,
+  Clock,
+  Settings2,
+  ChevronRight,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
-import { useTheme } from '@/components/ThemeProvider'
 
-const navigationGroups = [
-  {
-    title: 'Operación',
-    items: [
-      { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-      { name: 'Notificaciones', href: '/notifications', icon: Bell },
-      { name: 'Unidades', href: '/units', icon: Building2 },
-      { name: 'Expedientes', href: '/applications', icon: FileCheck },
-      { name: 'Contratos', href: '/contracts', icon: FileText },
-      { name: 'Cobros', href: '/cobros', icon: Receipt },
-      { name: 'Pagos', href: '/payments', icon: CreditCard },
-      { name: 'Morosidad', href: '/mora', icon: AlertOctagon },
-      { name: 'Bitácora', href: '/ledger', icon: BookOpen },
-    ],
-  },
-  {
-    title: 'Servicio',
-    items: [
-      { name: 'Tareas', href: '/tasks', icon: CheckSquare },
-      { name: 'Housekeeping', href: '/housekeeping', icon: ClipboardList },
-      { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
-      { name: 'Contactos', href: '/contacts', icon: Users },
-      { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle },
-    ],
-  },
-  {
-    title: 'Comercial STR',
-    items: [
-      { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
-      { name: 'Precios', href: '/pricing', icon: DollarSign },
-      { name: 'Cotizador', href: '/quotes', icon: Calculator },
-      { name: 'Canales', href: '/channels', icon: Globe },
-    ],
-  },
-  {
-    title: 'Administración',
-    items: [
-      { name: 'Facturas', href: '/invoices', icon: FileText },
-      { name: 'Gastos', href: '/gastos', icon: TrendingDown },
-      { name: 'Reportes', href: '/reportes', icon: BarChart3 },
-      { name: 'Reportes CSV', href: '/reports', icon: BarChart3 },
-      { name: 'Audit Log', href: '/audit', icon: ClipboardList },
-      { name: 'Importar CSV', href: '/onboarding/bulk', icon: FileUp },
-      { name: 'Settings', href: '/settings', icon: Settings2 },
-      { name: 'Configuración Inicial', href: '/onboarding', icon: Settings2 },
-      { name: 'API Docs', href: '/api-docs', icon: Code2 },
-    ],
-  },
+type NavItem = {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  badgeKey?: 'agents' | 'notifications'
+}
+
+type NavEntry = NavItem | { separator: true }
+
+const navigation: NavEntry[] = [
+  { name: 'Mission Control', href: '/', icon: LayoutDashboard },
+  { name: 'Operaciones', href: '/tasks', icon: ListTodo },
+  { name: 'Unidades', href: '/units', icon: Building2 },
+  { name: 'Contratos', href: '/contracts', icon: FileText },
+  { name: 'Cobros', href: '/cobros', icon: Receipt },
+  { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
+  { separator: true },
+  { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
+  { name: 'Facturas', href: '/invoices', icon: FileText },
+  { separator: true },
+  { name: 'Agentes', href: '/agents', icon: Bot, badgeKey: 'agents' },
+  { name: 'Timeline', href: '/audit', icon: Clock },
+  { name: 'Configuración', href: '/settings', icon: Settings2 },
 ]
+
+const COLLAPSED_WIDTH = 56
+const EXPANDED_WIDTH = 240
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
-    Operación: false,
-    Servicio: true,
-    'Comercial STR': true,
-    Administración: true,
-  })
-  const { theme, toggleTheme } = useTheme()
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [pinned, setPinned] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const mockAgentApprovals = 4
+
+  const expanded = pinned || hovering || mobileOpen
 
   const fetchUnread = useCallback(async () => {
     try {
@@ -87,28 +77,23 @@ export default function Sidebar() {
     return () => clearInterval(interval)
   }, [fetchUnread])
 
-  // Close drawer on route change
   useEffect(() => {
-    setOpen(false)
+    setMobileOpen(false)
   }, [pathname])
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem('baw-sidebar-groups')
-      if (raw) {
-        setCollapsedGroups((prev) => ({ ...prev, ...JSON.parse(raw) }))
-      }
+      const raw = window.localStorage.getItem('baw-sidebar-pinned')
+      if (raw === '1') setPinned(true)
     } catch {}
   }, [])
 
-  function toggleGroup(title: string) {
-    setCollapsedGroups((prev) => {
-      const next = { ...prev, [title]: !prev[title] }
-      try {
-        window.localStorage.setItem('baw-sidebar-groups', JSON.stringify(next))
-      } catch {}
-      return next
-    })
+  function togglePinned() {
+    const next = !pinned
+    setPinned(next)
+    try {
+      window.localStorage.setItem('baw-sidebar-pinned', next ? '1' : '0')
+    } catch {}
   }
 
   async function handleLogout() {
@@ -117,122 +102,227 @@ export default function Sidebar() {
     router.refresh()
   }
 
+  function badgeFor(item: NavItem) {
+    if (item.badgeKey === 'agents' && mockAgentApprovals > 0) return mockAgentApprovals
+    if (item.badgeKey === 'notifications' && unreadCount > 0) return unreadCount
+    return null
+  }
+
+  const width = expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH
+
   return (
     <>
-      {/* Mobile hamburger button */}
+      {/* Mobile hamburger */}
       <button
-        onClick={() => setOpen(true)}
-        className="fixed top-3 left-4 z-50 p-2 rounded-lg bg-white/95 shadow-sm border border-gray-200 text-gray-500 hover:text-gray-900 dark:bg-[#111]/95 dark:border-[#333] dark:text-[#888] dark:hover:text-white md:hidden"
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-3 left-3 z-50 p-2 rounded-md md:hidden"
+        style={{
+          backgroundColor: 'var(--baw-surface)',
+          border: '1px solid var(--baw-border)',
+          color: 'var(--baw-text)',
+        }}
         aria-label="Abrir menú"
       >
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Overlay */}
-      {open && (
+      {/* Mobile overlay */}
+      {mobileOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 md:hidden"
-          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setMobileOpen(false)}
         />
       )}
 
-      {/* Sidebar — always dark for contrast */}
       <aside
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 flex flex-col transition-transform duration-200 ease-in-out',
-          'bg-gray-900 border-r border-gray-800 dark:bg-gray-900 dark:border-gray-800',
-          'light:bg-gray-100 light:border-gray-200',
-          '[html.light_&]:bg-gray-100 [html.light_&]:border-gray-200',
+          'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-200 ease-in-out',
           'md:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full'
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
+        style={{
+          width: mobileOpen ? EXPANDED_WIDTH : width,
+          backgroundColor: '#0F0F12',
+          borderRight: '1px solid #2A2A32',
+        }}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800 dark:border-gray-800 [html.light_&]:border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-bold text-sm text-black">
-              B
-            </div>
-            <div>
-              <h1 className="text-base font-semibold text-white dark:text-white [html.light_&]:text-gray-900">BaW OS</h1>
-              <p className="text-[11px] text-gray-500 [html.light_&]:text-gray-500">v1.0.0 · ALM809P</p>
-            </div>
+        {/* Brand */}
+        <div
+          className="flex items-center gap-3 px-3 h-14 shrink-0"
+          style={{ borderBottom: '1px solid #2A2A32' }}
+        >
+          <div
+            className="flex items-center justify-center rounded-md shrink-0"
+            style={{
+              width: 32,
+              height: 32,
+              backgroundColor: 'var(--baw-primary)',
+              color: '#FFFFFF',
+            }}
+          >
+            <span className="font-bold text-[14px] leading-none">B</span>
           </div>
-          <button
-            onClick={() => setOpen(false)}
-            className="p-1 text-gray-400 hover:text-white [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 md:hidden"
-            aria-label="Cerrar menú"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="px-3 pt-3">
-          <Link
-            href="/search"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200 transition-colors w-full border border-gray-800 [html.light_&]:border-gray-300"
-          >
-            <Search className="w-4 h-4" />
-            Buscar...
-          </Link>
-        </div>
-
-        <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-          {navigationGroups.map((group) => (
-            <div key={group.title} className="space-y-1">
+          {expanded && (
+            <div className="flex items-center justify-between flex-1 min-w-0">
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold text-white truncate">BaW OS</div>
+                <div className="text-[11px] truncate" style={{ color: 'var(--baw-muted)' }}>
+                  Centro de control
+                </div>
+              </div>
               <button
-                type="button"
-                onClick={() => toggleGroup(group.title)}
-                className="w-full flex items-center justify-between px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 [html.light_&]:text-gray-500 hover:text-gray-300 [html.light_&]:hover:text-gray-700 transition-colors"
+                onClick={() => setMobileOpen(false)}
+                className="p-1 md:hidden"
+                style={{ color: 'var(--baw-muted)' }}
+                aria-label="Cerrar menú"
               >
-                <span>{group.title}</span>
-                {collapsedGroups[group.title] ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                <X className="w-4 h-4" />
               </button>
-              {!collapsedGroups[group.title] && group.items.map((item) => {
-                const isActive =
-                  item.href === '/'
-                    ? pathname === '/'
-                    : pathname.startsWith(item.href)
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-gray-800 text-white [html.light_&]:bg-gray-100 [html.light_&]:text-gray-700'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200'
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {item.name}
-                    {item.name === 'Notificaciones' && unreadCount > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none min-w-[18px] text-center">
-                        {unreadCount > 99 ? '99+' : unreadCount}
+              <button
+                onClick={togglePinned}
+                className="hidden md:inline-flex p-1 rounded transition-colors"
+                style={{ color: pinned ? 'var(--baw-primary)' : 'var(--baw-muted)' }}
+                aria-label={pinned ? 'Desfijar barra lateral' : 'Fijar barra lateral'}
+                title={pinned ? 'Desfijar barra lateral' : 'Fijar barra lateral'}
+              >
+                <ChevronRight
+                  className={cn('w-4 h-4 transition-transform', pinned && 'rotate-180')}
+                />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+          {navigation.map((entry, idx) => {
+            if ('separator' in entry) {
+              return (
+                <div
+                  key={`sep-${idx}`}
+                  className="my-2 mx-3"
+                  style={{ borderTop: '1px solid #2A2A32' }}
+                />
+              )
+            }
+            const item = entry
+            const Icon = item.icon
+            const isActive =
+              item.href === '/'
+                ? pathname === '/'
+                : pathname.startsWith(item.href)
+            const badge = badgeFor(item)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'relative flex items-center h-9 mx-2 rounded-md transition-colors group',
+                  'hover:bg-white/5'
+                )}
+                style={{
+                  backgroundColor: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                  color: isActive ? 'var(--baw-text)' : 'var(--baw-muted)',
+                }}
+                title={!expanded ? item.name : undefined}
+              >
+                {isActive && (
+                  <span
+                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r"
+                    style={{ backgroundColor: 'var(--baw-primary)' }}
+                  />
+                )}
+                <span className="flex items-center justify-center w-[40px] shrink-0">
+                  <Icon className="w-[18px] h-[18px]" />
+                </span>
+                {expanded && (
+                  <span className="flex items-center justify-between flex-1 min-w-0 pr-3">
+                    <span className="text-[13px] font-medium truncate">{item.name}</span>
+                    {badge !== null && (
+                      <span
+                        className="ml-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none tabular-nums min-w-[18px] text-center"
+                        style={{
+                          backgroundColor:
+                            item.badgeKey === 'agents'
+                              ? 'rgba(139, 92, 246, 0.2)'
+                              : 'var(--baw-danger)',
+                          color:
+                            item.badgeKey === 'agents' ? '#A78BFA' : '#FFFFFF',
+                          border:
+                            item.badgeKey === 'agents'
+                              ? '1px solid rgba(139, 92, 246, 0.4)'
+                              : 'none',
+                        }}
+                      >
+                        {typeof badge === 'number' && badge > 99 ? '99+' : badge}
                       </span>
                     )}
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
+                  </span>
+                )}
+
+                {/* Tooltip when collapsed */}
+                {!expanded && (
+                  <span
+                    className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded text-[11px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50"
+                    style={{
+                      backgroundColor: 'var(--baw-elevated)',
+                      color: 'var(--baw-text)',
+                      border: '1px solid var(--baw-border)',
+                    }}
+                  >
+                    {item.name}
+                    {badge !== null && (
+                      <span className="ml-1 opacity-70">({badge})</span>
+                    )}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
         </nav>
 
-        <div className="px-3 py-3 border-t border-gray-800 [html.light_&]:border-gray-200 space-y-2">
+        {/* Footer: building selector + logout */}
+        <div
+          className="shrink-0 py-2"
+          style={{ borderTop: '1px solid #2A2A32' }}
+        >
           <button
-            onClick={toggleTheme}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200 transition-colors w-full"
+            type="button"
+            className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
+            style={{ color: 'var(--baw-text)' }}
+            title={!expanded ? 'ALM809P' : undefined}
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            <span className="flex items-center justify-center w-[40px] shrink-0">
+              <Building2 className="w-[18px] h-[18px]" style={{ color: 'var(--baw-muted)' }} />
+            </span>
+            {expanded && (
+              <span className="flex items-center justify-between flex-1 min-w-0 pr-3">
+                <span className="flex flex-col items-start min-w-0">
+                  <span className="text-[12px] font-medium truncate">ALM809P</span>
+                  <span className="text-[10px]" style={{ color: 'var(--baw-muted)' }}>
+                    ALM809P
+                  </span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--baw-muted)' }} />
+              </span>
+            )}
           </button>
+
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800/50 [html.light_&]:text-gray-600 [html.light_&]:hover:text-gray-900 [html.light_&]:hover:bg-gray-200 transition-colors w-full"
+            className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
+            style={{ color: 'var(--baw-muted)' }}
+            title={!expanded ? 'Cerrar sesión' : undefined}
           >
-            <LogOut className="w-5 h-5" />
-            Cerrar sesión
+            <span className="flex items-center justify-center w-[40px] shrink-0">
+              <LogOut className="w-[18px] h-[18px]" />
+            </span>
+            {expanded && (
+              <span className="text-[13px] font-medium">Cerrar sesión</span>
+            )}
           </button>
-          <p className="text-[11px] text-gray-600 [html.light_&]:text-gray-400 px-3">BaW Design Lab · ZXY Ventures</p>
         </div>
       </aside>
     </>
