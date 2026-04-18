@@ -20,13 +20,13 @@
 }
 
 html.light {
-  --baw-bg: #F7F7F8;
-  --baw-surface: #FFFFFF;
-  --baw-elevated: #F3F4F6;
-  --baw-border: #D1D5DB;
-  --baw-text: #111827;
-  --baw-muted: #4B5563;
-  --baw-faint: #9CA3AF;
+  --baw-bg: #111318;
+  --baw-surface: #171A20;
+  --baw-elevated: #1F2430;
+  --baw-border: #2B3140;
+  --baw-text: #F3F4F6;
+  --baw-muted: #C7CDD8;
+  --baw-faint: #7B8496;
 }
 
 @layer base {
@@ -42,6 +42,11 @@ html.light {
   html.light body {
     background-color: var(--baw-bg);
     color: var(--baw-text);
+  }
+
+  html.light .card {
+    background-color: var(--baw-surface);
+    border-color: var(--baw-border);
   }
   /* Numeric tabular by default in tables */
   table, td, th, tbody, input, .num {
@@ -158,7 +163,7 @@ html.light {
     background-color: rgba(255, 255, 255, 0.03);
   }
   html.light .table-row:hover {
-    background-color: rgba(0, 0, 0, 0.03);
+    background-color: rgba(255, 255, 255, 0.04);
   }
   .table-row td {
     @apply py-2 px-3 text-[13px];
@@ -166,16 +171,16 @@ html.light {
     color: var(--baw-text);
   }
   html.light .table-header {
-    background-color: #EEF2F7;
-    color: #374151;
+    background-color: #151922;
+    color: #D1D5DB;
   }
   html.light .table-header th,
   html.light .table-header td,
   html.light .table-row td {
-    border-bottom: 1px solid #E5E7EB;
+    border-bottom: 1px solid var(--baw-border);
   }
   html.light .table-row td {
-    color: #111827;
+    color: var(--baw-text);
   }
 
   /* Toast animation */
@@ -234,9 +239,9 @@ html.light {
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
   }
   html.light .input-field {
-    background-color: #FFFFFF;
-    border-color: #D1D5DB;
-    color: #111827;
+    background-color: var(--baw-elevated);
+    border-color: var(--baw-border);
+    color: var(--baw-text);
   }
 
   .btn-primary {
@@ -259,11 +264,11 @@ html.light {
     background-color: rgba(255, 255, 255, 0.03);
   }
   html.light .btn-secondary {
-    border-color: #D1D5DB;
-    color: #111827;
+    border-color: var(--baw-border);
+    color: var(--baw-text);
   }
   html.light .btn-secondary:hover {
-    background-color: #F3F4F6;
+    background-color: rgba(255, 255, 255, 0.05);
   }
 
   .btn-danger {
@@ -280,7 +285,7 @@ html.light {
     color: var(--baw-text);
   }
   html.light .page-title {
-    color: #111827;
+    color: var(--baw-text);
   }
 
   .page-subtitle {
@@ -288,7 +293,7 @@ html.light {
     color: var(--baw-muted);
   }
   html.light .page-subtitle {
-    color: #6B7280;
+    color: var(--baw-muted);
   }
 
   .section-title {
@@ -296,7 +301,7 @@ html.light {
     color: var(--baw-text);
   }
   html.light .section-title {
-    color: #111827;
+    color: var(--baw-text);
   }
 
   .field-label {
@@ -304,14 +309,14 @@ html.light {
     color: var(--baw-muted);
   }
   html.light .field-label {
-    color: #6B7280;
+    color: var(--baw-muted);
   }
 
   .muted-text {
     color: var(--baw-muted);
   }
   html.light .muted-text {
-    color: #4B5563;
+    color: var(--baw-muted);
   }
 
   .surface-contrast {
