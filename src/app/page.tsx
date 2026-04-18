@@ -1,908 +1,518 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import {
-  Building2,
-  DollarSign,
-  AlertTriangle,
-  Clock,
-  Wrench,
-  CheckCircle,
-  Home,
-  Users,
-  Receipt,
-  ArrowRight,
-  CreditCard,
-  AlertOctagon,
-  CalendarPlus,
-  FileText,
-} from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import Link from 'next/link'
-import { Settings2 } from 'lucide-react'
-import { SkeletonDashboard } from '@/components/Skeleton'
-import ContractAlertsBanner from '@/components/ContractAlertsBanner'
-import type { Unit, Contract, Payment, Occupant } from '@/types'
+import {
+  StatusBadge,
+  AgentBadge,
+  PriorityBadge,
+  ActorAvatar,
+  KPICard,
+  type StatusKind,
+  type Priority,
+  type ActorType,
+} from '@/components/ui/status'
 
-interface UnitWithContract extends Unit {
-  occupantName?: string
-  contractType?: string
-}
+type AttentionType = 'APPROVAL' | 'ESCALATION' | 'DECISION' | 'BLOCKED'
 
-interface AlertItem {
-  type: 'overdue' | 'expiring' | 'expiring_critical' | 'expiring_soon' | 'expiring_warning' | 'maintenance' | 'missing_payment'
-  title: string
-  detail: string
-  unitNumber?: string
-  severity?: 'red' | 'orange' | 'yellow'
-}
-
-interface RecentPayment {
+interface AttentionItem {
   id: string
+  type: AttentionType
+  isAgent: boolean
+  description: string
+  assignedTo: string
+  assignedType: ActorType
+  priority: Priority
+  elapsed: string
+}
+
+interface ActivityEntry {
+  id: string
+  time: string
+  agent: string
+  role: string
+  action: string
+  status: StatusKind
+  reasoning?: string
+  expanded?: boolean
+}
+
+interface CollectionRow {
+  unit: string
+  tenant: string
   amount: number
-  paid_date: string
-  method?: string
-  unitNumber: string
-  occupantName: string
-  status: string
+  status: StatusKind
+  daysOverdue: number
 }
 
-const FLOORS = [4, 3, 2, 1]
-const UNITS_PER_FLOOR = ['01', '02', '03', '04']
-
-const STATUS_COLORS: Record<string, string> = {
-  available: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400',
-  occupied: 'bg-blue-500/20 border-blue-500/40 text-blue-600 dark:text-blue-400',
-  maintenance: 'bg-red-500/20 border-red-500/40 text-red-600 dark:text-red-400',
-  reserved: 'bg-yellow-500/20 border-yellow-500/40 text-yellow-600 dark:text-yellow-400',
-  inactive: 'bg-gray-500/20 border-gray-500/40 text-gray-600 dark:text-gray-400',
+interface MaintRow {
+  unit: string
+  issue: string
+  priority: Priority
+  assignedTo: string
+  sla: string
 }
 
-const STATUS_DOT: Record<string, string> = {
-  available: 'bg-emerald-500',
-  occupied: 'bg-blue-500',
-  maintenance: 'bg-red-500',
-  reserved: 'bg-yellow-500',
-  inactive: 'bg-gray-500',
-}
-
-const TYPE_BADGE: Record<string, string> = {
-  STR: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
-  MTR: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-  LTR: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
-  OFFICE: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
-  COMMON: 'bg-gray-500/15 text-gray-600 dark:text-gray-400',
-}
-
-const QUICK_ACTIONS = [
-  { label: 'Registrar Pago', href: '/cobros', icon: CreditCard, color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/30 dark:border-emerald-800' },
-  { label: 'Nueva Incidencia', href: '/maintenance', icon: AlertOctagon, color: 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/30 dark:border-amber-800' },
-  { label: 'Nueva Reservación', href: '/reservations', icon: CalendarPlus, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 dark:border-blue-800' },
-  { label: 'Generar Factura', href: '/invoices', icon: FileText, color: 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30 dark:border-purple-800' },
+const ATTENTION_ITEMS: AttentionItem[] = [
+  {
+    id: '1',
+    type: 'APPROVAL',
+    isAgent: true,
+    description: 'Carmen wants to send rent reminders to 4 delinquent units',
+    assignedTo: 'Carmen',
+    assignedType: 'agent',
+    priority: 'high',
+    elapsed: '8m',
+  },
+  {
+    id: '2',
+    type: 'ESCALATION',
+    isAgent: false,
+    description: 'Duplicate payment on Unit 1807 — $42,000 MXN',
+    assignedTo: 'María Reyes',
+    assignedType: 'human',
+    priority: 'critical',
+    elapsed: '2h',
+  },
+  {
+    id: '3',
+    type: 'APPROVAL',
+    isAgent: true,
+    description: 'Alicia proposes +4.2% renewal for Unit 1204',
+    assignedTo: 'Alicia',
+    assignedType: 'agent',
+    priority: 'medium',
+    elapsed: '22m',
+  },
+  {
+    id: '4',
+    type: 'DECISION',
+    isAgent: false,
+    description: 'Draft eviction notice requires PM approval — Unit 1102',
+    assignedTo: 'María Reyes',
+    assignedType: 'human',
+    priority: 'critical',
+    elapsed: '18m',
+  },
+  {
+    id: '5',
+    type: 'BLOCKED',
+    isAgent: true,
+    description: 'Felix blocked on insurance cert upload — vendor 403',
+    assignedTo: 'Felix',
+    assignedType: 'agent',
+    priority: 'medium',
+    elapsed: '1h',
+  },
+  {
+    id: '6',
+    type: 'APPROVAL',
+    isAgent: true,
+    description: 'Diego requests HVAC contractor dispatch for Unit 905',
+    assignedTo: 'Diego',
+    assignedType: 'agent',
+    priority: 'high',
+    elapsed: '12m',
+  },
+  {
+    id: '7',
+    type: 'ESCALATION',
+    isAgent: true,
+    description: 'Elena escalated guest complaint — noise at Unit 1502',
+    assignedTo: 'Elena',
+    assignedType: 'agent',
+    priority: 'medium',
+    elapsed: '34m',
+  },
+  {
+    id: '8',
+    type: 'DECISION',
+    isAgent: false,
+    description: 'Budget variance approval — Q4 capex overrun 6.1%',
+    assignedTo: 'Javier Solís',
+    assignedType: 'human',
+    priority: 'high',
+    elapsed: '3h',
+  },
+  {
+    id: '9',
+    type: 'APPROVAL',
+    isAgent: true,
+    description: 'Carmen drafted late-fee waiver for Unit 304 tenant',
+    assignedTo: 'Carmen',
+    assignedType: 'agent',
+    priority: 'low',
+    elapsed: '45m',
+  },
 ]
 
-export default function Dashboard() {
-  const [units, setUnits] = useState<UnitWithContract[]>([])
-  const [kpis, setKpis] = useState({
-    total: 16,
-    occupied: 0,
-    available: 0,
-    maintenance: 0,
-    monthlyIncome: 0,
-    overdue: 0,
-    expiringSoon: 0,
-  })
-  const [alerts, setAlerts] = useState<AlertItem[]>([])
-  const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([])
-  const [cobrosSummary, setCobrosSummary] = useState<{ total: number; paid: number; pending: number; overdue: number } | null>(null)
-  const [moraCriticalCount, setMoraCriticalCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [execKpis, setExecKpis] = useState<{
-    occupancyPct: number
-    revenueConfirmed: number
-    revenueExpected: number
-    brecha: number
-    brechaPct: number
-    moraCount: number
-    expiringCount: number
-  } | null>(null)
+const ACTIVITY_ENTRIES: ActivityEntry[] = [
+  {
+    id: 'a1',
+    time: '2m ago',
+    agent: 'Carmen',
+    role: 'Collections',
+    action: 'Drafted 4 rent reminders for Nov arrears',
+    status: 'pending_approval',
+    reasoning:
+      'Identified 4 tenants >7 days past due totaling $186K MXN. Drafted personalized reminders in Spanish referencing prior payment patterns. Awaiting PM approval before sending via WhatsApp.',
+    expanded: true,
+  },
+  {
+    id: 'a2',
+    time: '6m ago',
+    agent: 'Alicia',
+    role: 'Operations',
+    action: 'Computed renewal rate for Unit 1204 (+4.2%)',
+    status: 'executing',
+  },
+  {
+    id: 'a3',
+    time: '11m ago',
+    agent: 'Hugo',
+    role: 'Chief of Staff',
+    action: 'Compiled weekly executive briefing',
+    status: 'completed',
+  },
+  {
+    id: 'a4',
+    time: '14m ago',
+    agent: 'Elena',
+    role: 'Guest Experience',
+    action: 'Sent check-in instructions to Unit 702',
+    status: 'completed',
+  },
+  {
+    id: 'a5',
+    time: '18m ago',
+    agent: 'Diego',
+    role: 'Maintenance',
+    action: 'Pool chemistry auto-adjust failed — sensor anomaly',
+    status: 'failed',
+  },
+  {
+    id: 'a6',
+    time: '22m ago',
+    agent: 'Alicia',
+    role: 'Operations',
+    action: 'Prepared renewal package for Unit 1204',
+    status: 'executing',
+  },
+  {
+    id: 'a7',
+    time: '34m ago',
+    agent: 'Elena',
+    role: 'Guest Experience',
+    action: 'Escalated guest complaint — noise at Unit 1502',
+    status: 'escalated',
+  },
+  {
+    id: 'a8',
+    time: '41m ago',
+    agent: 'Felix',
+    role: 'Compliance',
+    action: 'Blocked on vendor insurance cert — upload 403',
+    status: 'blocked',
+  },
+  {
+    id: 'a9',
+    time: '58m ago',
+    agent: 'Carmen',
+    role: 'Collections',
+    action: 'Negotiated late-fee waiver draft for Unit 304',
+    status: 'suggested_by_agent',
+  },
+  {
+    id: 'a10',
+    time: '1h ago',
+    agent: 'Diego',
+    role: 'Maintenance',
+    action: 'Requested vendor quotes for HVAC inspection',
+    status: 'pending_approval',
+  },
+  {
+    id: 'a11',
+    time: '1h ago',
+    agent: 'Hugo',
+    role: 'Chief of Staff',
+    action: 'Reconciled ledger entries for November',
+    status: 'completed',
+  },
+  {
+    id: 'a12',
+    time: '2h ago',
+    agent: 'Alicia',
+    role: 'Operations',
+    action: 'Auto-generated rent roll snapshot',
+    status: 'completed',
+  },
+]
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        // Current month range for missing payment detection
-        const now0 = new Date()
-        const monthStart = `${now0.getFullYear()}-${String(now0.getMonth() + 1).padStart(2, '0')}-01`
-        const nextMonth = now0.getMonth() === 11
-          ? `${now0.getFullYear() + 1}-01-01`
-          : `${now0.getFullYear()}-${String(now0.getMonth() + 2).padStart(2, '0')}-01`
+const COLLECTIONS: CollectionRow[] = [
+  { unit: '1102', tenant: 'Rodrigo Pérez', amount: 52400, status: 'late', daysOverdue: 18 },
+  { unit: '304', tenant: 'Laura Medina', amount: 38200, status: 'late', daysOverdue: 11 },
+  { unit: '807', tenant: 'Carlos Villanueva', amount: 46800, status: 'late', daysOverdue: 9 },
+  { unit: '1408', tenant: 'Ana Ortega', amount: 48600, status: 'late', daysOverdue: 7 },
+  { unit: '602', tenant: 'Felipe Guzmán', amount: 41200, status: 'pending', daysOverdue: 2 },
+]
 
-        const [unitsRes, contractsRes, paymentsRes, recentPmtsRes, paidThisMonthRes, confirmedRevenueRes] = await Promise.all([
-          supabase
-            .from('units')
-            .select('*')
-            .order('floor', { ascending: false })
-            .order('number'),
-          supabase
-            .from('contracts')
-            .select('*, unit:units(id, number), occupant:occupants(id, name)')
-            .in('status', ['active', 'expired', 'en_renovacion']),
-          supabase
-            .from('payments')
-            .select('*, contract:contracts(*, unit:units(number), occupant:occupants(name))')
-            .in('status', ['pending', 'late']),
-          supabase
-            .from('payments')
-            .select('*, contract:contracts(*, unit:units(number), occupant:occupants(name))')
-            .order('created_at', { ascending: false })
-            .limit(5),
-          supabase
-            .from('payments')
-            .select('contract_id, status, due_date')
-            .eq('status', 'paid')
-            .gte('due_date', monthStart)
-            .lt('due_date', nextMonth),
-          supabase
-            .from('payments')
-            .select('amount')
-            .eq('status', 'paid')
-            .gte('due_date', monthStart)
-            .lt('due_date', nextMonth),
-        ])
+const MAINT_QUEUE: MaintRow[] = [
+  { unit: '905', issue: 'HVAC failure — bedroom unit', priority: 'critical', assignedTo: 'Diego', sla: '4h' },
+  { unit: '1502', issue: 'Water leak — bathroom', priority: 'high', assignedTo: 'Diego', sla: '8h' },
+  { unit: '702', issue: 'Appliance: oven replacement', priority: 'medium', assignedTo: 'Vendor TBD', sla: '2d' },
+  { unit: '1204', issue: 'Paint touch-up pre-renewal', priority: 'low', assignedTo: 'Alicia', sla: '5d' },
+  { unit: 'Common', issue: 'Pool chemistry sensor replace', priority: 'high', assignedTo: 'Diego', sla: '24h' },
+]
 
-        const allUnits = (unitsRes.data || []) as Unit[]
-        const activeContracts = (contractsRes.data || []) as (Contract & {
-          unit: { id: string; number: string }
-          occupant: { id: string; name: string }
-        })[]
-        const pendingPayments = (paymentsRes.data || []) as (Payment & {
-          contract: Contract & { unit: { number: string }; occupant: { name: string } }
-        })[]
-        const recentAll = (recentPmtsRes.data || []) as (Payment & {
-          contract: Contract & { unit: { number: string }; occupant: { name: string } }
-        })[]
+function fmtMoney(n: number) {
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
+}
 
-        // Build unit map with occupant info — prefer active, fallback to most recent expired
-        const contractByUnit = new Map<string, { occupantName: string; type: string; status: string }>()
-        for (const c of activeContracts) {
-          if (!c.unit) continue
-          const existing = contractByUnit.get(c.unit_id)
-          // Active contracts always win; for expired, only set if no entry yet
-          if (!existing || c.status === 'active') {
-            contractByUnit.set(c.unit_id, {
-              occupantName: c.occupant?.name || '',
-              type: 'LTR',
-              status: c.status,
-            })
-          }
-        }
-
-        const enrichedUnits: UnitWithContract[] = allUnits.map((u) => {
-          const contract = contractByUnit.get(u.id)
-          return {
-            ...u,
-            occupantName: contract?.occupantName,
-          }
-        })
-
-        // KPIs
-        const occupied = allUnits.filter((u) => u.status === 'occupied').length
-        const available = allUnits.filter((u) => u.status === 'available').length
-        const maint = allUnits.filter((u) => u.status === 'maintenance').length
-        // Monthly income includes active + en_renovacion contracts (all occupied paying units)
-        const monthlyIncome = activeContracts
-          .filter((c) => ['active', 'en_renovacion'].includes(c.status))
-          .reduce((sum, c) => sum + Number(c.monthly_amount), 0)
-
-        // Overdue: payments with status 'late'
-        const overduePayments = pendingPayments.filter((p) => p.status === 'late')
-
-        // Expiring soon: active contracts ending within 60 days (for tiered alerts)
-        const now = new Date()
-        const in60Days = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
-        const expiringContracts = activeContracts.filter(
-          (c) => c.end_date && (c.status === 'active' || c.status === 'en_renovacion') && new Date(c.end_date) <= in60Days
-        )
-
-        // Paid this month — set of contract IDs that have a paid payment this month
-        const paidThisMonth = new Set(
-          (paidThisMonthRes.data || []).map((p: { contract_id: string }) => p.contract_id)
-        )
-
-        // Missing payments: active contracts with no paid payment this month and day > 10
-        const missingPaymentContracts = now.getDate() > 10
-          ? activeContracts.filter(
-              (c) => c.status === 'active' && !paidThisMonth.has(c.id) && !overduePayments.some((p) => p.contract_id === c.id)
-            )
-          : []
-
-        setKpis({
-          total: allUnits.length || 16,
-          occupied,
-          available,
-          maintenance: maint,
-          monthlyIncome,
-          overdue: overduePayments.length,
-          expiringSoon: expiringContracts.length,
-        })
-
-        // Build alerts
-        const alertItems: AlertItem[] = []
-
-        for (const p of overduePayments) {
-          const daysDiff = Math.floor(
-            (now.getTime() - new Date(p.due_date).getTime()) / (1000 * 60 * 60 * 24)
-          )
-          alertItems.push({
-            type: 'overdue',
-            title: `Pago vencido — ${p.contract?.unit?.number || 'N/A'}`,
-            detail: `${p.contract?.occupant?.name || 'Inquilino'} · ${daysDiff} días de mora · ${formatCurrency(p.amount)}`,
-            unitNumber: p.contract?.unit?.number,
-          })
-        }
-
-        for (const c of expiringContracts) {
-          const days = daysUntil(c.end_date!)
-          let alertType: AlertItem['type'] = 'expiring_warning'
-          let severity: 'red' | 'orange' | 'yellow' = 'yellow'
-          let message = `Vence en ${days} días — planear renovación`
-          if (days <= 15) {
-            alertType = 'expiring_critical'
-            severity = 'red'
-            message = `Vence en ${days} días — urgente renovar`
-          } else if (days <= 30) {
-            alertType = 'expiring_soon'
-            severity = 'orange'
-            message = `Vence en ${days} días`
-          }
-          alertItems.push({
-            type: alertType,
-            title: `Contrato por vencer — ${c.unit?.number || 'N/A'}`,
-            detail: `${c.occupant?.name || 'Inquilino'} · ${message} · ${formatDate(c.end_date!)}`,
-            unitNumber: c.unit?.number,
-            severity,
-          })
-        }
-
-        // Missing payment alerts (#2)
-        for (const c of missingPaymentContracts) {
-          alertItems.push({
-            type: 'missing_payment',
-            title: `Sin pago registrado — ${c.occupant?.name || 'Inquilino'} · ${c.unit?.number || 'N/A'}`,
-            detail: `Día ${c.payment_day} de vencimiento · Sin pago en el mes actual`,
-            unitNumber: c.unit?.number,
-            severity: 'orange',
-          })
-        }
-
-        for (const u of allUnits.filter((u) => u.status === 'maintenance')) {
-          alertItems.push({
-            type: 'maintenance',
-            title: `En mantenimiento — ${u.number}`,
-            detail: u.notes || 'Sin descripción',
-            unitNumber: u.number,
-          })
-        }
-
-        // Sort alerts: overdue, expiring_critical, expiring_soon, expiring_warning, missing_payment, maintenance
-        const alertOrder: Record<string, number> = {
-          overdue: 0,
-          expiring_critical: 1,
-          expiring_soon: 2,
-          expiring_warning: 3,
-          missing_payment: 4,
-          maintenance: 5,
-          expiring: 3,
-        }
-        alertItems.sort((a, b) => (alertOrder[a.type] ?? 9) - (alertOrder[b.type] ?? 9))
-
-        setAlerts(alertItems)
-        setUnits(enrichedUnits)
-
-        // Recent payments
-        setRecentPayments(
-          recentAll.map((p) => ({
-            id: p.id,
-            amount: Number(p.amount_paid || p.amount),
-            paid_date: p.paid_date || p.due_date || p.created_at,
-            method: p.method,
-            unitNumber: p.contract?.unit?.number || 'N/A',
-            occupantName: p.contract?.occupant?.name || 'N/A',
-            status: p.status,
-          }))
-        )
-
-        // Cobros del mes summary
-        const activeLtrMtr = activeContracts.filter((c) => c.status === 'active')
-        if (activeLtrMtr.length > 0) {
-          const paidCount = activeLtrMtr.filter((c) => paidThisMonth.has(c.id)).length
-          const todayDate = now.getDate()
-          let overdueCount = 0
-          let pendingCount = 0
-          for (const c of activeLtrMtr) {
-            if (paidThisMonth.has(c.id)) continue
-            if (todayDate >= 10) {
-              overdueCount++
-            } else if (todayDate >= c.payment_day) {
-              overdueCount++
-            } else {
-              pendingCount++
-            }
-          }
-          setCobrosSummary({
-            total: activeLtrMtr.length,
-            paid: paidCount,
-            pending: pendingCount,
-            overdue: overdueCount,
-          })
-        }
-        // Executive KPIs
-        const totalUnits = allUnits.length || 1
-        const activeContractCount = activeContracts.filter(
-          (c) => c.status === 'active' || c.status === 'en_renovacion'
-        ).length
-        const occupancyPct = Math.round((activeContractCount / totalUnits) * 100)
-        // Revenue confirmado = pagos paid este mes; si no hay, usar pending como proxy del mes actual
-        const paidRevenue = (confirmedRevenueRes.data || []).reduce(
-          (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
-        )
-        const revenueConfirmed = paidRevenue > 0 ? paidRevenue : (
-          pendingPayments
-            .filter(p => p.due_date && p.due_date >= monthStart && p.due_date < nextMonth)
-            .reduce((sum, p) => sum + Number(p.amount || 0), 0)
-        )
-        const revenueExpected = monthlyIncome
-        const brecha = revenueExpected - revenueConfirmed
-        const brechaPct = revenueExpected > 0 ? Math.round((brecha / revenueExpected) * 100) : 0
-        const moraPayments = pendingPayments.filter(
-          (p) => p.due_date && new Date(p.due_date) < now
-        )
-        const moraUnitIds = new Set(moraPayments.map((p) => p.contract?.unit_id).filter(Boolean))
-        const expiringCount = expiringContracts.length
-
-        setExecKpis({
-          occupancyPct,
-          revenueConfirmed,
-          revenueExpected,
-          brecha,
-          brechaPct,
-          moraCount: moraUnitIds.size,
-          expiringCount,
-        })
-
-        // Mora critical count
-        try {
-          const moraRes = await fetch('/api/mora')
-          const moraData = await moraRes.json()
-          if (moraData.success && moraData.data) {
-            const critical = (moraData.data as Array<{ level: string }>).filter(
-              (m) => m.level === 'critical' || m.level === 'legal'
-            ).length
-            setMoraCriticalCount(critical)
-          }
-        } catch {
-          // Mora fetch is non-blocking
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchDashboard()
-  }, [])
-
-  function getUnitByNumber(number: string): UnitWithContract | undefined {
-    return units.find((u) => u.number === number)
+function typeBadge(type: AttentionType) {
+  const MAP: Record<AttentionType, { bg: string; color: string; border: string }> = {
+    APPROVAL: { bg: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)' },
+    ESCALATION: { bg: 'rgba(249, 115, 22, 0.15)', color: '#FB923C', border: 'rgba(249, 115, 22, 0.3)' },
+    DECISION: { bg: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)' },
+    BLOCKED: { bg: 'rgba(239, 68, 68, 0.15)', color: '#F87171', border: 'rgba(239, 68, 68, 0.3)' },
   }
-
-  const alertIconEl = (type: string) => {
-    switch (type) {
-      case 'overdue':
-        return <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-900/30"><AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" /></div>
-      case 'expiring_critical':
-        return <div className="p-1.5 rounded-full bg-red-100 dark:bg-red-900/30"><Clock className="w-4 h-4 text-red-600 dark:text-red-400" /></div>
-      case 'expiring_soon':
-        return <div className="p-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30"><Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" /></div>
-      case 'expiring_warning':
-        return <div className="p-1.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30"><Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" /></div>
-      case 'missing_payment':
-        return <div className="p-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30"><AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" /></div>
-      case 'maintenance':
-        return <div className="p-1.5 rounded-full bg-gray-100 dark:bg-gray-800"><Wrench className="w-4 h-4 text-gray-600 dark:text-gray-400" /></div>
-      default:
-        return null
-    }
-  }
-
-  const alertBorderColor = (alert: AlertItem) => {
-    if (alert.type === 'overdue' || alert.type === 'expiring_critical') return 'border-l-4 border-l-red-500'
-    if (alert.type === 'expiring_soon') return 'border-l-4 border-l-orange-500'
-    if (alert.type === 'expiring_warning') return 'border-l-4 border-l-yellow-500'
-    if (alert.type === 'missing_payment') return 'border-l-4 border-l-amber-500'
-    return 'border-l-4 border-l-gray-400'
-  }
-
-  const alertBg = (alert: AlertItem) => {
-    if (alert.type === 'overdue') return 'bg-red-50 dark:bg-red-900/20'
-    if (alert.type === 'expiring_critical') return 'bg-red-50 dark:bg-red-900/20'
-    if (alert.type === 'expiring_soon') return 'bg-orange-50 dark:bg-orange-900/20'
-    if (alert.type === 'expiring_warning') return 'bg-yellow-50 dark:bg-yellow-900/20'
-    if (alert.type === 'missing_payment') return 'bg-amber-50 dark:bg-amber-900/20'
-    if (alert.type === 'expiring') {
-      if (alert.severity === 'red') return 'bg-red-50 dark:bg-red-900/20'
-      if (alert.severity === 'yellow') return 'bg-yellow-50 dark:bg-yellow-900/20'
-      if (alert.severity === 'orange') return 'bg-orange-50 dark:bg-orange-900/20'
-    }
-    return 'bg-gray-50 dark:bg-gray-800/50'
-  }
-
-  if (loading) {
-    return <SkeletonDashboard />
-  }
-
-  const unitsCount = kpis.total === 16 && units.length === 0 ? 0 : units.length
-
+  const s = MAP[type]
   return (
-    <div className="space-y-8">
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+      style={{ backgroundColor: s.bg, color: s.color, border: `1px solid ${s.border}` }}
+    >
+      {type}
+    </span>
+  )
+}
+
+export default function MissionControl() {
+  return (
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Dashboard ejecutivo
+          <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+            Mission Control
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            ALM809P — Vista general de operación
+          <p className="text-[13px] muted-text mt-0.5">
+            Torre Ópalo · Polanco, CDMX · Live
           </p>
         </div>
-        <Link
-          href="/onboarding"
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-400 hover:text-white border border-gray-700 rounded-lg transition-colors"
-        >
-          <Settings2 className="w-4 h-4" />
-          Configurar propiedad
-        </Link>
-      </div>
-
-      {/* Vista Ejecutiva — Developer Portfolio KPIs */}
-      {execKpis ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-800">
-            <h2 className="text-lg font-semibold text-white">Vista Ejecutiva — ALM809P</h2>
-            <p className="text-sm text-zinc-500">Desarrolladora: ZXY Ventures</p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800">
-            {/* Ocupación */}
-            <div className="bg-zinc-950 px-5 py-4">
-              <p className={`text-3xl font-bold ${
-                execKpis.occupancyPct >= 80 ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {execKpis.occupancyPct}%
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">Ocupación</p>
-              <div className={`mt-2 h-1 rounded-full ${
-                execKpis.occupancyPct >= 80 ? 'bg-emerald-500/40' : 'bg-red-500/40'
-              }`}>
-                <div
-                  className={`h-full rounded-full ${
-                    execKpis.occupancyPct >= 80 ? 'bg-emerald-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${Math.min(execKpis.occupancyPct, 100)}%` }}
-                />
-              </div>
-            </div>
-            {/* Revenue Confirmado */}
-            <div className="bg-zinc-950 px-5 py-4">
-              <p className="text-xl font-bold text-white truncate">
-                {formatCurrency(execKpis.revenueConfirmed)}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">Revenue confirmado</p>
-            </div>
-            {/* Revenue Esperado */}
-            <div className="bg-zinc-950 px-5 py-4">
-              <p className="text-xl font-bold text-zinc-400 truncate">
-                {formatCurrency(execKpis.revenueExpected)}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">Revenue esperado</p>
-            </div>
-            {/* Brecha */}
-            <div className="bg-zinc-950 px-5 py-4">
-              <p className={`text-xl font-bold truncate ${
-                execKpis.brechaPct > 20 ? 'text-amber-400' : 'text-emerald-400'
-              }`}>
-                {formatCurrency(execKpis.brecha)}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">
-                Brecha {execKpis.brechaPct > 0 ? `(${execKpis.brechaPct}%)` : ''}
-              </p>
-            </div>
-            {/* En Mora */}
-            <div className="bg-zinc-950 px-5 py-4">
-              <p className={`text-3xl font-bold ${
-                execKpis.moraCount > 0 ? 'text-red-400' : 'text-emerald-400'
-              }`}>
-                {execKpis.moraCount}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">Unidades en mora</p>
-            </div>
-            {/* Por Vencer */}
-            <div className="bg-zinc-950 px-5 py-4">
-              <p className={`text-3xl font-bold ${
-                execKpis.expiringCount > 0 ? 'text-amber-400' : 'text-zinc-400'
-              }`}>
-                {execKpis.expiringCount}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">Contratos por vencer</p>
-            </div>
-          </div>
-        </div>
-      ) : loading ? null : null}
-
-      {/* Banner de onboarding si no hay unidades */}
-      {unitsCount === 0 && (
-        <Link
-          href="/onboarding"
-          className="block card hover:bg-[#1a1a1a] transition-colors"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-base font-semibold text-white flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-indigo-400" />
-                Configura tu propiedad
-              </p>
-              <p className="text-sm text-gray-400 mt-1">
-                Parece que aún no tienes unidades. Completa el setup inicial para empezar.
-              </p>
-            </div>
-            <span className="px-4 py-2 bg-white hover:bg-gray-100 text-black text-sm font-medium rounded-lg shrink-0">
-              Iniciar configuración →
-            </span>
-          </div>
-        </Link>
-      )}
-
-      {/* Contract Expiry Alerts Banner */}
-      <ContractAlertsBanner />
-
-      {/* KPI Cards — with gradients */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Units */}
-        <div className="card bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/40 dark:to-gray-900">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Unidades</p>
-            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/40">
-              <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{kpis.total}</p>
-          <div className="flex gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              {kpis.occupied} ocup.
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              {kpis.available} disp.
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
-              {kpis.maintenance} mant.
-            </span>
-          </div>
-        </div>
-
-        {/* Monthly Income */}
-        <div className="card bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-gray-900">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Ingreso mensual LTR
-            </p>
-            <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-              <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(kpis.monthlyIncome)}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            Renta base · sin agua (+$250/depto)
-          </p>
-        </div>
-
-        {/* Overdue */}
-        <div className={`card ${kpis.overdue > 0 ? 'bg-gradient-to-br from-red-50 to-white dark:from-red-950/40 dark:to-gray-900' : 'bg-gradient-to-br from-green-50 to-white dark:from-green-950/40 dark:to-gray-900'}`}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Pagos vencidos
-            </p>
-            <div className={`p-2 rounded-full ${kpis.overdue > 0 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
-              <AlertTriangle
-                className={`w-5 h-5 ${kpis.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}
-              />
-            </div>
-          </div>
-          <p
-            className={`text-3xl font-bold ${
-              kpis.overdue > 0
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-gray-900 dark:text-white'
-            }`}
-          >
-            {kpis.overdue}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            {kpis.overdue > 0 ? 'Requiere atención' : 'Al corriente'}
-          </p>
-        </div>
-
-        {/* Expiring */}
-        <div className={`card ${kpis.expiringSoon > 0 ? 'bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-gray-900' : 'bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/40 dark:to-gray-900'}`}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Por vencer (60d)
-            </p>
-            <div className={`p-2 rounded-full ${kpis.expiringSoon > 0 ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-slate-100 dark:bg-slate-800'}`}>
-              <Clock
-                className={`w-5 h-5 ${kpis.expiringSoon > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}
-              />
-            </div>
-          </div>
-          <p
-            className={`text-3xl font-bold ${
-              kpis.expiringSoon > 0
-                ? 'text-amber-600 dark:text-amber-400'
-                : 'text-gray-900 dark:text-white'
-            }`}
-          >
-            {kpis.expiringSoon}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-            {kpis.expiringSoon > 0 ? 'Contratos próximos a vencer' : 'Sin vencimientos próximos'}
-          </p>
+        <div className="flex items-center gap-2 text-[12px]">
+          <span className="inline-flex items-center gap-1.5 muted-text">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+            6 agents live
+          </span>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {QUICK_ACTIONS.map((action) => (
-          <Link
-            key={action.href}
-            href={action.href}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all hover:shadow-md ${action.color}`}
-          >
-            <action.icon className="w-5 h-5 shrink-0" />
-            <span className="truncate">{action.label}</span>
-          </Link>
-        ))}
+      {/* TOP ROW — KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KPICard label="Occupancy" value="94.2%" delta={0.4} deltaLabel="">
+          <span className="text-[11px] muted-text tabular-nums">113 of 120 units</span>
+        </KPICard>
+        <KPICard label="Monthly Revenue" value="$2.40M" delta={8.3}>
+          <span className="text-[11px] muted-text tabular-nums">MXN · November</span>
+        </KPICard>
+        <KPICard label="Arrears" value="$186K" delta={-15.2} warning>
+          <span className="text-[11px] muted-text tabular-nums">MXN · 4 units critical</span>
+        </KPICard>
+        <KPICard label="Active Contracts" value="113">
+          <span className="text-[11px] muted-text tabular-nums">3 expiring this week</span>
+        </KPICard>
+        <KPICard label="Open Incidents" value="7">
+          <span className="text-[11px] muted-text tabular-nums">2 critical</span>
+        </KPICard>
+        <KPICard label="Agent Actions Today" value="47" accent="agent">
+          <span className="text-[11px] muted-text tabular-nums">3 pending approval</span>
+        </KPICard>
       </div>
 
-      {/* Mora crítica card — solo visible si hay deudores */}
-      {moraCriticalCount > 0 && (
-        <Link href="/mora" className="block card border-l-4 border-l-red-500 border-red-200 dark:border-red-800 hover:shadow-md transition-shadow bg-gradient-to-r from-red-50 to-white dark:from-red-950/30 dark:to-gray-900">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-red-600 dark:text-red-400">En mora crítica</p>
-              <p className="text-3xl font-bold text-red-700 dark:text-red-300 mt-1">{moraCriticalCount}</p>
-              <p className="text-xs text-red-500/70 mt-1">contratos con {'>'} 15 días de mora</p>
-            </div>
-            <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/40">
-              <AlertTriangle className="w-8 h-8 text-red-500" />
-            </div>
-          </div>
-        </Link>
-      )}
-
-      {/* Cobros del mes */}
-      {cobrosSummary && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-full bg-white/10 dark:bg-white/10">
-                <Receipt className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Cobros del mes</h2>
-            </div>
-            <Link
-              href="/cobros"
-              className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-400 font-medium transition-colors"
-            >
-              Ver cobros <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20">
-              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-              {cobrosSummary.paid} pagados
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-500/20">
-              <Clock className="w-3.5 h-3.5 mr-1.5" />
-              {cobrosSummary.pending} pendientes
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20">
-              <AlertTriangle className="w-3.5 h-3.5 mr-1.5" />
-              {cobrosSummary.overdue} en mora
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Building Map */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 rounded-full bg-white/10 dark:bg-white/10">
-            <Home className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Mapa del edificio
-          </h2>
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 mb-4 text-xs text-gray-500 dark:text-gray-400">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Disponible
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Ocupado
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Mantenimiento
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" /> Reservado
-          </span>
-        </div>
-
-        {/* Floors */}
-        <div className="space-y-3">
-          {FLOORS.map((floor) => (
-            <div key={floor} className="flex items-center gap-3">
-              <div className="w-12 text-xs font-medium text-gray-400 dark:text-gray-500 text-right shrink-0">
-                Piso {floor}
-              </div>
-              <div className="grid grid-cols-4 gap-2 flex-1">
-                {UNITS_PER_FLOOR.map((num) => {
-                  const unitNumber = `${floor}${num}`
-                  const unit = getUnitByNumber(unitNumber)
-                  const status = unit?.status || 'inactive'
-                  const colorClass = STATUS_COLORS[status] || STATUS_COLORS.inactive
-
-                  return (
-                    <Link
-                      key={unitNumber}
-                      href={unit ? `/units/${unit.id}` : '/units'}
-                      className={`border rounded-lg p-3 transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer ${colorClass}`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-sm">{unitNumber}</span>
-                        {unit?.type && (
-                          <span
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${TYPE_BADGE[unit.type] || ''}`}
-                          >
-                            {unit.type}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status] || 'bg-gray-500'}`}
-                        />
-                        <span className="text-[11px] truncate">
-                          {unit?.occupantName ||
-                            (status === 'available'
-                              ? 'Disponible'
-                              : status === 'maintenance'
-                              ? 'Mant.'
-                              : status === 'reserved'
-                              ? 'Reservado'
-                              : '—')}
-                        </span>
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom row: Alerts + Recent Activity */}
+      {/* MIDDLE ROW */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Alerts */}
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/40">
-              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Alertas</h2>
-            {alerts.length > 0 && (
-              <span className="text-xs bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400 px-2 py-0.5 rounded-full font-medium">
-                {alerts.length}
+        {/* Requires Attention */}
+        <section
+          className="rounded-lg overflow-hidden"
+          style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
+        >
+          <header className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+                Requires Attention
+              </h2>
+              <span
+                className="text-[11px] px-1.5 py-0.5 rounded tabular-nums font-medium"
+                style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#F87171' }}
+              >
+                {ATTENTION_ITEMS.length}
               </span>
-            )}
-          </div>
-
-          {alerts.length === 0 ? (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border-l-4 border-l-emerald-500">
-              <div className="p-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">Sin alertas — todo en orden</span>
             </div>
-          ) : (
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {alerts.map((alert, i) => (
-                <div
-                  key={i}
-                  className={`flex items-start gap-3 p-3 rounded-lg ${alertBg(alert)} ${alertBorderColor(alert)}`}
-                >
-                  <div className="mt-0.5 shrink-0">{alertIconEl(alert.type)}</div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {alert.title}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {alert.detail}
-                    </p>
+            <Link href="/agents" className="text-[12px]" style={{ color: 'var(--baw-primary)' }}>
+              View all →
+            </Link>
+          </header>
+          <ul className="divide-y" style={{ borderColor: 'var(--baw-border)' }}>
+            {ATTENTION_ITEMS.map((item) => (
+              <li
+                key={item.id}
+                className={`px-4 py-3 flex items-start gap-3 ${item.isAgent ? 'agent-border' : 'human-border'}`}
+                style={{ borderBottomColor: 'var(--baw-border)' }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    {typeBadge(item.type)}
+                    {item.isAgent && <AgentBadge />}
+                    <span className="text-[11px] muted-text ml-auto tabular-nums">{item.elapsed}</span>
+                  </div>
+                  <p className="text-[13px] leading-snug" style={{ color: 'var(--baw-text)' }}>
+                    {item.description}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <ActorAvatar type={item.assignedType} name={item.assignedTo} size={18} />
+                    <span className="text-[11px] muted-text">{item.assignedTo}</span>
+                    <span className="muted-text">·</span>
+                    <PriorityBadge priority={item.priority} />
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-        {/* Recent Activity */}
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 rounded-full bg-white/10 dark:bg-white/10">
-              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        {/* Agent Activity */}
+        <section
+          className="rounded-lg overflow-hidden"
+          style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
+        >
+          <header className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+                Agent Activity
+              </h2>
+              <span className="text-[11px] muted-text tabular-nums">{ACTIVITY_ENTRIES.length}</span>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Actividad reciente
+            <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: '#4ADE80' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+              6 agents live
+            </span>
+          </header>
+          <ul className="divide-y" style={{ borderColor: 'var(--baw-border)' }}>
+            {ACTIVITY_ENTRIES.map((e) => (
+              <li key={e.id} className="px-4 py-3 flex items-start gap-3 agent-border" style={{ borderBottomColor: 'var(--baw-border)' }}>
+                <ActorAvatar type="agent" name={e.agent} size={26} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-medium" style={{ color: 'var(--baw-text)' }}>
+                      {e.agent}
+                    </span>
+                    <span className="text-[11px] muted-text">{e.role}</span>
+                    <span className="text-[11px] muted-text ml-auto tabular-nums">{e.time}</span>
+                  </div>
+                  <p className="text-[12.5px] mt-0.5 leading-snug" style={{ color: 'var(--baw-text)' }}>
+                    {e.action}
+                  </p>
+                  <div className="mt-1.5">
+                    <StatusBadge status={e.status} />
+                  </div>
+                  {e.expanded && e.reasoning && (
+                    <p
+                      className="mt-2 text-[12px] leading-relaxed p-2 rounded"
+                      style={{
+                        color: 'var(--baw-muted)',
+                        backgroundColor: 'rgba(139, 92, 246, 0.06)',
+                        border: '1px solid rgba(139, 92, 246, 0.18)',
+                      }}
+                    >
+                      <span style={{ color: '#A78BFA' }}>Reasoning: </span>
+                      {e.reasoning}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      {/* BOTTOM ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Collections Due */}
+        <section
+          className="rounded-lg overflow-hidden"
+          style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
+        >
+          <header className="px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
+            <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+              Collections Due
             </h2>
-          </div>
-
-          {recentPayments.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              Sin pagos registrados aún
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {recentPayments.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {p.occupantName}
-                      </p>
-                      <span className={
-                        p.status === 'paid' ? 'badge-available' :
-                        p.status === 'late' ? 'badge-late' :
-                        p.status === 'pending' ? 'badge-pending' :
-                        'badge-expired'
-                      }>
-                        {p.status === 'paid' ? 'Pagado' : p.status === 'late' ? 'Mora' : p.status === 'pending' ? 'Pendiente' : p.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Unidad {p.unitNumber} · {formatDate(p.paid_date)}
-                      {p.method && ` · ${p.method}`}
-                    </p>
-                  </div>
-                  <span className={`text-sm font-semibold shrink-0 ml-3 ${p.status === 'paid' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                    {formatCurrency(p.amount)}
-                  </span>
-                </div>
+          </header>
+          <table className="w-full text-[13px]">
+            <thead className="table-header">
+              <tr>
+                <th className="text-left px-4 py-2">Unit</th>
+                <th className="text-left px-4 py-2">Tenant</th>
+                <th className="text-right px-4 py-2">Amount</th>
+                <th className="text-left px-4 py-2">Status</th>
+                <th className="text-right px-4 py-2">Overdue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COLLECTIONS.map((r) => (
+                <tr key={r.unit} className="table-row">
+                  <td className="px-4 py-2 font-medium tabular-nums" style={{ color: 'var(--baw-text)' }}>
+                    {r.unit}
+                  </td>
+                  <td className="px-4 py-2 muted-text">{r.tenant}</td>
+                  <td className="px-4 py-2 text-right tabular-nums" style={{ color: 'var(--baw-text)' }}>
+                    {fmtMoney(r.amount)}
+                  </td>
+                  <td className="px-4 py-2">
+                    <StatusBadge status={r.status} />
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums muted-text">{r.daysOverdue}d</td>
+                </tr>
               ))}
-            </div>
-          )}
-        </div>
+            </tbody>
+          </table>
+        </section>
+
+        {/* Maintenance Queue */}
+        <section
+          className="rounded-lg overflow-hidden"
+          style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
+        >
+          <header className="px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
+            <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
+              Maintenance Queue
+            </h2>
+          </header>
+          <table className="w-full text-[13px]">
+            <thead className="table-header">
+              <tr>
+                <th className="text-left px-4 py-2">Unit</th>
+                <th className="text-left px-4 py-2">Issue</th>
+                <th className="text-left px-4 py-2">Priority</th>
+                <th className="text-left px-4 py-2">Assigned</th>
+                <th className="text-right px-4 py-2">SLA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MAINT_QUEUE.map((r) => (
+                <tr key={r.unit + r.issue} className="table-row">
+                  <td className="px-4 py-2 font-medium tabular-nums" style={{ color: 'var(--baw-text)' }}>
+                    {r.unit}
+                  </td>
+                  <td className="px-4 py-2 muted-text">{r.issue}</td>
+                  <td className="px-4 py-2">
+                    <PriorityBadge priority={r.priority} />
+                  </td>
+                  <td className="px-4 py-2 muted-text">{r.assignedTo}</td>
+                  <td className="px-4 py-2 text-right tabular-nums muted-text">{r.sla}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       </div>
     </div>
   )
