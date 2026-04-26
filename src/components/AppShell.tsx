@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { Search, Bell, Sun, Moon } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import AuthGuard from '@/components/AuthGuard'
@@ -88,8 +89,8 @@ function GlobalHeader({ pathname }: { pathname: string }) {
           </span>
 
           {/* Search ⌘K */}
-          <button
-            type="button"
+          <Link
+            href="/search"
             className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors"
             style={{
               backgroundColor: 'var(--baw-surface)',
@@ -110,7 +111,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
             >
               ⌘K
             </kbd>
-          </button>
+          </Link>
 
           <button
             type="button"
@@ -127,8 +128,8 @@ function GlobalHeader({ pathname }: { pathname: string }) {
           </button>
 
           {/* Notification bell */}
-          <button
-            type="button"
+          <Link
+            href="/notifications"
             className="relative inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
             style={{ color: 'var(--baw-muted)' }}
             title="Notificaciones"
@@ -145,7 +146,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
                 {unread > 99 ? '99+' : unread}
               </span>
             )}
-          </button>
+          </Link>
 
           {/* User avatar */}
           <div

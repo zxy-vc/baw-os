@@ -42,7 +42,7 @@ const navigation: NavEntry[] = [
   { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
   { name: 'Facturas', href: '/invoices', icon: FileText },
   { separator: true },
-  { name: 'Agentes', href: '/agents', icon: Bot, badgeKey: 'agents' },
+  { name: 'Agentes', href: '/agents', icon: Bot },
   { name: 'Timeline', href: '/audit', icon: Clock },
   { name: 'Configuración', href: '/settings', icon: Settings2 },
 ]
@@ -57,8 +57,6 @@ export default function Sidebar() {
   const [hovering, setHovering] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const mockAgentApprovals = 4
-
   const expanded = pinned || hovering || mobileOpen
 
   const fetchUnread = useCallback(async () => {
@@ -103,7 +101,6 @@ export default function Sidebar() {
   }
 
   function badgeFor(item: NavItem) {
-    if (item.badgeKey === 'agents' && mockAgentApprovals > 0) return mockAgentApprovals
     if (item.badgeKey === 'notifications' && unreadCount > 0) return unreadCount
     return null
   }

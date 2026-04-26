@@ -45,169 +45,176 @@ interface Approval {
 }
 
 const AUTONOMY_LABELS: Record<AutonomyLevel, string> = {
-  L1: 'L1 Suggest Only',
-  L2: 'L2 Propose',
-  L3: 'L3 Supervised',
-  L4: 'L4 Autonomous',
+  L1: 'L1 Solo sugiere',
+  L2: 'L2 Propone',
+  L3: 'L3 Supervisado',
+  L4: 'L4 Autónomo',
+}
+
+const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
+  active: 'Activo',
+  idle: 'En espera',
+  paused: 'Pausado',
 }
 
 const ROSTER: AgentRoster[] = [
-  { id: 'hugo', name: 'Hugo', role: 'Chief of Staff', status: 'active', tasks: 12, level: 'L4', accent: '#818CF8' },
-  { id: 'alicia', name: 'Alicia', role: 'Operations', status: 'active', tasks: 8, level: 'L3', accent: '#60A5FA' },
-  { id: 'carmen', name: 'Carmen', role: 'Collections', status: 'active', tasks: 15, level: 'L3', accent: '#FBBF24' },
-  { id: 'diego', name: 'Diego', role: 'Maintenance', status: 'active', tasks: 6, level: 'L2', accent: '#4ADE80' },
-  { id: 'elena', name: 'Elena', role: 'Guest Experience', status: 'idle', tasks: 2, level: 'L3', accent: '#F472B6' },
-  { id: 'felix', name: 'Felix', role: 'Compliance', status: 'active', tasks: 4, level: 'L2', accent: '#2DD4BF' },
+  { id: 'hugo', name: 'Hugo', role: 'Coordinación', status: 'active', tasks: 4, level: 'L3', accent: '#818CF8' },
+  { id: 'alicia', name: 'Alicia', role: 'Operación BaW', status: 'active', tasks: 6, level: 'L3', accent: '#60A5FA' },
+  { id: 'andres', name: 'Andrés', role: 'Producto técnico', status: 'active', tasks: 3, level: 'L2', accent: '#4ADE80' },
+  { id: 'beto', name: 'Beto', role: 'Cobranza / CFDI', status: 'idle', tasks: 2, level: 'L2', accent: '#FBBF24' },
+  { id: 'maribel', name: 'Maribel', role: 'Legal', status: 'idle', tasks: 1, level: 'L1', accent: '#F472B6' },
+  { id: 'luis', name: 'Luis', role: 'Growth / CRM', status: 'paused', tasks: 0, level: 'L1', accent: '#2DD4BF' },
 ]
 
 const GOALS: GoalRow[] = [
   {
     id: 'g1',
-    agent: 'Carmen',
-    goal: 'Collect Nov arrears for 4 units',
-    step: 'Drafting reminder messages',
+    agent: 'Alicia',
+    goal: 'Resolver morosidad crítica D402 + D302',
+    step: 'Preparando plan de seguimiento operativo',
     status: 'pending_approval',
-    confidence: 94,
-    started: '8m ago',
-    actions: ['Approve', 'Pause'],
+    confidence: 88,
+    started: '8 min',
+    actions: ['Aprobar', 'Pausar'],
   },
   {
     id: 'g2',
-    agent: 'Alicia',
-    goal: 'Prepare renewal package Unit 1204',
-    step: 'Computing market rate comparison',
+    agent: 'Hugo',
+    goal: 'Cerrar definición staging + multi-edificio',
+    step: 'Validando bloqueadores de arquitectura',
     status: 'executing',
-    confidence: 87,
-    started: '22m ago',
-    actions: ['Pause', 'View'],
+    confidence: 82,
+    started: '22 min',
+    actions: ['Pausar', 'Ver'],
   },
   {
     id: 'g3',
-    agent: 'Diego',
-    goal: 'Schedule HVAC inspection building-wide',
-    step: 'Requesting vendor quotes',
-    status: 'pending_approval',
-    confidence: 78,
-    started: '1h ago',
-    actions: ['Approve', 'View'],
+    agent: 'Andrés',
+    goal: 'Eliminar deuda de UI ficticia del overhaul agent-native',
+    step: 'Sustituyendo datos demo por contexto BaW real',
+    status: 'executing',
+    confidence: 91,
+    started: '1 h',
+    actions: ['Ver'],
   },
   {
     id: 'g4',
-    agent: 'Hugo',
-    goal: 'Compile weekly executive briefing',
-    step: 'Aggregating KPI data',
+    agent: 'Beto',
+    goal: 'Revisar facturación CFDI en modo prueba',
+    step: 'Confirmando requisitos de FacturAPI',
     status: 'completed',
-    confidence: 99,
-    started: '11m ago',
-    actions: ['View'],
+    confidence: 76,
+    started: '11 min',
+    actions: ['Ver'],
   },
   {
     id: 'g5',
-    agent: 'Elena',
-    goal: 'Send check-in instructions to guests',
-    step: 'Auto-sent to Unit 702',
+    agent: 'Alicia',
+    goal: 'Validar portal de huésped D101',
+    step: 'Checklist STR marcado como estable',
     status: 'completed',
-    confidence: 96,
-    started: '8m ago',
-    actions: ['View'],
+    confidence: 93,
+    started: '8 min',
+    actions: ['Ver'],
   },
   {
     id: 'g6',
-    agent: 'Felix',
-    goal: 'Verify vendor insurance certificates',
-    step: 'Blocked — vendor 403 not responding',
+    agent: 'Maribel',
+    goal: 'Revisar flujo de firmas Mifiel',
+    step: 'Bloqueado — faltan documentos finales',
     status: 'blocked',
     confidence: 45,
-    started: '1h ago',
-    actions: ['Override', 'View'],
+    started: '1 h',
+    actions: ['Escalar', 'Ver'],
   },
   {
     id: 'g7',
-    agent: 'Carmen',
-    goal: 'Negotiate late-fee waiver Unit 304',
-    step: 'Awaiting tenant response',
+    agent: 'Alicia',
+    goal: 'Depurar unidad de prueba Naran 138',
+    step: 'Esperando staging para no tocar prod a ciegas',
     status: 'suggested_by_agent',
     confidence: 72,
-    started: '1h ago',
-    actions: ['Approve', 'Dismiss'],
+    started: '1 h',
+    actions: ['Aprobar', 'Descartar'],
   },
   {
     id: 'g8',
-    agent: 'Diego',
-    goal: 'Pool chemistry auto-adjust',
-    step: 'Failed — sensor reading anomaly',
+    agent: 'Luis',
+    goal: 'Sincronizar mensajes comerciales para PMS propietario',
+    step: 'Falló — faltan assets aprobados',
     status: 'failed',
     confidence: 31,
-    started: '18m ago',
-    actions: ['Retry', 'View'],
+    started: '18 min',
+    actions: ['Reintentar', 'Ver'],
   },
 ]
 
 const APPROVALS: Approval[] = [
   {
     id: 'ap1',
-    agent: 'Carmen',
-    role: 'Collections',
-    what: 'Send personalized rent reminders to 4 delinquent tenants via WhatsApp',
+    agent: 'Alicia',
+    role: 'Operación',
+    what: 'Preparar seguimiento de cobranza para D402 y D302 antes de automatizar WhatsApp',
     why:
-      'Four tenants are >7 days past due totaling $186K MXN. Reminders are standard policy at day 7 and tenant 304 has historically responded to WhatsApp within 24h.',
-    confidence: 94,
-    waiting: '8m',
+      'La morosidad crítica conocida suma $112K MXN. Antes de enviar mensajes automáticos conviene validar monto, tono y siguiente acción con operación.',
+    confidence: 88,
+    waiting: '8 min',
     evidence: [
-      'Unit 1102 · Rodrigo Pérez · 18 days overdue · $52,400',
-      'Unit 304 · Laura Medina · 11 days overdue · $38,200',
-      'Unit 807 · Carlos Villanueva · 9 days overdue · $46,800',
-      'Unit 1408 · Ana Ortega · 7 days overdue · $48,600',
+      'D402 · Arturo · atraso crítico reportado: $80K MXN',
+      'D302 · Humberto · atraso reportado: $32K MXN',
+      'Motor de morosidad existe, pero WhatsApp autónomo sigue pendiente de token y política de aprobación',
+      'Recomendación: humano aprueba primer lote; agente solo prepara borradores',
     ],
   },
   {
     id: 'ap2',
-    agent: 'Alicia',
-    role: 'Operations',
-    what: 'Propose +4.2% renewal rate for Unit 1204 (current $42,800 → $44,600)',
+    agent: 'Hugo',
+    role: 'Coordinación',
+    what: 'Priorizar staging y multi-edificio sobre más features nuevas',
     why:
-      'Comparable 2BR units in Polanco rented at +5.1% YoY over the last 90 days. Tenant has zero late payments and high NPS. A modest +4.2% stays below market while locking in retention.',
-    confidence: 87,
-    waiting: '22m',
+      'QA en producción ya contaminó datos y la arquitectura actual mezcla edificios. Agregar más módulos encima de eso aumenta deuda técnica.',
+    confidence: 91,
+    waiting: '22 min',
     evidence: [
-      '3 comps within 500m at $44,100–$45,900 median',
-      'Tenant payment history: 24/24 on-time',
-      'Occupancy target: 95% (+4.2% predicted 98% renew likelihood)',
+      'Hallazgo Fran: staging urgente',
+      'Hallazgo técnico: units cuelgan directo de org_id; falta buildings',
+      'Vista Unidades no filtra por edificio',
+      'Dashboard sigue comunicando ALM809P como contexto único',
     ],
   },
   {
     id: 'ap3',
-    agent: 'Diego',
-    role: 'Maintenance',
-    what: 'Dispatch HVAC contractor to Unit 905 — bedroom unit failure',
+    agent: 'Andrés',
+    role: 'Producto técnico',
+    what: 'Mantener el Agent Control Center como prototipo explícito hasta conectarlo a datos reales',
     why:
-      'Tenant reported unit failure at 06:42; outdoor temperature forecast 33°C today. SLA window is 4h. Preferred vendor Clima MX has availability at 13:00 ($2,400 MXN flat rate).',
-    confidence: 91,
-    waiting: '12m',
+      'La pantalla era visualmente buena pero mezclaba datos ficticios de otro mercado. Eso da falsa confianza durante demo.',
+    confidence: 96,
+    waiting: '12 min',
     evidence: [
-      'Tenant report logged 06:42 via WhatsApp',
-      'Clima MX 13:00 slot confirmed',
-      'Unit 905 under active LTR contract through 2026-08-31',
+      'Se removieron referencias ficticias de mercado, unidades y edificios inexistentes',
+      'Las acciones quedan etiquetadas como simulación operativa',
+      'Siguiente paso: conectar aprobaciones a tasks/webhook_events reales',
     ],
   },
   {
     id: 'ap4',
-    agent: 'Felix',
-    role: 'Compliance',
-    what: 'Replace vendor "JardinMX" — expired insurance certificate',
+    agent: 'Maribel',
+    role: 'Legal',
+    what: 'No activar firmas Mifiel automáticas sin plantilla contractual final',
     why:
-      'JardinMX insurance certificate expired 2026-04-01 and vendor is non-responsive to requests (2 retries over 72h). Compliance policy requires active cert on-file for all on-premise vendors.',
+      'La integración técnica existe, pero el documento legal debe quedar validado antes de enviar contratos reales.',
     confidence: 82,
-    waiting: '1h',
+    waiting: '1 h',
     evidence: [
-      'Cert expiry: 2026-04-01',
-      '2 upload retry attempts · last HTTP 403',
-      'Replacement candidates pre-vetted: GreenSpace CDMX, ViveJardin',
+      'Mifiel está en roadmap/integración técnica',
+      'Contratos requieren versión legal final por tipo A/B/C/D/E',
+      'Recomendación: pruebas sandbox solamente hasta aprobación legal',
     ],
   },
 ]
 
-const DOMAINS = ['Collections', 'Maintenance', 'Communications', 'Record Updates'] as const
+const DOMAINS = ['Cobranza', 'Mantenimiento', 'Comunicaciones', 'Cambios de datos'] as const
 type Domain = (typeof DOMAINS)[number]
 
 export default function AgentControlCenter() {
@@ -216,7 +223,7 @@ export default function AgentControlCenter() {
   )
   const [toggles, setToggles] = useState<Record<string, Record<Domain, boolean>>>(
     Object.fromEntries(
-      ROSTER.map((a) => [a.id, { Collections: true, Maintenance: true, Communications: true, 'Record Updates': false }]),
+      ROSTER.map((a) => [a.id, { Cobranza: true, Mantenimiento: true, Comunicaciones: true, 'Cambios de datos': false }]),
     ) as Record<string, Record<Domain, boolean>>,
   )
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['ap1']))
@@ -240,16 +247,27 @@ export default function AgentControlCenter() {
       {/* Header */}
       <div>
         <h1 className="text-[22px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-          Agent Control Center
+          Centro de Agentes
         </h1>
-        <p className="text-[13px] muted-text mt-0.5">Monitor, approve, and tune your six operational agents</p>
+        <p className="text-[13px] muted-text mt-0.5">Prototipo operativo: monitorea aprobaciones humano-agente sin ejecutar acciones reales todavía.</p>
+      </div>
+
+      <div
+        className="rounded-lg px-4 py-3 text-[13px]"
+        style={{
+          backgroundColor: 'rgba(245, 158, 11, 0.10)',
+          color: '#FBBF24',
+          border: '1px solid rgba(245, 158, 11, 0.28)',
+        }}
+      >
+        Modo diseño: esta vista ya usa contexto real de BaW/ALM809P, pero las aprobaciones aún no están conectadas a `tasks`, `webhook_events` ni WhatsApp.
       </div>
 
       {/* AGENT ROSTER */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide muted-text">Roster</h2>
-          <span className="text-[11px] muted-text tabular-nums">{ROSTER.filter((r) => r.status === 'active').length} active</span>
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide muted-text">Equipo operativo</h2>
+          <span className="text-[11px] muted-text tabular-nums">{ROSTER.filter((r) => r.status === 'active').length} activos</span>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {ROSTER.map((a) => {
@@ -292,9 +310,9 @@ export default function AgentControlCenter() {
                       className="w-1.5 h-1.5 rounded-full"
                       style={{ backgroundColor: a.status === 'active' ? '#4ADE80' : a.status === 'idle' ? '#8B8B95' : '#FBBF24' }}
                     />
-                    {a.status[0].toUpperCase() + a.status.slice(1)}
+                    {AGENT_STATUS_LABELS[a.status]}
                   </span>
-                  <span className="text-[11px] muted-text tabular-nums">{a.tasks} tasks</span>
+                  <span className="text-[11px] muted-text tabular-nums">{a.tasks} tareas</span>
                 </div>
                 <span
                   className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded self-start"
@@ -319,20 +337,20 @@ export default function AgentControlCenter() {
       >
         <header className="px-4 py-3" style={{ borderBottom: '1px solid var(--baw-border)' }}>
           <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-            Active Goals
+            Objetivos activos
           </h2>
         </header>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead className="table-header">
               <tr>
-                <th className="text-left px-4 py-2">Agent</th>
-                <th className="text-left px-4 py-2">Goal</th>
-                <th className="text-left px-4 py-2">Current Step</th>
-                <th className="text-left px-4 py-2">Status</th>
-                <th className="text-left px-4 py-2">Confidence</th>
-                <th className="text-left px-4 py-2">Started</th>
-                <th className="text-right px-4 py-2">Actions</th>
+                <th className="text-left px-4 py-2">Agente</th>
+                <th className="text-left px-4 py-2">Objetivo</th>
+                <th className="text-left px-4 py-2">Paso actual</th>
+                <th className="text-left px-4 py-2">Estado</th>
+                <th className="text-left px-4 py-2">Confianza</th>
+                <th className="text-left px-4 py-2">Inicio</th>
+                <th className="text-right px-4 py-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -362,7 +380,7 @@ export default function AgentControlCenter() {
                           key={action}
                           className="px-2 py-0.5 rounded text-[11px] font-medium transition-colors"
                           style={
-                            action === 'Approve'
+                            action === 'Aprobar'
                               ? {
                                   backgroundColor: 'rgba(59, 130, 246, 0.15)',
                                   color: '#60A5FA',
@@ -391,13 +409,13 @@ export default function AgentControlCenter() {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[13px] font-semibold uppercase tracking-wide muted-text">
-            Approval Queue
+            Cola de aprobación
           </h2>
           <span
             className="text-[11px] px-1.5 py-0.5 rounded tabular-nums font-medium"
             style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24' }}
           >
-            {APPROVALS.length} pending
+            {APPROVALS.length} pendientes
           </span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -417,22 +435,22 @@ export default function AgentControlCenter() {
                     </span>
                     <span className="text-[11px] muted-text ml-2">{a.role}</span>
                   </div>
-                  <span className="text-[11px] muted-text tabular-nums">waiting {a.waiting}</span>
+                  <span className="text-[11px] muted-text tabular-nums">esperando {a.waiting}</span>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-1">What</p>
+                  <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-1">Qué</p>
                   <p className="text-[13px]" style={{ color: 'var(--baw-text)' }}>
                     {a.what}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-1">Why</p>
+                  <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-1">Por qué</p>
                   <p className="text-[13px] leading-snug" style={{ color: 'var(--baw-text)' }}>
                     {a.why}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] uppercase tracking-wide muted-text font-medium">Confidence</span>
+                  <span className="text-[11px] uppercase tracking-wide muted-text font-medium">Confianza</span>
                   <ConfidenceBar value={a.confidence} />
                 </div>
                 <button
@@ -442,11 +460,11 @@ export default function AgentControlCenter() {
                 >
                   {isOpen ? (
                     <>
-                      Hide evidence <ChevronUp className="w-3 h-3" />
+                      Ocultar evidencia <ChevronUp className="w-3 h-3" />
                     </>
                   ) : (
                     <>
-                      Show evidence <ChevronDown className="w-3 h-3" />
+                      Ver evidencia <ChevronDown className="w-3 h-3" />
                     </>
                   )}
                 </button>
@@ -469,7 +487,7 @@ export default function AgentControlCenter() {
                     className="flex-1 px-3 py-1.5 rounded text-[12px] font-semibold transition-colors"
                     style={{ backgroundColor: 'var(--baw-primary)', color: '#FFFFFF' }}
                   >
-                    Approve
+                    Aprobar
                   </button>
                   <button
                     className="flex-1 px-3 py-1.5 rounded text-[12px] font-semibold transition-colors"
@@ -479,7 +497,7 @@ export default function AgentControlCenter() {
                       border: '1px solid rgba(239, 68, 68, 0.5)',
                     }}
                   >
-                    Reject
+                    Rechazar
                   </button>
                   <button
                     className="px-3 py-1.5 rounded text-[12px] font-medium transition-colors"
@@ -489,7 +507,7 @@ export default function AgentControlCenter() {
                       border: '1px solid var(--baw-border)',
                     }}
                   >
-                    Delegate
+                    Delegar
                   </button>
                 </div>
               </div>
@@ -505,7 +523,7 @@ export default function AgentControlCenter() {
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[13px] font-semibold" style={{ color: 'var(--baw-text)' }}>
-            Autonomy Controls
+            Controles de autonomía
           </h2>
           <div className="flex items-center gap-2">
             <ActorAvatar type="agent" name={selected.name} size={22} />
@@ -518,7 +536,7 @@ export default function AgentControlCenter() {
 
         {/* Autonomy level */}
         <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-2">Autonomy Level</p>
+          <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-2">Nivel de autonomía</p>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(AUTONOMY_LABELS) as AutonomyLevel[]).map((lvl) => {
               const active = selectedLevel === lvl
@@ -542,7 +560,7 @@ export default function AgentControlCenter() {
 
         {/* Per-domain toggles */}
         <div>
-          <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-2">Domain Permissions</p>
+          <p className="text-[11px] uppercase tracking-wide muted-text font-medium mb-2">Permisos por dominio</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {DOMAINS.map((d) => {
               const on = selectedToggles[d]

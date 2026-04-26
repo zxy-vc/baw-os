@@ -35,9 +35,7 @@ export async function GET() {
     alerts.push({
       contractId: c.id,
       unitId: c.unit_id,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       unitNumber: (c as any).unit?.number || '—',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tenantName: (c as any).occupant?.name || 'Sin inquilino',
       endDate: c.end_date!,
       daysUntilExpiry: diffDays,
