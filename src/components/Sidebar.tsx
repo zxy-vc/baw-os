@@ -14,10 +14,18 @@ import {
   CalendarDays,
   Receipt,
   ListTodo,
-  Bot,
   Clock,
   Settings2,
   ChevronRight,
+  BarChart3,
+  Wallet,
+  MessageCircle,
+  TrendingUp,
+  Users,
+  Sparkles,
+  ClipboardList,
+  BookOpen,
+  Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
@@ -26,24 +34,40 @@ type NavItem = {
   name: string
   href: string
   icon: React.ComponentType<{ className?: string }>
-  badgeKey?: 'agents' | 'notifications'
+  badgeKey?: 'notifications'
 }
 
 type NavEntry = NavItem | { separator: true }
 
 const navigation: NavEntry[] = [
+  // Operación diaria
   { name: 'Mission Control', href: '/', icon: LayoutDashboard },
   { name: 'Operaciones', href: '/tasks', icon: ListTodo },
+  { name: 'WhatsApp', href: '/whatsapp', icon: MessageCircle },
+  { name: 'Notificaciones', href: '/notifications', icon: Bell, badgeKey: 'notifications' },
+  { separator: true },
+  // Activos y residentes
   { name: 'Unidades', href: '/units', icon: Building2 },
+  { name: 'Contactos', href: '/contacts', icon: Users },
   { name: 'Contratos', href: '/contracts', icon: FileText },
+  { name: 'Expedientes', href: '/applications', icon: ClipboardList },
+  { separator: true },
+  // Finanzas
   { name: 'Cobros', href: '/cobros', icon: Receipt },
-  { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
-  { separator: true },
-  { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
   { name: 'Facturas', href: '/invoices', icon: FileText },
+  { name: 'Gastos', href: '/gastos', icon: Wallet },
+  { name: 'Bitácora', href: '/ledger', icon: BookOpen },
+  { name: 'Reportes', href: '/reportes', icon: BarChart3 },
   { separator: true },
-  { name: 'Agentes', href: '/agents', icon: Bot, badgeKey: 'agents' },
+  // Operación de propiedad
+  { name: 'Mantenimiento', href: '/maintenance', icon: Wrench },
+  { name: 'Housekeeping', href: '/housekeeping', icon: Sparkles },
+  { name: 'Reservaciones', href: '/reservations', icon: CalendarDays },
+  { name: 'Precios', href: '/pricing', icon: TrendingUp },
+  { separator: true },
+  // Sistema
   { name: 'Timeline', href: '/audit', icon: Clock },
+  { name: 'Onboarding', href: '/onboarding', icon: ListTodo },
   { name: 'Configuración', href: '/settings', icon: Settings2 },
 ]
 
@@ -57,17 +81,15 @@ export default function Sidebar() {
   const [hovering, setHovering] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const mockAgentApprovals = 4
 
   const expanded = pinned || hovering || mobileOpen
 
   const fetchUnread = useCallback(async () => {
     try {
-      const { count } = await supabase
-        .from('webhook_events')
-        .select('*', { count: 'exact', head: true })
-        .eq('read', false)
-      setUnreadCount(count || 0)
+      const res = await fetch('/api/notifications/unread-count')
+      if (!res.ok) return
+      const data = await res.json()
+      setUnreadCount(typeof data?.count === 'number' ? data.count : 0)
     } catch {}
   }, [])
 
@@ -103,7 +125,6 @@ export default function Sidebar() {
   }
 
   function badgeFor(item: NavItem) {
-    if (item.badgeKey === 'agents' && mockAgentApprovals > 0) return mockAgentApprovals
     if (item.badgeKey === 'notifications' && unreadCount > 0) return unreadCount
     return null
   }
@@ -245,16 +266,8 @@ export default function Sidebar() {
                       <span
                         className="ml-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none tabular-nums min-w-[18px] text-center"
                         style={{
-                          backgroundColor:
-                            item.badgeKey === 'agents'
-                              ? 'rgba(139, 92, 246, 0.2)'
-                              : 'var(--baw-danger)',
-                          color:
-                            item.badgeKey === 'agents' ? '#A78BFA' : '#FFFFFF',
-                          border:
-                            item.badgeKey === 'agents'
-                              ? '1px solid rgba(139, 92, 246, 0.4)'
-                              : 'none',
+                          backgroundColor: 'var(--baw-danger)',
+                          color: '#FFFFFF',
                         }}
                       >
                         {typeof badge === 'number' && badge > 99 ? '99+' : badge}
@@ -293,7 +306,7 @@ export default function Sidebar() {
             type="button"
             className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
             style={{ color: 'var(--baw-text)' }}
-            title={!expanded ? 'ALM809P' : undefined}
+            title={!expanded ? 'Frontier Bay' : undefined}
           >
             <span className="flex items-center justify-center w-[40px] shrink-0">
               <Building2 className="w-[18px] h-[18px]" style={{ color: 'var(--baw-muted)' }} />
@@ -301,9 +314,9 @@ export default function Sidebar() {
             {expanded && (
               <span className="flex items-center justify-between flex-1 min-w-0 pr-3">
                 <span className="flex flex-col items-start min-w-0">
-                  <span className="text-[12px] font-medium truncate">ALM809P</span>
+                  <span className="text-[12px] font-medium truncate">Frontier Bay</span>
                   <span className="text-[10px]" style={{ color: 'var(--baw-muted)' }}>
-                    ALM809P
+                    Mateos 809, CDMX
                   </span>
                 </span>
                 <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--baw-muted)' }} />

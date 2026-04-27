@@ -331,7 +331,7 @@ export default function UnitDetailPage() {
                 <Download className="w-3.5 h-3.5" />
                 Exportar CSV
               </button>
-              <Link href="/payments" className="text-xs text-indigo-400 hover:text-indigo-300">Ver todos →</Link>
+              <Link href="/cobros" className="text-xs text-indigo-400 hover:text-indigo-300">Ver todos →</Link>
             </div>
           </div>
           <div className="space-y-2">
