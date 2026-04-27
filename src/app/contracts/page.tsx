@@ -367,7 +367,7 @@ export default function ContractsPage() {
                               <Clock className="w-3 h-3" />
                               En proceso
                             </span>
-                          ) : (
+                          ) : process.env.NEXT_PUBLIC_MIFIEL_ENABLED === 'true' ? (
                             <Link
                               href={`/contracts/${contract.id}`}
                               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-gray-400 hover:text-gray-200 border border-gray-700 hover:border-gray-500 transition-colors"
@@ -376,7 +376,7 @@ export default function ContractsPage() {
                               <PenTool className="w-3 h-3" />
                               Firmar
                             </Link>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </div>

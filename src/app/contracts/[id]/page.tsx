@@ -540,7 +540,9 @@ export default function ContractDetailPage() {
         )}
       </div>
 
-      {/* Firma Digital */}
+      {/* Firma Digital — oculto hasta confirmar credenciales Mifiel en producción.
+          Activar con NEXT_PUBLIC_MIFIEL_ENABLED=true cuando el equipo esté listo. */}
+      {process.env.NEXT_PUBLIC_MIFIEL_ENABLED === 'true' && (
       <div className="card">
         <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
           Firma Digital
@@ -604,6 +606,7 @@ export default function ContractDetailPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Signature Modal */}
       {signatureModal && (

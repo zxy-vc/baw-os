@@ -1,11 +1,14 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { Search, Bell } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import AuthGuard from '@/components/AuthGuard'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
+import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 
 const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply']
 
@@ -14,13 +17,12 @@ const PAGE_TITLES: Record<string, string> = {
   '/units': 'Unidades',
   '/contracts': 'Contratos',
   '/cobros': 'Cobros',
-  '/payments': 'Pagos',
+  '/payments/new': 'Registrar pago',
   '/invoices': 'Facturas',
   '/mora': 'Morosidad',
   '/ledger': 'Bitácora',
   '/gastos': 'Gastos',
   '/reportes': 'Reportes',
-  '/reports': 'Reportes (CSV)',
   '/maintenance': 'Mantenimiento',
   '/housekeeping': 'Housekeeping',
   '/pricing': 'Precios',
@@ -34,7 +36,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/search': 'Buscar',
   '/api-docs': 'API Docs',
   '/applications': 'Expedientes',
-  '/agents': 'Agentes',
   '/settings': 'Configuración',
 }
 
@@ -48,7 +49,22 @@ function getPageTitle(pathname: string): string {
 
 function GlobalHeader({ pathname }: { pathname: string }) {
   const title = getPageTitle(pathname)
-  const unread = 0
+  const [unread, setUnread] = useState(0)
+
+  const fetchUnread = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications/unread-count')
+      if (!res.ok) return
+      const data = await res.json()
+      setUnread(typeof data?.count === 'number' ? data.count : 0)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 30000)
+    return () => clearInterval(interval)
+  }, [fetchUnread])
 
   return (
     <header
@@ -112,9 +128,9 @@ function GlobalHeader({ pathname }: { pathname: string }) {
           </button>
 
           {/* Notification bell */}
-          <button
-            type="button"
-            className="relative inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+          <Link
+            href="/notifications"
+            className="relative inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors hover:bg-white/5"
             style={{ color: 'var(--baw-muted)' }}
             title="Notificaciones"
           >
@@ -130,7 +146,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
                 {unread > 99 ? '99+' : unread}
               </span>
             )}
-          </button>
+          </Link>
 
           {/* User avatar */}
           <div
@@ -169,7 +185,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             <div className="md:pl-14">
               <GlobalHeader pathname={pathname} />
-              <div className="p-4 md:p-6">{children}</div>
+              <div className="p-4 md:p-6 space-y-4">
+                {pathname !== '/' && <ContractAlertsBanner />}
+                {children}
+              </div>
             </div>
           </main>
         </AuthGuard>
