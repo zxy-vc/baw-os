@@ -3,48 +3,106 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --baw-bg: #0F0F12;
-  --baw-surface: #17171C;
-  --baw-elevated: #1E1E24;
-  --baw-border: #2A2A32;
-  --baw-text: #E8E8EC;
-  --baw-muted: #A0A0AB;
-  --baw-faint: #6E6E78;
-  --baw-primary: #3B82F6;
-  --baw-agent: #8B5CF6;
-  --baw-agent-subtle: rgba(139, 92, 246, 0.1);
-  --baw-human-subtle: rgba(59, 130, 246, 0.1);
-  --baw-success: #22C55E;
-  --baw-warning: #F59E0B;
-  --baw-danger: #EF4444;
+/* ════════════════════════════════════════════════════════════════════════
+   BaW OS — globals.css (Sprint 3 / S5)
+   ────────────────────────────────────────────────────────────────────────
+   Migración a tokens canónicos OKLCH del submódulo `design/baw-design/`.
+
+   Estrategia:
+   - Activar el scope canónico (--bg, --surface, --text, --brand-*, --agent-*,
+     --green-*, --amber-*, --red-*, --blue-*) según el modo light/dark
+     que ya gestiona Tailwind via `html.dark` / `html.light`.
+   - Mantener los aliases legacy `--baw-*` para que los ~50 componentes que
+     todavía leen `var(--baw-*)` sigan funcionando, pero apuntando ahora a
+     los tokens canónicos.  De esa forma migramos visualmente todo el OS
+     sin tocar 206 ocurrencias en este sprint.
+   - HEX directos restantes en componentes (206 ocurrencias) son deuda
+     documentada para un sprint posterior tras S6.
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* ── Modo dark (default) ─────────────────────────────────────────────── */
+:root,
+html.dark {
+  /* Activamos el scope canónico --dark como variables semánticas */
+  --bg:        var(--d-bg);
+  --surface:   var(--d-surface);
+  --surface-2: var(--d-surface-2);
+  --surface-3: var(--d-surface-3);
+  --line:      var(--d-line);
+  --line-2:    var(--d-line-2);
+  --text:      var(--d-text);
+  --text-2:    var(--d-text-2);
+  --text-3:    var(--d-text-3);
+  --text-4:    var(--d-text-4);
+
+  --red-fill:   color-mix(in oklch, var(--red-d-fill)   55%, transparent);
+  --amber-fill: color-mix(in oklch, var(--amber-d-fill) 55%, transparent);
+  --green-fill: color-mix(in oklch, var(--green-d-fill) 55%, transparent);
+  --blue-fill:  color-mix(in oklch, var(--blue-d-fill)  55%, transparent);
+  --agent-fill: color-mix(in oklch, var(--agent-d-fill) 55%, transparent);
+  --brand-fill: color-mix(in oklch, var(--brand-d-fill) 55%, transparent);
+
+  /* ── Aliases legacy --baw-* → tokens canónicos ────────────────────── */
+  --baw-bg:           var(--bg);
+  --baw-surface:      var(--surface);
+  --baw-elevated:     var(--surface-2);
+  --baw-border:       var(--line);
+  --baw-text:         var(--text);
+  --baw-muted:        var(--text-2);
+  --baw-faint:        var(--text-3);
+  --baw-primary:      var(--brand-500);
+  --baw-agent:        var(--agent-500);
+  --baw-agent-subtle: var(--agent-fill);
+  --baw-human-subtle: var(--brand-fill);
+  --baw-success:      var(--green-500);
+  --baw-warning:      var(--amber-500);
+  --baw-danger:       var(--red-500);
 }
 
+/* ── Modo light ─────────────────────────────────────────────────────── */
 html.light {
-  --baw-bg: #F7F7F8;
-  --baw-surface: #FFFFFF;
-  --baw-elevated: #F3F4F6;
-  --baw-border: #E5E7EB;
-  --baw-text: #111827;
-  --baw-muted: #6B7280;
-  --baw-faint: #9CA3AF;
+  --bg:        var(--l-bg);
+  --surface:   var(--l-surface);
+  --surface-2: var(--l-surface-2);
+  --surface-3: var(--l-surface-3);
+  --line:      var(--l-line);
+  --line-2:    var(--l-line-2);
+  --text:      var(--l-text);
+  --text-2:    var(--l-text-2);
+  --text-3:    var(--l-text-3);
+  --text-4:    var(--l-text-4);
+
+  --red-fill:   var(--red-100);
+  --amber-fill: var(--amber-100);
+  --green-fill: var(--green-100);
+  --blue-fill:  var(--blue-100);
+  --agent-fill: var(--agent-100);
+  --brand-fill: var(--brand-100);
+
+  /* aliases también se actualizan en light por el cambio en --bg/--text/etc.
+     pero re-declaramos los semánticos críticos para legibilidad */
+  --baw-bg:           var(--bg);
+  --baw-surface:      var(--surface);
+  --baw-elevated:     var(--surface-2);
+  --baw-border:       var(--line);
+  --baw-text:         var(--text);
+  --baw-muted:        var(--text-2);
+  --baw-faint:        var(--text-3);
 }
 
-/* Sidebar keeps its dark chrome regardless of app theme, so any element
-   inside it that consumes --baw-* tokens renders legibly on the dark surface. */
+/* Sidebar mantiene su chrome oscuro independiente del tema de la app:
+   los aliases --baw-* dentro del sidebar siguen apuntando al scope dark. */
 aside[data-sidebar] {
-  --baw-bg: #0F0F12;
-  --baw-surface: #17171C;
-  --baw-elevated: #1E1E24;
-  --baw-border: #2A2A32;
-  --baw-text: #E8E8EC;
-  --baw-muted: #A0A0AB;
-  --baw-faint: #6E6E78;
+  --baw-bg:       var(--d-bg);
+  --baw-surface:  var(--d-surface);
+  --baw-elevated: var(--d-surface-2);
+  --baw-border:   var(--d-line);
+  --baw-text:     var(--d-text);
+  --baw-muted:    var(--d-text-2);
+  --baw-faint:    var(--d-text-3);
 }
 
-/* Page-level h1 headings: always use the design-system text color.
-   Placed outside @layer so it overrides Tailwind utility classes
-   like text-gray-900 / dark:text-white that some pages still carry. */
+/* H1 de página: siempre usa el color de texto del design system */
 main h1 {
   color: var(--baw-text);
 }
@@ -60,10 +118,9 @@ main h1 {
     font-variant-numeric: tabular-nums;
   }
   html.light body {
-    background-color: #F7F7F8;
-    color: #1A1A1F;
+    background-color: var(--l-bg);
+    color: var(--l-text);
   }
-  /* Numeric tabular by default in tables */
   table, td, th, tbody, input, .num {
     font-variant-numeric: tabular-nums;
   }
@@ -76,11 +133,11 @@ main h1 {
     border-color: var(--baw-border);
   }
   html.light .card {
-    background-color: #FFFFFF;
-    border-color: #E5E7EB;
+    background-color: var(--l-surface);
+    border-color: var(--l-line);
   }
 
-  /* Accent borders for actor attribution */
+  /* Accent borders para actor attribution */
   .agent-border {
     border-left: 2px solid var(--baw-agent);
   }
@@ -93,74 +150,74 @@ main h1 {
 
   .agent-badge {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: var(--baw-agent-subtle);
-    color: var(--baw-agent);
-    border: 1px solid rgba(139, 92, 246, 0.3);
+    background-color: var(--agent-fill);
+    color: var(--agent-500);
+    border: 1px solid color-mix(in oklch, var(--agent-500) 30%, transparent);
   }
 
-  /* ---- Badges ---- */
+  /* ── Badges (todas migradas a tokens canónicos) ── */
   .badge-available {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(34, 197, 94, 0.1);
-    color: #4ADE80;
-    border: 1px solid rgba(34, 197, 94, 0.25);
+    background-color: var(--green-fill);
+    color: var(--green-400);
+    border: 1px solid color-mix(in oklch, var(--green-500) 25%, transparent);
   }
   .badge-occupied {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #60A5FA;
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    background-color: var(--blue-fill);
+    color: var(--blue-400);
+    border: 1px solid color-mix(in oklch, var(--blue-500) 25%, transparent);
   }
   .badge-maintenance {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(245, 158, 11, 0.1);
-    color: #FBBF24;
-    border: 1px solid rgba(245, 158, 11, 0.25);
+    background-color: var(--amber-fill);
+    color: var(--amber-400);
+    border: 1px solid color-mix(in oklch, var(--amber-500) 25%, transparent);
   }
   .badge-reserved {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(139, 92, 246, 0.1);
-    color: #A78BFA;
-    border: 1px solid rgba(139, 92, 246, 0.25);
+    background-color: var(--agent-fill);
+    color: var(--agent-400);
+    border: 1px solid color-mix(in oklch, var(--agent-500) 25%, transparent);
   }
   .badge-paid {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(34, 197, 94, 0.1);
-    color: #4ADE80;
-    border: 1px solid rgba(34, 197, 94, 0.25);
+    background-color: var(--green-fill);
+    color: var(--green-400);
+    border: 1px solid color-mix(in oklch, var(--green-500) 25%, transparent);
   }
   .badge-pending {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(245, 158, 11, 0.1);
-    color: #FBBF24;
-    border: 1px solid rgba(245, 158, 11, 0.25);
+    background-color: var(--amber-fill);
+    color: var(--amber-400);
+    border: 1px solid color-mix(in oklch, var(--amber-500) 25%, transparent);
   }
   .badge-late {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #F87171;
-    border: 1px solid rgba(239, 68, 68, 0.25);
+    background-color: var(--red-fill);
+    color: var(--red-400);
+    border: 1px solid color-mix(in oklch, var(--red-500) 25%, transparent);
   }
   .badge-active {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(34, 197, 94, 0.1);
-    color: #4ADE80;
-    border: 1px solid rgba(34, 197, 94, 0.25);
+    background-color: var(--green-fill);
+    color: var(--green-400);
+    border: 1px solid color-mix(in oklch, var(--green-500) 25%, transparent);
   }
   .badge-expired {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(139, 139, 149, 0.08);
-    color: #A0A0AB;
-    border: 1px solid rgba(139, 139, 149, 0.2);
+    background-color: color-mix(in oklch, var(--text-3) 8%, transparent);
+    color: var(--text-3);
+    border: 1px solid color-mix(in oklch, var(--text-3) 20%, transparent);
   }
   .badge-en-renovacion {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium;
-    background-color: rgba(59, 130, 246, 0.1);
-    color: #60A5FA;
-    border: 1px solid rgba(59, 130, 246, 0.25);
+    background-color: var(--blue-fill);
+    color: var(--blue-400);
+    border: 1px solid color-mix(in oklch, var(--blue-500) 25%, transparent);
   }
 
-  /* ---- Tables (denser, operational) ---- */
+  /* ── Tablas ── */
   .table-header {
     background-color: var(--baw-surface);
     color: var(--baw-muted);
@@ -175,10 +232,10 @@ main h1 {
     @apply transition-colors;
   }
   .table-row:hover {
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: color-mix(in oklch, var(--text) 4%, transparent);
   }
   html.light .table-row:hover {
-    background-color: rgba(0, 0, 0, 0.03);
+    background-color: color-mix(in oklch, var(--l-text) 4%, transparent);
   }
   .table-row td {
     @apply py-2 px-3 text-[13px];
@@ -186,16 +243,16 @@ main h1 {
     color: var(--baw-text);
   }
   html.light .table-header {
-    background-color: #F3F4F6;
-    color: #4B5563;
+    background-color: var(--l-surface-3);
+    color: var(--l-text-2);
   }
   html.light .table-header th,
   html.light .table-header td,
   html.light .table-row td {
-    border-bottom: 1px solid #E5E7EB;
+    border-bottom: 1px solid var(--l-line);
   }
   html.light .table-row td {
-    color: #111827;
+    color: var(--l-text);
   }
 
   /* Toast animation */
@@ -222,7 +279,7 @@ main h1 {
     animation: pulse-soft 1.6s ease-in-out infinite;
   }
 
-  /* Print styles for PDF export */
+  /* Print styles para PDF export */
   @media print {
     body * {
       visibility: hidden;
@@ -241,7 +298,7 @@ main h1 {
     }
   }
 
-  /* ---- Form inputs ---- */
+  /* ── Form inputs ── */
   .input-field {
     @apply w-full rounded-md px-3 py-2 text-[13px] transition-colors;
     background-color: var(--baw-surface);
@@ -251,21 +308,21 @@ main h1 {
   .input-field:focus {
     outline: none;
     border-color: var(--baw-primary);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--brand-500) 25%, transparent);
   }
   html.light .input-field {
-    background-color: #FFFFFF;
-    border-color: #D1D5DB;
-    color: #111827;
+    background-color: var(--l-surface);
+    border-color: var(--l-line-2);
+    color: var(--l-text);
   }
 
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-md px-3.5 py-2 text-[13px] font-medium transition-colors;
     background-color: var(--baw-primary);
-    color: #FFFFFF;
+    color: var(--l-surface);
   }
   .btn-primary:hover {
-    background-color: #2563EB;
+    background-color: var(--brand-600);
   }
 
   .btn-secondary {
@@ -276,23 +333,23 @@ main h1 {
   }
   .btn-secondary:hover {
     border-color: var(--baw-muted);
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: color-mix(in oklch, var(--text) 4%, transparent);
   }
   html.light .btn-secondary {
-    border-color: #D1D5DB;
-    color: #111827;
+    border-color: var(--l-line-2);
+    color: var(--l-text);
   }
   html.light .btn-secondary:hover {
-    background-color: #F3F4F6;
+    background-color: var(--l-surface-3);
   }
 
   .btn-danger {
     @apply inline-flex items-center justify-center rounded-md px-3.5 py-2 text-[13px] font-medium transition-colors;
     background-color: var(--baw-danger);
-    color: #FFFFFF;
+    color: var(--l-surface);
   }
   .btn-danger:hover {
-    background-color: #DC2626;
+    background-color: color-mix(in oklch, var(--red-500) 88%, black);
   }
 
   .page-title {
@@ -300,7 +357,7 @@ main h1 {
     color: var(--baw-text);
   }
   html.light .page-title {
-    color: #111827;
+    color: var(--l-text);
   }
 
   .page-subtitle {
@@ -308,7 +365,7 @@ main h1 {
     color: var(--baw-muted);
   }
   html.light .page-subtitle {
-    color: #6B7280;
+    color: var(--l-text-2);
   }
 
   .section-title {
@@ -316,7 +373,7 @@ main h1 {
     color: var(--baw-text);
   }
   html.light .section-title {
-    color: #111827;
+    color: var(--l-text);
   }
 
   .field-label {
@@ -324,13 +381,13 @@ main h1 {
     color: var(--baw-muted);
   }
   html.light .field-label {
-    color: #6B7280;
+    color: var(--l-text-2);
   }
 
   .muted-text {
     color: var(--baw-muted);
   }
   html.light .muted-text {
-    color: #6B7280;
+    color: var(--l-text-2);
   }
 }
