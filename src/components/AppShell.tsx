@@ -13,7 +13,13 @@ import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import { findSection } from '@/lib/navigation'
 
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply']
+// Sprint 4 / S4-0 fix: estos prefijos son rutas públicas con su propio layout
+// (sin sidebar, sin header). El match debe ser estricto — `pathname === prefix`
+// o `pathname.startsWith(prefix + '/')` — para que `/owners` (plural, interno)
+// NO matchee con `/owner` (singular, público). Mismo caso para `/onboarding`
+// que tiene tanto layout público (e.g. `/onboarding/[token]`) como vista
+// interna en el sub-nav de Inquilinos.
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply']
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Mission Control',
@@ -167,7 +173,9 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+  const isPublic = PUBLIC_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  )
 
   if (isPublic) {
     return <>{children}</>
