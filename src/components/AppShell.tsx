@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, Bell } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import AuthGuard from '@/components/AuthGuard'
+import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
@@ -148,18 +149,8 @@ function GlobalHeader({ pathname }: { pathname: string }) {
             )}
           </Link>
 
-          {/* User avatar */}
-          <div
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[12px] font-semibold"
-            style={{
-              backgroundColor: 'rgba(59, 130, 246, 0.15)',
-              color: '#60A5FA',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-            }}
-            title="Account"
-          >
-            MR
-          </div>
+          {/* User avatar / profile menu (sprint S4) */}
+          <ProfileMenu />
         </div>
       </div>
     </header>
