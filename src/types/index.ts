@@ -12,7 +12,48 @@ export type ReservationPaymentStatus = 'pending' | 'partial' | 'paid'
 export type BookingMode = 'full' | 'room' | 'bed'
 export type OccupantType = 'tenant' | 'guest' | 'owner' | 'staff'
 export type ContactType = 'ltr' | 'str' | 'both'
-export type MemberRole = 'owner' | 'admin' | 'operator' | 'viewer' | 'agent'
+export type MemberRole = 'owner' | 'admin' | 'operator' | 'viewer' | 'agent' | 'pm_owner' | 'pm_admin' | 'pm_operator' | 'pm_viewer' | 'client'
+
+export interface Building {
+  id: string
+  org_id: string
+  name: string
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  country: string
+  postal_code?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PropertyOwner {
+  id: string
+  org_id: string
+  user_id?: string | null
+  full_name: string
+  rfc?: string | null
+  email?: string | null
+  phone?: string | null
+  bank_info?: Record<string, unknown> | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface OwnershipStake {
+  id: string
+  org_id: string
+  building_id: string
+  property_owner_id: string
+  percentage: number
+  starts_on?: string | null
+  ends_on?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
 
 export interface Organization {
   id: string

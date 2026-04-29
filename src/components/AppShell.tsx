@@ -5,11 +5,13 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Search, Bell } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
+import SectionTopNav from '@/components/SectionTopNav'
 import AuthGuard from '@/components/AuthGuard'
 import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
+import { findSection } from '@/lib/navigation'
 
 const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply']
 
@@ -37,6 +39,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/search': 'Buscar',
   '/api-docs': 'API Docs',
   '/applications': 'Expedientes',
+  '/buildings': 'Edificios',
+  '/owners': 'Propietarios',
+  '/agents': 'Agentes',
   '/settings': 'Configuración',
 }
 
@@ -45,7 +50,10 @@ function getPageTitle(pathname: string): string {
   const prefix = Object.keys(PAGE_TITLES).find(
     (key) => key !== '/' && pathname.startsWith(key)
   )
-  return prefix ? PAGE_TITLES[prefix] : ''
+  if (prefix) return PAGE_TITLES[prefix]
+  // Fallback to section label for routes not in PAGE_TITLES
+  const section = findSection(pathname)
+  return section?.label ?? ''
 }
 
 function GlobalHeader({ pathname }: { pathname: string }) {
@@ -185,6 +193,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             }}
           >
             <GlobalHeader pathname={pathname} />
+            <SectionTopNav />
             <div className="p-4 md:p-6 space-y-4">
               {pathname !== '/' && <ContractAlertsBanner />}
               {children}
