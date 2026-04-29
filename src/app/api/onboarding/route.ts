@@ -52,6 +52,33 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
+    // S9 hotfix: si el user ya tiene una org, devolverla en vez de re-crear.
+    // Evita el bug de slug duplicado cuando el wizard se reabre tras un
+    // onboarding ya completado (frecuente en iOS donde useActiveContext
+    // fallaba por RLS y el user pensaba que tenía que repetir).
+    const { data: existingMember } = await supabase
+      .from('org_members')
+      .select('org_id, role, organizations(id, name, slug)')
+      .eq('user_id', body.user_id)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingMember?.org_id) {
+      const orgRef = Array.isArray(existingMember.organizations)
+        ? existingMember.organizations[0]
+        : existingMember.organizations
+      setActiveOrgId(existingMember.org_id)
+      return apiOk({
+        org_id: existingMember.org_id,
+        already_onboarded: true,
+        existing_org: orgRef
+          ? { id: orgRef.id, name: orgRef.name, slug: orgRef.slug }
+          : null,
+        message:
+          'El usuario ya tiene una organización configurada. Usa el WorkspaceSwitcher para cambiar de contexto o pide a un pm_owner crear más buildings.',
+      })
+    }
+
     // 1) PM Company (organizations)
     const { data: org, error: orgErr } = await supabase
       .from('organizations')

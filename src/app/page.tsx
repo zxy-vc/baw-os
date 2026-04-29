@@ -13,6 +13,11 @@ import {
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import { useActiveContext } from '@/lib/useActiveContext'
 
+// S9 hotfix: Mission Control ahora espera el contexto activo y filtra todas
+// las queries por activeOrgId. Antes confiaba 100% en RLS y, cuando una sola
+// query fallaba (e.g. organizations sin policies), el Promise.all colapsaba
+// la página y en iOS Safari se veía como un 404 / pantalla en blanco.
+
 interface CollectionRow {
   id: string
   unit: string
@@ -49,6 +54,7 @@ function fmtMoney(n: number) {
 }
 
 export default function MissionControl() {
+  const { activeOrgId, loading: ctxLoading, orgs } = useActiveContext()
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalUnits: 0,
     occupiedUnits: 0,
@@ -64,28 +70,53 @@ export default function MissionControl() {
   const [needsOnboarding, setNeedsOnboarding] = useState(false)
 
   useEffect(() => {
+    // S9: esperar a que el contexto activo se hidrate antes de hacer queries
+    if (ctxLoading) return
+
+    // Sin orgs → onboarding directo
+    if (orgs.length === 0) {
+      setNeedsOnboarding(true)
+      setLoading(false)
+      return
+    }
+
     async function fetchDashboard() {
       try {
         const now = new Date()
 
+        // Filtrar todas las queries por activeOrgId. Si por algún motivo no
+        // hay org activa todavía, abortamos sin romper la UI.
+        if (!activeOrgId) {
+          setLoading(false)
+          return
+        }
+
         const [unitsRes, contractsRes, paymentsRes, maintRes] = await Promise.all([
-          supabase.from('units').select('*').order('floor').order('number'),
+          supabase
+            .from('units')
+            .select('*')
+            .eq('org_id', activeOrgId)
+            .order('floor')
+            .order('number'),
           supabase
             .from('contracts')
             .select(
               'id, unit_id, monthly_amount, end_date, status, unit:units(number), occupant:occupants(name)'
             )
+            .eq('org_id', activeOrgId)
             .in('status', ['active', 'en_renovacion']),
           supabase
             .from('payments')
             .select(
               'id, amount, due_date, status, contract:contracts(unit:units(number), occupant:occupants(name))'
             )
+            .eq('org_id', activeOrgId)
             .in('status', ['pending', 'late'])
             .order('due_date', { ascending: true }),
           supabase
             .from('incidents')
             .select('id, status, created_at, description, unit:units(number)')
+            .eq('org_id', activeOrgId)
             .in('status', ['open', 'in_progress', 'pending'])
             .order('created_at', { ascending: false })
             .limit(5),
@@ -96,8 +127,11 @@ export default function MissionControl() {
         const payments = paymentsRes.data || []
         const tickets = maintRes.data || []
 
-        // Detectar empty state global: sin unidades ni contratos
-        if (units.length === 0 && contracts.length === 0) {
+        // S9: empty state honesto — si la org existe pero no tiene units ni
+        // contracts, mostrar dashboard vacío (no onboarding) porque el user
+        // ya completó onboarding pero no tiene operación cargada todavía.
+        // Solo redirigir a onboarding si NO hay orgs.
+        if (units.length === 0 && contracts.length === 0 && orgs.length === 0) {
           setNeedsOnboarding(true)
         }
 
@@ -174,7 +208,7 @@ export default function MissionControl() {
     }
 
     fetchDashboard()
-  }, [])
+  }, [ctxLoading, activeOrgId, orgs.length])
 
   const occupancyPct =
     metrics.totalUnits > 0
