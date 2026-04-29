@@ -7,7 +7,6 @@ import {
   Building2,
   FileText,
   LayoutDashboard,
-  LogOut,
   Menu,
   X,
   Wrench,
@@ -29,6 +28,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
+import AgentsList from '@/components/AgentsList'
 
 type NavItem = {
   name: string
@@ -118,18 +119,26 @@ export default function Sidebar() {
     } catch {}
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
-
   function badgeFor(item: NavItem) {
     if (item.badgeKey === 'notifications' && unreadCount > 0) return unreadCount
     return null
   }
 
   const width = expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH
+
+  // Sprint 3 / S7: el contenido principal debe "empujarse" cuando el sidebar
+  // está PINNED (sticky), pero seguir siendo overlay cuando el usuario solo
+  // hace hover.  Exponemos el ancho efectivo para layout via CSS variable
+  // global, que AppShell lee con `paddingLeft: var(--sidebar-effective-width)`.
+  useEffect(() => {
+    const root = document.documentElement
+    const layoutWidth = pinned ? EXPANDED_WIDTH : COLLAPSED_WIDTH
+    root.style.setProperty('--sidebar-effective-width', `${layoutWidth}px`)
+    root.style.setProperty('--sidebar-rendered-width', `${width}px`)
+    return () => {
+      // Cleanup al desmontar
+    }
+  }, [pinned, width])
 
   return (
     <>
@@ -297,46 +306,20 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Footer: building selector + logout */}
+        {/* Agentes (sprint S4) */}
+        <div
+          className="shrink-0 pt-2"
+          style={{ borderTop: '1px solid #2A2A32' }}
+        >
+          <AgentsList expanded={expanded} />
+        </div>
+
+        {/* Footer: workspace switcher real (sprint S4). Logout movido a ProfileMenu. */}
         <div
           className="shrink-0 py-2"
           style={{ borderTop: '1px solid #2A2A32' }}
         >
-          <button
-            type="button"
-            className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
-            style={{ color: 'var(--baw-text)' }}
-            title={!expanded ? 'Frontier Bay' : undefined}
-          >
-            <span className="flex items-center justify-center w-[40px] shrink-0">
-              <Building2 className="w-[18px] h-[18px]" style={{ color: 'var(--baw-muted)' }} />
-            </span>
-            {expanded && (
-              <span className="flex items-center justify-between flex-1 min-w-0 pr-3">
-                <span className="flex flex-col items-start min-w-0">
-                  <span className="text-[12px] font-medium truncate">Frontier Bay</span>
-                  <span className="text-[10px]" style={{ color: 'var(--baw-muted)' }}>
-                    Mateos 809, CDMX
-                  </span>
-                </span>
-                <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--baw-muted)' }} />
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="flex items-center h-9 mx-2 rounded-md transition-colors hover:bg-white/5 w-[calc(100%-16px)]"
-            style={{ color: 'var(--baw-muted)' }}
-            title={!expanded ? 'Cerrar sesión' : undefined}
-          >
-            <span className="flex items-center justify-center w-[40px] shrink-0">
-              <LogOut className="w-[18px] h-[18px]" />
-            </span>
-            {expanded && (
-              <span className="text-[13px] font-medium">Cerrar sesión</span>
-            )}
-          </button>
+          <WorkspaceSwitcher expanded={expanded} />
         </div>
       </aside>
     </>

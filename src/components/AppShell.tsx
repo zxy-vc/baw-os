@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, Bell } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import AuthGuard from '@/components/AuthGuard'
+import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
@@ -68,7 +69,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
   return (
     <header
-      className="sticky top-0 z-30 pl-16 pr-4 md:pl-6 md:pr-6"
+      className="sticky top-0 z-30 pl-16 pr-4 md:pl-4 md:pr-6"
       style={{
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',
@@ -148,18 +149,8 @@ function GlobalHeader({ pathname }: { pathname: string }) {
             )}
           </Link>
 
-          {/* User avatar */}
-          <div
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[12px] font-semibold"
-            style={{
-              backgroundColor: 'rgba(59, 130, 246, 0.15)',
-              color: '#60A5FA',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-            }}
-            title="Account"
-          >
-            MR
-          </div>
+          {/* User avatar / profile menu (sprint S4) */}
+          <ProfileMenu />
         </div>
       </div>
     </header>
@@ -179,16 +170,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <ToastProvider>
         <AuthGuard>
           <Sidebar />
+          {/*
+            Sprint 3 / S7: el `paddingLeft` del main lee el CSS var
+            `--sidebar-effective-width` que el Sidebar mantiene actualizado.
+            Cuando está pinned el contenido se empuja a 240px y queda visible.
+            Cuando solo es hover, el sidebar se expande sobre el contenido
+            sin reflowear (overlay) para no causar layout shift cada vez que
+            el cursor lo toca.
+          */}
           <main
             className="min-h-screen transition-[padding] duration-200"
-            style={{ paddingLeft: 0 }}
+            style={{
+              paddingLeft: 'var(--sidebar-effective-width, 0px)',
+            }}
           >
-            <div className="md:pl-14">
-              <GlobalHeader pathname={pathname} />
-              <div className="p-4 md:p-6 space-y-4">
-                {pathname !== '/' && <ContractAlertsBanner />}
-                {children}
-              </div>
+            <GlobalHeader pathname={pathname} />
+            <div className="p-4 md:p-6 space-y-4">
+              {pathname !== '/' && <ContractAlertsBanner />}
+              {children}
             </div>
           </main>
         </AuthGuard>

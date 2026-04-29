@@ -20,14 +20,27 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={`dark ${inter.variable}`} suppressHydrationWarning>
+    <html lang="es" className={inter.variable} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var t = localStorage.getItem('baw-theme');
-                if (t === 'light') document.documentElement.classList.remove('dark');
+                try {
+                  var t = localStorage.getItem('baw:theme');
+                  if (t !== 'light' && t !== 'dark' && t !== 'system') t = 'dark';
+                  var effective = t;
+                  if (t === 'system') {
+                    effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                  }
+                  var root = document.documentElement;
+                  root.classList.toggle('dark', effective === 'dark');
+                  root.classList.toggle('light', effective === 'light');
+                  root.dataset.theme = effective;
+                } catch (e) {
+                  document.documentElement.classList.add('dark');
+                  document.documentElement.dataset.theme = 'dark';
+                }
               })();
             `,
           }}
