@@ -126,6 +126,20 @@ export default function Sidebar() {
 
   const width = expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH
 
+  // Sprint 3 / S7: el contenido principal debe "empujarse" cuando el sidebar
+  // está PINNED (sticky), pero seguir siendo overlay cuando el usuario solo
+  // hace hover.  Exponemos el ancho efectivo para layout via CSS variable
+  // global, que AppShell lee con `paddingLeft: var(--sidebar-effective-width)`.
+  useEffect(() => {
+    const root = document.documentElement
+    const layoutWidth = pinned ? EXPANDED_WIDTH : COLLAPSED_WIDTH
+    root.style.setProperty('--sidebar-effective-width', `${layoutWidth}px`)
+    root.style.setProperty('--sidebar-rendered-width', `${width}px`)
+    return () => {
+      // Cleanup al desmontar
+    }
+  }, [pinned, width])
+
   return (
     <>
       {/* Mobile hamburger */}

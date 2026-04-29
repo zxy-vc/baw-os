@@ -85,12 +85,20 @@ export default function ProfileMenu() {
 
   function applyTheme(t: ThemePref) {
     const root = document.documentElement
+    let effective: 'dark' | 'light'
     if (t === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      root.classList.toggle('dark', prefersDark)
+      effective = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
     } else {
-      root.classList.toggle('dark', t === 'dark')
+      effective = t
     }
+    // Sprint 3 / S7: el sistema canónico de tokens (S5/globals.css) lee
+    // tanto `html.dark` como `html.light` para alternar entre escalas OKLCH.
+    // Aseguramos las dos clases de forma exclusiva, no solo togglear `dark`.
+    root.classList.toggle('dark', effective === 'dark')
+    root.classList.toggle('light', effective === 'light')
+    root.dataset.theme = effective
   }
 
   function changeTheme(t: ThemePref) {

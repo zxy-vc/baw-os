@@ -69,7 +69,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
   return (
     <header
-      className="sticky top-0 z-30 pl-16 pr-4 md:pl-6 md:pr-6"
+      className="sticky top-0 z-30 pl-16 pr-4 md:pl-4 md:pr-6"
       style={{
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',
@@ -170,16 +170,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <ToastProvider>
         <AuthGuard>
           <Sidebar />
+          {/*
+            Sprint 3 / S7: el `paddingLeft` del main lee el CSS var
+            `--sidebar-effective-width` que el Sidebar mantiene actualizado.
+            Cuando está pinned el contenido se empuja a 240px y queda visible.
+            Cuando solo es hover, el sidebar se expande sobre el contenido
+            sin reflowear (overlay) para no causar layout shift cada vez que
+            el cursor lo toca.
+          */}
           <main
             className="min-h-screen transition-[padding] duration-200"
-            style={{ paddingLeft: 0 }}
+            style={{
+              paddingLeft: 'var(--sidebar-effective-width, 0px)',
+            }}
           >
-            <div className="md:pl-14">
-              <GlobalHeader pathname={pathname} />
-              <div className="p-4 md:p-6 space-y-4">
-                {pathname !== '/' && <ContractAlertsBanner />}
-                {children}
-              </div>
+            <GlobalHeader pathname={pathname} />
+            <div className="p-4 md:p-6 space-y-4">
+              {pathname !== '/' && <ContractAlertsBanner />}
+              {children}
             </div>
           </main>
         </AuthGuard>

@@ -11,6 +11,7 @@ import {
   type StatusKind,
 } from '@/components/ui/status'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
+import { useActiveContext } from '@/lib/useActiveContext'
 
 interface CollectionRow {
   id: string
@@ -222,9 +223,7 @@ export default function MissionControl() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[22px] font-semibold">Mission Control</h1>
-          <p className="text-[13px] muted-text mt-0.5">
-            Frontier Bay · Operación en vivo
-          </p>
+          <MissionControlSubtitle />
         </div>
       </div>
 
@@ -425,5 +424,27 @@ export default function MissionControl() {
         </section>
       </div>
     </div>
+  )
+}
+
+// Sprint 3 / S7: Subtítulo dinámico de Mission Control
+// Antes hardcoded "Frontier Bay · Operación en vivo"; ahora lee la org y
+// building activos del contexto compartido y cae en un placeholder neutro
+// si todavía no hay onboarding completo.
+function MissionControlSubtitle() {
+  const { orgs, buildings, activeOrgId, activeBuildingId, loading } =
+    useActiveContext()
+  if (loading) return <p className="text-[13px] muted-text mt-0.5">···</p>
+  const activeOrg = orgs.find((o) => o.id === activeOrgId)
+  const activeBuilding = buildings.find((b) => b.id === activeBuildingId)
+  const orgName = activeOrg?.name?.trim()
+  const buildingName = activeBuilding?.name?.trim()
+  const label = buildingName
+    ? `${buildingName}${orgName ? ` · ${orgName}` : ''}`
+    : orgName || 'Workspace sin configurar'
+  return (
+    <p className="text-[13px] muted-text mt-0.5">
+      {label} · Operación en vivo
+    </p>
   )
 }

@@ -105,11 +105,14 @@ export default function OnboardingWizardV2() {
   })
 
   // Paso 3 — Unidades (bulk)
+  // Sprint 3 / S7: campos numéricos guardados como string para permitir
+  // edición libre (vaciar el campo, borrar y reescribir).  Se coercen a number
+  // sólo en el momento de generar.
   const [unitConfig, setUnitConfig] = useState({
-    count: 4,
+    count: '4',
     prefix: '',
-    startNumber: 101,
-    floors: 4,
+    startNumber: '101',
+    floors: '4',
     type: 'LTR' as UnitRow['type'],
   })
   const [units, setUnits] = useState<UnitRow[]>([])
@@ -210,16 +213,35 @@ export default function OnboardingWizardV2() {
   // Generación de unidades en bulk
   // ---------------------------------------------------------------------------
 
+  // Sprint 3 / S7 — Bug #4 fix: en lugar de REEMPLAZAR la lista de unidades,
+  // ahora hacemos APPEND con deduplicación por `number`.  Permite ejecutar
+  // múltiples bulks (p.ej. 101-104, 201-204, 301-304) en sesiones distintas
+  // del mismo paso.
   function generateUnits() {
     const rows: UnitRow[] = []
-    const { count, prefix, startNumber, floors, type } = unitConfig
-    const perFloor = floors > 0 ? Math.ceil(count / floors) : count
+    const count = Math.max(1, Number(unitConfig.count) || 0)
+    const startNumber = Number(unitConfig.startNumber) || 101
+    const floors = Math.max(1, Number(unitConfig.floors) || 1)
+    const { prefix, type } = unitConfig
+    const perFloor = Math.ceil(count / floors)
     for (let i = 0; i < count; i++) {
       const floor = Math.min(floors, Math.floor(i / perFloor) + 1)
       const num = `${prefix}${startNumber + i}`
       rows.push({ number: num, type, floor })
     }
-    setUnits(rows)
+    // Deduplicar por number: las nuevas filas ganan sobre las existentes
+    const byNumber = new Map<string, UnitRow>()
+    for (const u of units) byNumber.set(u.number, u)
+    for (const u of rows) byNumber.set(u.number, u)
+    setUnits(Array.from(byNumber.values()))
+
+    // Auto-sugerir el siguiente piso/secuencia para el siguiente bulk
+    // (p.ej. tras generar 101-104, deja 201 listo para el siguiente).
+    const nextStart = startNumber + 100
+    setUnitConfig({
+      ...unitConfig,
+      startNumber: String(nextStart),
+    })
   }
 
   function addUnit() {
@@ -672,10 +694,10 @@ function StepUnits({
   updateUnit,
 }: {
   unitConfig: {
-    count: number
+    count: string
     prefix: string
-    startNumber: number
-    floors: number
+    startNumber: string
+    floors: string
     type: UnitRow['type']
   }
   setUnitConfig: (c: typeof unitConfig) => void
@@ -706,16 +728,15 @@ function StepUnits({
       >
         <Field label="Cantidad">
           <input
-            type="number"
-            min={1}
-            max={500}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={unitConfig.count}
-            onChange={(e) =>
-              setUnitConfig({
-                ...unitConfig,
-                count: Math.max(1, Number(e.target.value) || 1),
-              })
-            }
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '')
+              setUnitConfig({ ...unitConfig, count: v })
+            }}
+            placeholder="4"
             className="w-full"
             style={inputStyle}
           />
@@ -734,30 +755,30 @@ function StepUnits({
         </Field>
         <Field label="Empezar en">
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={unitConfig.startNumber}
-            onChange={(e) =>
-              setUnitConfig({
-                ...unitConfig,
-                startNumber: Number(e.target.value) || 101,
-              })
-            }
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '')
+              setUnitConfig({ ...unitConfig, startNumber: v })
+            }}
+            placeholder="101"
             className="w-full"
             style={inputStyle}
           />
         </Field>
         <Field label="Pisos">
           <input
-            type="number"
-            min={1}
-            max={50}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={unitConfig.floors}
-            onChange={(e) =>
-              setUnitConfig({
-                ...unitConfig,
-                floors: Math.max(1, Number(e.target.value) || 1),
-              })
-            }
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '')
+              setUnitConfig({ ...unitConfig, floors: v })
+            }}
+            placeholder="1"
             className="w-full"
             style={inputStyle}
           />
@@ -780,18 +801,28 @@ function StepUnits({
           </select>
         </Field>
       </div>
-      <button
-        type="button"
-        onClick={generateUnits}
-        className="px-4 py-2 rounded-md text-[13px]"
-        style={{
-          backgroundColor: 'var(--baw-bg)',
-          border: '1px solid var(--baw-border)',
-          color: 'var(--baw-text)',
-        }}
-      >
-        Generar {unitConfig.count} unidades
-      </button>
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={generateUnits}
+          className="px-4 py-2 rounded-md text-[13px]"
+          style={{
+            backgroundColor: 'var(--baw-bg)',
+            border: '1px solid var(--baw-border)',
+            color: 'var(--baw-text)',
+          }}
+        >
+          {units.length > 0
+            ? `Agregar ${unitConfig.count || 0} unidades más`
+            : `Generar ${unitConfig.count || 0} unidades`}
+        </button>
+        {units.length > 0 && (
+          <span className="text-[12px] muted-text">
+            Puedes ejecutar varios bulks (101–104, 201–204, etc.) y se irán
+            sumando.
+          </span>
+        )}
+      </div>
 
       {/* Lista editable */}
       {units.length > 0 && (
