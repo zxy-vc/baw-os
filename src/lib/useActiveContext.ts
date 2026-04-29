@@ -82,22 +82,41 @@ export function useActiveContext(): ActiveContext {
       setUserId(session.user.id)
       setUserEmail(session.user.email ?? null)
 
-      // Memberships del usuario
-      const { data: members } = await supabase
+      // S9 hotfix: hacer el lookup en dos pasos para no depender del join.
+      // Antes: si RLS bloqueaba `organizations`, todo el join devolvía null y
+      // el usuario quedaba sin orgs aun teniendo membresía válida.
+      const { data: members, error: memberErr } = await supabase
         .from('org_members')
-        .select('org_id, organizations(id, name, slug)')
+        .select('org_id')
         .eq('user_id', session.user.id)
 
-      const orgList: OrgOption[] = (members || [])
-        .map((m: any) => {
-          const org = Array.isArray(m.organizations)
-            ? m.organizations[0]
-            : m.organizations
-          return org
-            ? { id: org.id, name: org.name, slug: org.slug }
-            : null
-        })
-        .filter(Boolean) as OrgOption[]
+      if (memberErr) {
+        // eslint-disable-next-line no-console
+        console.error('useActiveContext: error leyendo org_members', memberErr)
+      }
+
+      const orgIds = (members || [])
+        .map((m: any) => m.org_id)
+        .filter(Boolean) as string[]
+
+      let orgList: OrgOption[] = []
+      if (orgIds.length > 0) {
+        const { data: orgsData, error: orgErr } = await supabase
+          .from('organizations')
+          .select('id, name, slug')
+          .in('id', orgIds)
+
+        if (orgErr) {
+          // eslint-disable-next-line no-console
+          console.error('useActiveContext: error leyendo organizations', orgErr)
+        }
+
+        orgList = (orgsData || []).map((o: any) => ({
+          id: o.id,
+          name: o.name,
+          slug: o.slug,
+        }))
+      }
 
       setOrgs(orgList)
 
