@@ -3,7 +3,7 @@
 // en un único request. Usa service-role para bypass de RLS y se hace best-effort de rollback.
 
 import { NextRequest } from 'next/server'
-import { createServiceClient, apiOk, apiError } from '@/lib/api-auth'
+import { createServiceClient, apiOk, apiError, setActiveOrgId } from '@/lib/api-auth'
 
 interface UnitInput {
   number: string
@@ -72,6 +72,10 @@ export async function POST(request: NextRequest) {
       return apiError(msg, 400)
     }
     createdOrgId = org.id
+    // Sprint 3 / S6: caliente el cache de org_id legacy para que las APIs
+    // existentes (que usan getOrgId() síncrono) operen contra la org recién
+    // creada sin necesidad de un refresh manual.
+    setActiveOrgId(org.id)
 
     // 2) org_member del usuario actual como pm_owner
     const { error: memberErr } = await supabase.from('org_members').insert({
