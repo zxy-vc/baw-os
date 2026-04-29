@@ -108,11 +108,14 @@ export default function OnboardingWizardV2() {
   // Sprint 3 / S7: campos numéricos guardados como string para permitir
   // edición libre (vaciar el campo, borrar y reescribir).  Se coercen a number
   // sólo en el momento de generar.
+  // Sprint 3 / S8: removido `floors` — el piso se infiere del número de unidad
+  // siguiendo la convención inmobiliaria estándar (101→piso 1, 205→piso 2,
+  // 1003→piso 10).  El usuario puede ajustar el piso manualmente por unidad
+  // en la lista editable si una unidad rompe la convención (PH, mezzanine, etc.).
   const [unitConfig, setUnitConfig] = useState({
     count: '4',
     prefix: '',
     startNumber: '101',
-    floors: '4',
     type: 'LTR' as UnitRow['type'],
   })
   const [units, setUnits] = useState<UnitRow[]>([])
@@ -217,16 +220,29 @@ export default function OnboardingWizardV2() {
   // ahora hacemos APPEND con deduplicación por `number`.  Permite ejecutar
   // múltiples bulks (p.ej. 101-104, 201-204, 301-304) en sesiones distintas
   // del mismo paso.
+  //
+  // Sprint 3 / S8 — El piso se infiere del número siguiendo la convención
+  // inmobiliaria estándar:
+  //   101 → piso 1     205 → piso 2     1003 → piso 10
+  // Regla: tomar todos los dígitos excepto los últimos 2 (que son el número
+  // de unidad dentro del piso).  Si la unidad tiene ≤2 dígitos numéricos,
+  // se asume piso 1.  El prefijo (ej. "A-") se ignora para el cálculo.
+  function inferFloor(numberStr: string): number {
+    const digits = numberStr.replace(/[^0-9]/g, '')
+    if (digits.length <= 2) return 1
+    const floorStr = digits.slice(0, -2)
+    const floor = Number(floorStr)
+    return Number.isFinite(floor) && floor > 0 ? floor : 1
+  }
+
   function generateUnits() {
     const rows: UnitRow[] = []
     const count = Math.max(1, Number(unitConfig.count) || 0)
     const startNumber = Number(unitConfig.startNumber) || 101
-    const floors = Math.max(1, Number(unitConfig.floors) || 1)
     const { prefix, type } = unitConfig
-    const perFloor = Math.ceil(count / floors)
     for (let i = 0; i < count; i++) {
-      const floor = Math.min(floors, Math.floor(i / perFloor) + 1)
       const num = `${prefix}${startNumber + i}`
+      const floor = inferFloor(num)
       rows.push({ number: num, type, floor })
     }
     // Deduplicar por number: las nuevas filas ganan sobre las existentes
@@ -697,7 +713,6 @@ function StepUnits({
     count: string
     prefix: string
     startNumber: string
-    floors: string
     type: UnitRow['type']
   }
   setUnitConfig: (c: typeof unitConfig) => void
@@ -714,13 +729,14 @@ function StepUnits({
         <h2 className="text-[18px] font-semibold">Estructura de unidades</h2>
         <p className="muted-text text-[13px] mt-1">
           Genera las unidades en bulk con el patrón típico (101–404) o agrégalas
-          una por una. Podrás editarlas después.
+          una por una. El piso se infiere del número (101 → piso 1, 205 → piso
+          2, 1003 → piso 10). Podrás ajustar cada unidad después.
         </p>
       </div>
 
       {/* Generador bulk */}
       <div
-        className="rounded-md p-4 grid grid-cols-2 md:grid-cols-5 gap-3"
+        className="rounded-md p-4 grid grid-cols-2 md:grid-cols-4 gap-3"
         style={{
           backgroundColor: 'var(--baw-bg)',
           border: '1px solid var(--baw-border)',
@@ -764,21 +780,6 @@ function StepUnits({
               setUnitConfig({ ...unitConfig, startNumber: v })
             }}
             placeholder="101"
-            className="w-full"
-            style={inputStyle}
-          />
-        </Field>
-        <Field label="Pisos">
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={unitConfig.floors}
-            onChange={(e) => {
-              const v = e.target.value.replace(/[^0-9]/g, '')
-              setUnitConfig({ ...unitConfig, floors: v })
-            }}
-            placeholder="1"
             className="w-full"
             style={inputStyle}
           />
