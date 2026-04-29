@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, daysUntil } from '@/lib/utils'
 import {
@@ -59,6 +60,7 @@ export default function MissionControl() {
   const [collections, setCollections] = useState<CollectionRow[]>([])
   const [maintenance, setMaintenance] = useState<MaintRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -92,6 +94,11 @@ export default function MissionControl() {
         const contracts = contractsRes.data || []
         const payments = paymentsRes.data || []
         const tickets = maintRes.data || []
+
+        // Detectar empty state global: sin unidades ni contratos
+        if (units.length === 0 && contracts.length === 0) {
+          setNeedsOnboarding(true)
+        }
 
         const totalUnits = units.length
         const occupiedUnits = units.filter(
@@ -172,6 +179,43 @@ export default function MissionControl() {
     metrics.totalUnits > 0
       ? ((metrics.occupiedUnits / metrics.totalUnits) * 100).toFixed(1)
       : '0.0'
+
+  // Empty state honesto: si no hay datos, ofrecer el onboarding como CTA principal
+  if (!loading && needsOnboarding) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div
+          className="max-w-lg w-full rounded-lg p-8 text-center"
+          style={{
+            backgroundColor: 'var(--baw-surface)',
+            border: '1px solid var(--baw-border)',
+          }}
+        >
+          <div
+            className="w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-4"
+            style={{
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+              color: 'var(--baw-primary)',
+            }}
+          >
+            <Sparkles size={22} />
+          </div>
+          <h1 className="text-[22px] font-semibold">BaW está listo para arrancar</h1>
+          <p className="muted-text text-[13px] mt-2 max-w-md mx-auto">
+            Aún no hay un PM Company configurado. Tarda dos minutos: registra tu
+            organización, tu primer edificio, las unidades y el Property Owner.
+          </p>
+          <Link
+            href="/onboarding"
+            className="inline-block mt-6 px-5 py-2 rounded-md text-[13px] font-medium"
+            style={{ backgroundColor: 'var(--baw-primary)', color: '#fff' }}
+          >
+            Empezar onboarding
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
