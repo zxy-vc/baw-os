@@ -13,13 +13,13 @@ import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import { findSection } from '@/lib/navigation'
 
-// Sprint 4 / S4-0 fix: estos prefijos son rutas públicas con su propio layout
-// (sin sidebar, sin header). El match debe ser estricto — `pathname === prefix`
-// o `pathname.startsWith(prefix + '/')` — para que `/owners` (plural, interno)
-// NO matchee con `/owner` (singular, público). Mismo caso para `/onboarding`
-// que tiene tanto layout público (e.g. `/onboarding/[token]`) como vista
-// interna en el sub-nav de Inquilinos.
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply']
+// Sprint 4 / S4-0 + S4-1.5: estos prefijos son rutas públicas con su propio
+// layout (sin sidebar, sin header). El match debe ser estricto —
+// `pathname === prefix` o `pathname.startsWith(prefix + '/')` — para que
+// `/owners` (plural, interno) NO matchee con `/owner` (singular, público).
+// `/admin` (S4-1.5) tiene su propio chrome en `admin/layout.tsx` y debe
+// renderizarse fuera del AppShell de tenant.
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', '/admin']
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Mission Control',

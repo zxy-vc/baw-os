@@ -7,7 +7,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, LogOut, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { User, LogOut, Settings, Sun, Moon, Monitor, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 type ThemePref = 'light' | 'dark' | 'system'
@@ -17,6 +17,7 @@ interface UserBasics {
   email: string | null
   full_name: string | null
   avatar_url: string | null
+  isPlatformAdmin: boolean
 }
 
 function getInitials(nameOrEmail: string | null): string {
@@ -54,11 +55,25 @@ export default function ProfileMenu() {
         .select('full_name, avatar_url')
         .eq('user_id', session.user.id)
         .maybeSingle()
+
+      // Sprint 4 / S4-1.5: detectar si es Platform Admin (L0)
+      let isPlatformAdmin = false
+      try {
+        const r = await fetch('/api/admin/whoami', { cache: 'no-store' })
+        if (r.ok) {
+          const j = await r.json()
+          isPlatformAdmin = !!j.isPlatformAdmin
+        }
+      } catch {
+        // ignore — default false
+      }
+
       setUser({
         id: session.user.id,
         email: session.user.email ?? null,
         full_name: profile?.full_name ?? null,
         avatar_url: profile?.avatar_url ?? null,
+        isPlatformAdmin,
       })
     }
     load()
@@ -178,13 +193,19 @@ export default function ProfileMenu() {
           <ul>
             <li>
               <Link
-                href="/settings"
+                href="/me"
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-white/5"
                 style={{ color: 'var(--baw-text)' }}
               >
                 <User size={14} />
                 Mi perfil
+                <span
+                  className="ml-auto text-[9px] uppercase tracking-wider"
+                  style={{ color: 'var(--baw-muted)' }}
+                >
+                  L2
+                </span>
               </Link>
             </li>
             <li>
@@ -196,8 +217,33 @@ export default function ProfileMenu() {
               >
                 <Settings size={14} />
                 Configuración
+                <span
+                  className="ml-auto text-[9px] uppercase tracking-wider"
+                  style={{ color: 'var(--baw-muted)' }}
+                >
+                  L1
+                </span>
               </Link>
             </li>
+            {user?.isPlatformAdmin && (
+              <li>
+                <Link
+                  href="/admin"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-white/5"
+                  style={{ color: 'var(--baw-text)' }}
+                >
+                  <Shield size={14} />
+                  Platform Admin
+                  <span
+                    className="ml-auto text-[9px] uppercase tracking-wider"
+                    style={{ color: '#FCA5A5' }}
+                  >
+                    L0
+                  </span>
+                </Link>
+              </li>
+            )}
           </ul>
 
           <div
