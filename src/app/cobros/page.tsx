@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Receipt, X, Save, Check, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -43,7 +44,6 @@ interface BillingRow {
   moraAmount: number
 }
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 export default function CobrosPage() {
   const toast = useToast()
@@ -54,6 +54,7 @@ export default function CobrosPage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const { orgId } = useOrgContext()
 
   // Modal state
   const [payingContract, setPayingContract] = useState<ContractRow | null>(null)
@@ -82,7 +83,7 @@ export default function CobrosPage() {
         .from('contracts')
         .select('id, unit_id, occupant_id, monthly_amount, payment_day, status, unit:units(number), occupant:occupants(name)')
         .in('status', ['active', 'en_renovacion'])
-        .eq('org_id', ORG_ID),
+        .eq('org_id', orgId),
       supabase
         .from('payments')
         .select('id, contract_id, status, due_date, paid_date, amount, rent_amount, water_fee, method, reference, confirmed_by')
@@ -167,8 +168,9 @@ export default function CobrosPage() {
   }
 
   useEffect(() => {
+    if (!orgId) return
     fetchBilling()
-  }, [selectedMonth])
+  }, [selectedMonth, orgId])
 
   function openPayModal(contract: ContractRow) {
     setPayingContract(contract)
@@ -190,7 +192,7 @@ export default function CobrosPage() {
     const totalAmount = payForm.rent_amount + payForm.water_fee
 
     const { data: paymentData, error } = await supabase.from('payments').insert({
-      org_id: ORG_ID,
+      org_id: orgId,
       contract_id: payingContract.id,
       amount: totalAmount,
       rent_amount: payForm.rent_amount,
@@ -208,7 +210,7 @@ export default function CobrosPage() {
     // Also create ledger entry
     if (paymentData && !error) {
       await supabase.from('payment_ledger').insert({
-        org_id: ORG_ID,
+        org_id: orgId,
         payment_id: paymentData.id,
         contract_id: payingContract.id,
         unit_id: payingContract.unit_id,

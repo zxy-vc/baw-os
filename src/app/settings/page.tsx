@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Building2, Save, Settings2, Shield, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import type { MemberRole, OrgMember, Organization, UserProfile } from '@/types'
-
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 const roleOptions: MemberRole[] = ['owner', 'admin', 'operator', 'viewer', 'agent']
 
@@ -20,7 +19,9 @@ export default function SettingsPage() {
   const [newMember, setNewMember] = useState({ invited_email: '', role: 'operator' as MemberRole })
   const [message, setMessage] = useState<string | null>(null)
 
-  async function load() {
+  const { orgId, loading: orgLoading } = useOrgContext()
+
+  async function load(activeOrgId: string) {
     setLoading(true)
     const { data: sessionData } = await supabase.auth.getSession()
     const sessionUser = sessionData.session?.user || null
@@ -28,8 +29,8 @@ export default function SettingsPage() {
 
     const [profileRes, orgRes, membersRes] = await Promise.all([
       sessionUser?.id ? supabase.from('user_profiles').select('*').eq('id', sessionUser.id).maybeSingle() : Promise.resolve({ data: null }),
-      supabase.from('organizations').select('*').eq('id', ORG_ID).single(),
-      supabase.from('org_members').select('*').eq('org_id', ORG_ID).order('created_at'),
+      supabase.from('organizations').select('*').eq('id', activeOrgId).single(),
+      supabase.from('org_members').select('*').eq('org_id', activeOrgId).order('created_at'),
     ])
 
     setProfile({
@@ -45,8 +46,8 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    load()
-  }, [])
+    if (orgId) load(orgId)
+  }, [orgId])
 
   async function saveProfile() {
     if (!userId) return
@@ -65,6 +66,7 @@ export default function SettingsPage() {
   }
 
   async function saveOrganization() {
+    if (!orgId) return
     setSaving(true)
     setMessage(null)
     const payload = {
@@ -76,7 +78,7 @@ export default function SettingsPage() {
       address: organization.address || null,
       city: organization.city || null,
     }
-    const { error } = await supabase.from('organizations').update(payload).eq('id', ORG_ID)
+    const { error } = await supabase.from('organizations').update(payload).eq('id', orgId)
     setSaving(false)
     setMessage(error ? `Error: ${error.message}` : 'Organización guardada')
   }
@@ -87,11 +89,11 @@ export default function SettingsPage() {
   }
 
   async function addMemberPlaceholder() {
-    if (!newMember.invited_email.trim()) return
+    if (!newMember.invited_email.trim() || !orgId) return
     setSaving(true)
     setMessage(null)
     const payload = {
-      org_id: ORG_ID,
+      org_id: orgId,
       user_id: crypto.randomUUID(),
       invited_email: newMember.invited_email.trim(),
       role: newMember.role,
@@ -114,7 +116,8 @@ export default function SettingsPage() {
     { key: 'access', label: 'Accesos', icon: Shield },
   ] as const), [])
 
-  if (loading) return <div className="text-sm page-subtitle">Cargando configuración…</div>
+  if (orgLoading || loading) return <div className="text-sm page-subtitle">Cargando configuración…</div>
+  if (!orgId) return <div className="text-sm page-subtitle">No hay organización activa. Inicia sesión o completa el onboarding.</div>
 
   return (
     <div className="space-y-6 max-w-5xl">

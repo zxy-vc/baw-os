@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import {
   CalendarDays, ChevronLeft, ChevronRight, Plus, X, Search,
   Check, Ban, BedDouble, Home, Users, Filter, Copy, Link2, ExternalLink
@@ -85,6 +86,7 @@ const MONTH_NAMES = [
 
 // ─── Main Component ──────────────────────────────────────────────────
 export default function ReservationsPage() {
+  const { orgId } = useOrgContext()
   const [units, setUnits] = useState<Unit[]>([])
   const [reservations, setReservations] = useState<(Reservation & { guest_token?: string; platform?: string; check_in_code?: string; wifi_name?: string; wifi_password?: string; house_rules?: string; check_in_instructions?: string })[]>([])
   const [loading, setLoading] = useState(true)
@@ -240,12 +242,12 @@ export default function ReservationsPage() {
 
   // ─── Save reservation ──────────────────────────────────────────
   async function handleSave() {
-    if (!unitId || !guestName || !checkIn || !checkOut || !nights) return
+    if (!unitId || !guestName || !checkIn || !checkOut || !nights || !orgId) return
     setSaving(true)
 
     const { error } = await supabase.from('reservations').insert({
       unit_id: unitId,
-      organization_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
+      organization_id: orgId,
       guest_name: guestName,
       guest_phone: guestPhone || null,
       guest_email: guestEmail || null,
@@ -275,7 +277,7 @@ export default function ReservationsPage() {
       // Create contact if checkbox was checked
       if (saveAsContact && !selectedContactId && guestName) {
         await supabase.from('occupants').insert({
-          org_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
+          org_id: orgId,
           name: guestName,
           phone: guestPhone || null,
           email: guestEmail || null,

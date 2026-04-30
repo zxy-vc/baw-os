@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getMoraLevel } from '@/lib/mora-engine'
+import { getOrgIdAsync } from '@/lib/api-auth'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
+// TODO S4-1.5: aceptar org_id en payload del POST request
 
 function createMoraClient() {
   return createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createMoraClient()
+    const ORG_ID = await getOrgIdAsync()
     const notifiedContracts: string[] = []
 
     for (const mora of toNotify) {

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getOrgIdAsync } from '@/lib/api-auth'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 const OWNER_TOKEN = process.env.OWNER_TOKEN!
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
+
+// TODO S4-1.5: ligar OWNER_TOKEN a un property_owner específico que pertenece
+// a una org concreta (tabla owner_tokens). Por ahora resolvemos primera org.
 
 function createPortalClient() {
   return createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -25,6 +28,7 @@ export async function GET(
   }
 
   const supabase = createPortalClient()
+  const ORG_ID = await getOrgIdAsync()
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]

@@ -1,10 +1,14 @@
 // BaW OS — Channex webhook receiver for real-time booking events
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/api-auth'
+import { createServiceClient, getOrgIdAsync } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
+// TODO S4-1.5: aceptar org_id en query string o header del webhook (configurable
+// por tenant en Channex). Por ahora resuelve la primera org disponible.
+async function getOrgIdForWebhook() {
+  return getOrgIdAsync()
+}
 
 function mapChannel(source: string | undefined): string {
   if (!source) return 'direct'
@@ -30,6 +34,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
     const a = payload.attributes || payload
+    const orgId = await getOrgIdForWebhook()
 
     if (event === 'booking.cancelled' || event === 'booking_cancelled') {
       const { error } = await supabase
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.from('reservations').upsert(
       {
         external_id: bookingId,
-        organization_id: ORG_ID,
+        organization_id: orgId,
         guest_name: a.guest_name || 'Huésped Channex',
         check_in: checkIn,
         check_out: checkOut,

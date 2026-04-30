@@ -11,16 +11,20 @@ export function createServiceClient() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Sprint 3 / S6: getOrgId() legacy ya NO debe retornar la UUID Mateos hardcoded
-// porque esa organization fue eliminada en el wipe operativo de S1.
+// Sprint 4 / S4-1: getOrgId() y getOrgIdAsync() están DEPRECATED.
 //
-// Solución temporal: cache con TTL que resuelve dinámicamente la primera
-// organization disponible (best-effort) usando service-role.  Esto destraba
-// las ~73 APIs legacy tras el onboarding sin migrarlas todas a async/JWT.
+// La nueva fuente única de verdad para resolver org_id es `resolveOrgId()` en
+// `src/lib/org-context.ts`, que lee la sesión del usuario y devuelve la org
+// activa según membership + cookie `baw_active_org_id`.
 //
-// Pendiente decisión humana (Fran): refactor real para leer `org_id` del JWT
-// del usuario (server-side via cookies()) o de un header inyectado por
-// middleware.  Ver `BUG_BASH_S6.md`.
+// Las funciones aquí permanecen como **shim de compatibilidad** mientras se
+// migran las ~43 APIs legacy. Cualquier código nuevo debe importar de
+// `@/lib/org-context` en su lugar.
+//
+// Comportamiento legacy (mantener exacto para no romper APIs en producción):
+//  - getOrgId() sync: cache TTL → fallback env
+//  - getOrgIdAsync(): primera org por created_at
+//  - setActiveOrgId(): inyección manual desde flow de onboarding
 // ────────────────────────────────────────────────────────────────────────────
 
 const FALLBACK_ORG_ID = process.env.BAW_FALLBACK_ORG_ID || ''

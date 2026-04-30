@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import { TrendingDown, Plus, Pencil, Trash2, X, Save, Wifi, Flame, Zap, Wrench, Sparkles, Package } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 const CATEGORIES = ['internet', 'gas', 'luz', 'mantenimiento', 'limpieza', 'otro'] as const
 type Category = typeof CATEGORIES[number]
@@ -80,6 +80,7 @@ export default function GastosPage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const { orgId } = useOrgContext()
 
   // Modal state
   const [showModal, setShowModal] = useState(false)
@@ -101,7 +102,7 @@ export default function GastosPage() {
     const { data } = await supabase
       .from('expenses')
       .select('*')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', orgId)
       .gte('expense_date', monthStart)
       .lt('expense_date', nextMonth)
       .order('expense_date', { ascending: false })
@@ -119,12 +120,14 @@ export default function GastosPage() {
   }
 
   useEffect(() => {
+    if (!orgId) return
     fetchUnits()
-  }, [])
+  }, [orgId])
 
   useEffect(() => {
+    if (!orgId) return
     fetchExpenses()
-  }, [selectedMonth])
+  }, [selectedMonth, orgId])
 
   function openNew() {
     setEditingId(null)
@@ -150,7 +153,7 @@ export default function GastosPage() {
   async function handleSave() {
     setSaving(true)
     const payload = {
-      org_id: ORG_ID,
+      org_id: orgId,
       category: form.category,
       scope: form.scope,
       unit_id: form.scope === 'unit' && form.unit_id ? form.unit_id : null,
