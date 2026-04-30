@@ -1,11 +1,12 @@
 // BaW OS — Sync Channex bookings → Supabase reservations
 import { NextResponse } from 'next/server'
 import { channexFetch } from '@/lib/channex'
-import { createServiceClient } from '@/lib/api-auth'
+import { createServiceClient, getOrgIdAsync } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
+// TODO S4-1.5: aceptar org_id en query string del cron job (cada tenant
+// con Channex tendrá su propio cron URL con su org_id)
 
 interface ChannexBooking {
   id: string
@@ -61,6 +62,7 @@ export async function POST() {
     const bookings = response.data || []
 
     const supabase = createServiceClient()
+    const ORG_ID = await getOrgIdAsync()
     let synced = 0
     let errors = 0
 

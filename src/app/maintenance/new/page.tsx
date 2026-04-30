@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 
 export default function NewIncidentPage() {
   const router = useRouter()
+  const { orgId } = useOrgContext()
   const [units, setUnits] = useState<{ id: string; number: string }[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -38,10 +40,11 @@ export default function NewIncidentPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!orgId) return
     setSaving(true)
 
     const { error } = await supabase.from('incidents').insert({
-      org_id: 'ed4308c7-2bdb-46f2-be69-7c59674838e2',
+      org_id: orgId,
       unit_id: form.unit_id || null,
       title: form.title,
       description: form.description || null,

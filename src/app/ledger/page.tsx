@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { BookOpen, Plus, X, Lock, Save } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -32,7 +33,6 @@ interface ContractOption {
   tenant_name: string
 }
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 const METHOD_LABELS: Record<string, { icon: string; label: string }> = {
   efectivo: { icon: '💵', label: 'Efectivo' },
@@ -67,6 +67,7 @@ export default function LedgerPage() {
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  const { orgId } = useOrgContext()
   // Filters
   const [filterUnit, setFilterUnit] = useState('all')
   const [filterMonth, setFilterMonth] = useState(() => {
@@ -102,7 +103,7 @@ export default function LedgerPage() {
     let query = supabase
       .from('payment_ledger')
       .select('*')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', orgId)
       .gte('created_at', monthStart)
       .lt('created_at', nextMonth)
       .order('created_at', { ascending: false })
@@ -123,7 +124,7 @@ export default function LedgerPage() {
     const { data } = await supabase
       .from('units')
       .select('id, number')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', orgId)
       .order('number')
     setUnits((data || []) as { id: string; number: string }[])
   }
@@ -133,7 +134,7 @@ export default function LedgerPage() {
       .from('contracts')
       .select('id, unit_id, monthly_amount, unit:units(number), occupant:occupants(name)')
       .in('status', ['active', 'en_renovacion'])
-      .eq('org_id', ORG_ID)
+      .eq('org_id', orgId)
 
     const options: ContractOption[] = ((data || []) as unknown as Array<{
       id: string
@@ -154,13 +155,15 @@ export default function LedgerPage() {
   }
 
   useEffect(() => {
+    if (!orgId) return
     fetchUnits()
     fetchContracts()
-  }, [])
+  }, [orgId])
 
   useEffect(() => {
+    if (!orgId) return
     fetchEntries()
-  }, [filterMonth, filterUnit, filterConfirmer])
+  }, [filterMonth, filterUnit, filterConfirmer, orgId])
 
   function openModal() {
     const first = contracts[0]
@@ -188,7 +191,7 @@ export default function LedgerPage() {
     if (!contract) { setSaving(false); return }
 
     const { data, error } = await supabase.from('payment_ledger').insert({
-      org_id: ORG_ID,
+      org_id: orgId,
       contract_id: form.contract_id,
       unit_id: contract.unit_id,
       tenant_name: contract.tenant_name,
@@ -203,7 +206,7 @@ export default function LedgerPage() {
     // Also log to audit_log
     if (data) {
       await supabase.from('audit_log').insert({
-        org_id: ORG_ID,
+        org_id: orgId,
         actor_type: 'human',
         actor_id: form.confirmed_by,
         action: 'payment.confirmed',

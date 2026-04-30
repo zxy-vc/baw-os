@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Plus, Users, Search, Pencil, Trash2, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -29,7 +30,6 @@ interface Contact {
   last_reservation?: string
 }
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 const TYPE_LABELS: Record<string, string> = {
   ltr: 'LTR',
@@ -54,6 +54,7 @@ export default function ContactsPage() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const { orgId } = useOrgContext()
   // Add / Edit form
   const [form, setForm] = useState({
     name: '',
@@ -81,14 +82,14 @@ export default function ContactsPage() {
     const { data } = await supabase
       .from('occupants')
       .select('*')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', orgId)
       .order('name')
 
     // Enrich with reservation counts
     const { data: reservations } = await supabase
       .from('reservations')
       .select('guest_name, guest_email, check_in')
-      .eq('organization_id', ORG_ID)
+      .eq('organization_id', orgId)
       .order('check_in', { ascending: false })
 
     const enriched = (data || []).map((c) => {
@@ -107,8 +108,9 @@ export default function ContactsPage() {
   }
 
   useEffect(() => {
+    if (!orgId) return
     fetchContacts()
-  }, [])
+  }, [orgId])
 
   // ─── Filtered contacts ───────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -133,7 +135,7 @@ export default function ContactsPage() {
     if (!form.name.trim()) return
     setSaving(true)
     await supabase.from('occupants').insert({
-      org_id: ORG_ID,
+      org_id: orgId,
       name: form.name.trim(),
       phone: form.phone || null,
       email: form.email || null,
@@ -225,7 +227,7 @@ export default function ContactsPage() {
       supabase
         .from('reservations')
         .select('*, unit:units(*)')
-        .eq('organization_id', ORG_ID)
+        .eq('organization_id', orgId)
         .or(`guest_name.eq.${contact.name}${contact.email ? `,guest_email.eq.${contact.email}` : ''}`)
         .order('check_in', { ascending: false }),
       supabase

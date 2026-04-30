@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import { BarChart3, Download, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 interface PaymentRow {
   id: string

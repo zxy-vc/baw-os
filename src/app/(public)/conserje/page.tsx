@@ -13,6 +13,8 @@ import {
   Loader2,
 } from 'lucide-react'
 
+// TODO S4-1.5: pasar a /[orgSlug]/conserje y resolver org_id desde el slug
+// para soportar multi-tenant. Por ahora, queda atado a la primera org.
 const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 const VALID_PIN = '1234'
 const SESSION_KEY = 'conserje_pin'

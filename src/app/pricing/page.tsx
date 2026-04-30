@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { DollarSign, Save, Check, Plus, Pencil, Trash2, X, CalendarDays } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { formatCurrency } from '@/lib/utils'
 
 interface UnitPrice {
@@ -27,7 +28,6 @@ interface Season {
   created_at: string
 }
 
-const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
 
 export default function PricingPage() {
   const [prices, setPrices] = useState<UnitPrice[]>([])
@@ -35,6 +35,7 @@ export default function PricingPage() {
   const [editing, setEditing] = useState<Record<string, Partial<UnitPrice>>>({})
   const [saved, setSaved] = useState<string | null>(null)
 
+  const { orgId } = useOrgContext()
   // Seasons state
   const [seasons, setSeasons] = useState<Season[]>([])
   const [showSeasonModal, setShowSeasonModal] = useState(false)
@@ -64,15 +65,16 @@ export default function PricingPage() {
     const { data } = await supabase
       .from('str_seasons')
       .select('*')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', orgId)
       .order('start_date', { ascending: true })
     setSeasons((data || []) as Season[])
   }
 
   useEffect(() => {
+    if (!orgId) return
     fetchPrices()
     fetchSeasons()
-  }, [])
+  }, [orgId])
 
   function startEdit(price: UnitPrice) {
     setEditing((prev) => ({
@@ -131,7 +133,7 @@ export default function PricingPage() {
   async function handleSaveSeason() {
     setSavingSeason(true)
     const payload = {
-      org_id: ORG_ID,
+      org_id: orgId,
       name: seasonForm.name,
       start_date: seasonForm.start_date,
       end_date: seasonForm.end_date,
