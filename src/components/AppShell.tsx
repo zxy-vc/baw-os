@@ -5,13 +5,21 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Search, Bell } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
+import SectionTopNav from '@/components/SectionTopNav'
 import AuthGuard from '@/components/AuthGuard'
 import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
+import { findSection } from '@/lib/navigation'
 
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply']
+// Sprint 4 / S4-0 fix: estos prefijos son rutas públicas con su propio layout
+// (sin sidebar, sin header). El match debe ser estricto — `pathname === prefix`
+// o `pathname.startsWith(prefix + '/')` — para que `/owners` (plural, interno)
+// NO matchee con `/owner` (singular, público). Mismo caso para `/onboarding`
+// que tiene tanto layout público (e.g. `/onboarding/[token]`) como vista
+// interna en el sub-nav de Inquilinos.
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply']
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Mission Control',
@@ -37,6 +45,11 @@ const PAGE_TITLES: Record<string, string> = {
   '/search': 'Buscar',
   '/api-docs': 'API Docs',
   '/applications': 'Expedientes',
+  '/buildings': 'Edificios',
+  '/owners': 'Propietarios',
+  '/agents': 'Agentes',
+  '/onboarding': 'Configurar cuenta',
+  '/onboarding/bulk': 'Importar unidades',
   '/settings': 'Configuración',
 }
 
@@ -45,7 +58,10 @@ function getPageTitle(pathname: string): string {
   const prefix = Object.keys(PAGE_TITLES).find(
     (key) => key !== '/' && pathname.startsWith(key)
   )
-  return prefix ? PAGE_TITLES[prefix] : ''
+  if (prefix) return PAGE_TITLES[prefix]
+  // Fallback to section label for routes not in PAGE_TITLES
+  const section = findSection(pathname)
+  return section?.label ?? ''
 }
 
 function GlobalHeader({ pathname }: { pathname: string }) {
@@ -69,7 +85,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
   return (
     <header
-      className="sticky top-0 z-30 pl-16 pr-4 md:pl-4 md:pr-6"
+      className="sticky top-0 z-30 pl-14 pr-4 md:pl-4 md:pr-6"
       style={{
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',
@@ -159,7 +175,9 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+  const isPublic = PUBLIC_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  )
 
   if (isPublic) {
     return <>{children}</>
@@ -178,13 +196,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             sin reflowear (overlay) para no causar layout shift cada vez que
             el cursor lo toca.
           */}
+          {/*
+            Sprint 4 / S4-0 fix: en mobile NO aplicamos paddingLeft del
+            sidebar — el sidebar va off-canvas con el botón hamburguesa,
+            así que el contenido debe ocupar 100% del ancho. La var
+            `--sidebar-effective-width` se aplica solo desde `md`.
+          */}
           <main
-            className="min-h-screen transition-[padding] duration-200"
-            style={{
-              paddingLeft: 'var(--sidebar-effective-width, 0px)',
-            }}
+            className="min-h-screen md:transition-[padding] md:duration-200 md:[padding-left:var(--sidebar-effective-width,0px)]"
           >
             <GlobalHeader pathname={pathname} />
+            <SectionTopNav />
             <div className="p-4 md:p-6 space-y-4">
               {pathname !== '/' && <ContractAlertsBanner />}
               {children}
