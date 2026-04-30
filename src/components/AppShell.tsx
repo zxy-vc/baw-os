@@ -83,7 +83,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
   return (
     <header
-      className="sticky top-0 z-30 pl-16 pr-4 md:pl-4 md:pr-6"
+      className="sticky top-0 z-30 pl-14 pr-4 md:pl-4 md:pr-6"
       style={{
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',
@@ -194,11 +194,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             sin reflowear (overlay) para no causar layout shift cada vez que
             el cursor lo toca.
           */}
+          {/*
+            Sprint 4 / S4-0 fix: en mobile NO aplicamos paddingLeft del
+            sidebar — el sidebar va off-canvas con el botón hamburguesa,
+            así que el contenido debe ocupar 100% del ancho. La var
+            `--sidebar-effective-width` se aplica solo desde `md`.
+          */}
           <main
-            className="min-h-screen transition-[padding] duration-200"
-            style={{
-              paddingLeft: 'var(--sidebar-effective-width, 0px)',
-            }}
+            className="min-h-screen md:transition-[padding] md:duration-200 md:[padding-left:var(--sidebar-effective-width,0px)]"
           >
             <GlobalHeader pathname={pathname} />
             <SectionTopNav />

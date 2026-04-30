@@ -198,74 +198,119 @@ export default function BuildingsPage() {
           actionHref="#"
         />
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
-            <thead className="border-b border-gray-200 dark:border-gray-800">
-              <tr className="text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                <th className="px-4 py-3">Edificio</th>
-                <th className="px-4 py-3">Ubicación</th>
-                <th className="px-4 py-3 text-right">Unidades</th>
-                <th className="px-4 py-3 text-right">Propietarios</th>
-                <th className="px-4 py-3 w-12"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-              {buildings.map((b) => (
-                <tr
-                  key={b.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900 dark:text-white">
+        <>
+          {/* Mobile: cards apiladas. Desktop: tabla. Sprint 4 / S4-0 fix responsive. */}
+          <div className="md:hidden space-y-2">
+            {buildings.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => {
+                  setEditing(b)
+                  setModalOpen(true)
+                }}
+                className="w-full text-left card p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white truncate">
                       {b.name}
                     </div>
-                    {b.notes && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                        {b.notes}
+                    {(b.address || b.city) && (
+                      <div className="mt-1 flex items-start gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                        <span className="truncate">
+                          {[b.address, b.city, b.state]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
                       </div>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                    {b.address || b.city ? (
-                      <div className="flex items-start gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
-                        <div>
-                          {b.address && <div>{b.address}</div>}
-                          <div className="text-xs text-gray-500">
-                            {[b.city, b.state, b.country]
-                              .filter(Boolean)
-                              .join(', ')}
-                            {b.postal_code ? ` · CP ${b.postal_code}` : ''}
+                    <div className="mt-2 flex items-center gap-3 text-xs">
+                      <span className="text-gray-600 dark:text-gray-300">
+                        <span className="tabular-nums font-medium">{b.units_count ?? 0}</span>{' '}
+                        unidades
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-300">
+                        <span className="tabular-nums font-medium">{b.owners_count ?? 0}</span>{' '}
+                        propietarios
+                      </span>
+                    </div>
+                  </div>
+                  <Pencil className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="hidden md:block card overflow-hidden">
+            <table className="w-full">
+              <thead className="border-b border-gray-200 dark:border-gray-800">
+                <tr className="text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <th className="px-4 py-3">Edificio</th>
+                  <th className="px-4 py-3">Ubicación</th>
+                  <th className="px-4 py-3 text-right">Unidades</th>
+                  <th className="px-4 py-3 text-right">Propietarios</th>
+                  <th className="px-4 py-3 w-12"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                {buildings.map((b) => (
+                  <tr
+                    key={b.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {b.name}
+                      </div>
+                      {b.notes && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                          {b.notes}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      {b.address || b.city ? (
+                        <div className="flex items-start gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
+                          <div>
+                            {b.address && <div>{b.address}</div>}
+                            <div className="text-xs text-gray-500">
+                              {[b.city, b.state, b.country]
+                                .filter(Boolean)
+                                .join(', ')}
+                              {b.postal_code ? ` · CP ${b.postal_code}` : ''}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-sm text-gray-900 dark:text-white">
-                    {b.units_count ?? 0}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-sm text-gray-900 dark:text-white">
-                    {b.owners_count ?? 0}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => {
-                        setEditing(b)
-                        setModalOpen(true)
-                      }}
-                      className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-sm text-gray-900 dark:text-white">
+                      {b.units_count ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-sm text-gray-900 dark:text-white">
+                      {b.owners_count ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => {
+                          setEditing(b)
+                          setModalOpen(true)
+                        }}
+                        className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {modalOpen && (

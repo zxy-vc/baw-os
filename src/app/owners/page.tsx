@@ -267,7 +267,132 @@ export default function OwnersPage() {
           actionHref="#"
         />
       ) : (
-        <div className="card overflow-hidden">
+        <>
+        {/* Mobile: cards apiladas con expand. Sprint 4 / S4-0 fix responsive. */}
+        <div className="md:hidden space-y-2">
+          {owners.map((o) => {
+            const isOpen = expanded.has(o.id)
+            const stakes = o.stakes || []
+            return (
+              <div key={o.id} className="card p-4">
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => toggleExpand(o.id)}
+                    className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mt-0.5 shrink-0"
+                    aria-label={isOpen ? 'Colapsar' : 'Expandir'}
+                  >
+                    {isOpen ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {o.full_name}
+                    </div>
+                    <div className="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      {o.email && <div className="truncate">{o.email}</div>}
+                      {o.phone && <div>{o.phone}</div>}
+                      {o.rfc && <div className="tabular-nums">RFC {o.rfc}</div>}
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                      <span className="tabular-nums font-medium">{stakes.length}</span>{' '}
+                      {stakes.length === 1 ? 'edificio' : 'edificios'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingOwner(o)
+                      setOwnerModalOpen(true)
+                    }}
+                    className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0"
+                    title="Editar"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+                {isOpen && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Propiedades
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setStakeOwnerId(o.id)
+                          setEditingStake(null)
+                          setStakeModalOpen(true)
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Asignar
+                      </button>
+                    </div>
+                    {stakes.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 py-1">
+                        Sin edificios asignados.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {stakes.map((s) => {
+                          const b = buildingById.get(s.building_id)
+                          return (
+                            <div
+                              key={s.id}
+                              className="flex items-center justify-between gap-2 py-1.5 border-t border-gray-100 dark:border-gray-800/60"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <Building2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                  <span className="truncate text-gray-900 dark:text-white">
+                                    {b?.name || '—'}
+                                  </span>
+                                </div>
+                                {(s.starts_on || s.ends_on) && (
+                                  <div className="text-[11px] text-gray-500 mt-0.5">
+                                    {s.starts_on || '—'}
+                                    {s.ends_on ? ` → ${s.ends_on}` : ''}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right tabular-nums text-sm font-medium text-gray-900 dark:text-white shrink-0">
+                                {Number(s.percentage).toFixed(2)}%
+                              </div>
+                              <div className="flex gap-1 shrink-0">
+                                <button
+                                  onClick={() => {
+                                    setStakeOwnerId(o.id)
+                                    setEditingStake(s)
+                                    setStakeModalOpen(true)
+                                  }}
+                                  className="text-gray-400 hover:text-indigo-600 p-1"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteStake(s.id)}
+                                  className="text-gray-400 hover:text-red-600 p-1"
+                                  title="Quitar"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="hidden md:block card overflow-hidden">
           <table className="w-full">
             <thead className="border-b border-gray-200 dark:border-gray-800">
               <tr className="text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -447,6 +572,7 @@ export default function OwnersPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {ownerModalOpen && (
