@@ -48,6 +48,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/buildings': 'Edificios',
   '/owners': 'Propietarios',
   '/agents': 'Agentes',
+  '/onboarding': 'Configurar cuenta',
+  '/onboarding/bulk': 'Importar unidades',
   '/settings': 'Configuración',
 }
 

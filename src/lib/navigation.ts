@@ -92,12 +92,11 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/contacts',
     icon: 'Users',
     placement: 'top',
-    routes: ['/contacts', '/contracts', '/applications', '/onboarding'],
+    routes: ['/contacts', '/contracts', '/applications'],
     subNav: [
       { href: '/contacts', label: 'Contactos' },
       { href: '/contracts', label: 'Contratos' },
       { href: '/applications', label: 'Expedientes' },
-      { href: '/onboarding', label: 'Onboarding' },
     ],
   },
   {
@@ -156,9 +155,10 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/settings',
     icon: 'Settings2',
     placement: 'footer',
-    routes: ['/settings', '/api-docs'],
+    routes: ['/settings', '/onboarding', '/api-docs'],
     subNav: [
       { href: '/settings', label: 'General' },
+      { href: '/onboarding', label: 'Configurar cuenta' },
       { href: '/api-docs', label: 'API Docs' },
     ],
   },
