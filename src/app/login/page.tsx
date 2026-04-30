@@ -1,11 +1,24 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+// Sprint 4 / S4-2: useSearchParams requiere Suspense boundary en Next.js 14
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Sprint 4 / S4-2: respetar ?next= para deep-link en Owner Portal v2
+  const nextPath = searchParams.get('next') || '/'
+  const role = searchParams.get('role')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +38,11 @@ export default function LoginPage() {
     }
 
     // Full reload so middleware picks up the new session cookie
-    window.location.href = '/'
+    // Validamos que nextPath sea relativa (no open-redirect)
+    const safeNext = nextPath.startsWith('/') && !nextPath.startsWith('//')
+      ? nextPath
+      : '/'
+    window.location.href = safeNext
   }
 
   return (
@@ -37,7 +54,9 @@ export default function LoginPage() {
             B
           </div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">BaW OS</h1>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Property Management System</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            {role === 'owner' ? 'Portal Propietario' : 'Property Management System'}
+          </p>
         </div>
 
         {/* Form */}
