@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -42,24 +42,8 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [pinned, setPinned] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
 
   const expanded = pinned || hovering || mobileOpen
-
-  const fetchUnread = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications/unread-count')
-      if (!res.ok) return
-      const data = await res.json()
-      setUnreadCount(typeof data?.count === 'number' ? data.count : 0)
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    fetchUnread()
-    const interval = setInterval(fetchUnread, 30000)
-    return () => clearInterval(interval)
-  }, [fetchUnread])
 
   useEffect(() => {
     setMobileOpen(false)
@@ -98,7 +82,7 @@ export default function Sidebar() {
   function renderEntry(section: (typeof SIDEBAR_SECTIONS)[number]) {
     const Icon = ICON_MAP[section.icon as keyof typeof ICON_MAP]
     const active = isSectionActive(section, pathname)
-    const showBadge = section.badge === 'notifications' && unreadCount > 0
+    const showAgentStatus = section.id === 'agents'
 
     return (
       <Link
@@ -126,12 +110,13 @@ export default function Sidebar() {
         {expanded && (
           <span className="flex items-center justify-between flex-1 min-w-0 pr-3">
             <span className="text-[13px] font-medium truncate">{section.label}</span>
-            {showBadge && (
-              <span
-                className="ml-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none tabular-nums min-w-[18px] text-center"
-                style={{ backgroundColor: 'var(--baw-danger)', color: '#FFFFFF' }}
-              >
-                {unreadCount > 99 ? '99+' : unreadCount}
+            {showAgentStatus && (
+              <span className="ml-2 inline-flex items-center gap-1.5 text-[11px]">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: '#22C55E' }}
+                />
+                <span style={{ color: 'var(--baw-muted)' }}>Activos</span>
               </span>
             )}
           </span>
@@ -146,7 +131,12 @@ export default function Sidebar() {
             }}
           >
             {section.label}
-            {showBadge && <span className="ml-1 opacity-70">({unreadCount})</span>}
+            {showAgentStatus && (
+              <span
+                className="ml-1 inline-block h-2 w-2 rounded-full align-middle"
+                style={{ backgroundColor: '#22C55E' }}
+              />
+            )}
           </span>
         )}
       </Link>

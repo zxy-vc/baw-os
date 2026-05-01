@@ -10,10 +10,16 @@ import type { Building } from '@/types'
 interface Props {
   building: Building | null
   onSave: (data: Partial<Building>) => void
+  onDelete?: () => void
   onClose: () => void
 }
 
-export default function BuildingModal({ building, onSave, onClose }: Props) {
+export default function BuildingModal({
+  building,
+  onSave,
+  onDelete,
+  onClose,
+}: Props) {
   const [form, setForm] = useState({
     name: building?.name || '',
     address: building?.address || '',
@@ -146,6 +152,15 @@ export default function BuildingModal({ building, onSave, onClose }: Props) {
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
+            {building && onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="mr-auto px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+              >
+                Eliminar
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}

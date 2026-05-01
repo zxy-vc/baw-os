@@ -42,7 +42,6 @@ export type SidebarSection = {
     | 'Bot'
     | 'Settings2'
   placement: 'top' | 'footer'
-  badge?: 'notifications'
   /** Routes that belong to this section (for active-state detection) */
   routes: string[]
   /** Horizontal sub-nav shown above content (omit if section has 1 view) */
@@ -64,14 +63,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/tasks',
     icon: 'Inbox',
     placement: 'top',
-    badge: 'notifications',
-    routes: ['/tasks', '/notifications', '/whatsapp', '/audit'],
-    subNav: [
-      { href: '/tasks', label: 'Tareas' },
-      { href: '/whatsapp', label: 'Mensajes' },
-      { href: '/notifications', label: 'Notificaciones' },
-      { href: '/audit', label: 'Timeline' },
-    ],
+    routes: ['/tasks', '/notifications', '/audit'],
   },
   {
     id: 'portfolio',
@@ -89,25 +81,27 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     id: 'tenants',
     label: 'Inquilinos',
-    href: '/contacts',
+    href: '/tenants',
     icon: 'Users',
     placement: 'top',
-    routes: ['/contacts', '/contracts', '/applications'],
+    routes: ['/tenants', '/contacts', '/contracts', '/whatsapp', '/applications'],
     subNav: [
-      { href: '/contacts', label: 'Contactos' },
+      { href: '/tenants', label: 'Inquilinos' },
       { href: '/contracts', label: 'Contratos' },
-      { href: '/applications', label: 'Expedientes' },
+      { href: '/whatsapp', label: 'WhatsApp' },
     ],
   },
   {
     id: 'finance',
     label: 'Finanzas',
-    href: '/cobros',
+    href: '/payments',
     icon: 'Wallet',
     placement: 'top',
     routes: [
-      '/cobros',
       '/payments',
+      '/expenses',
+      '/reports',
+      '/cobros',
       '/invoices',
       '/gastos',
       '/mora',
@@ -117,14 +111,9 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       '/pricing',
     ],
     subNav: [
-      { href: '/cobros', label: 'Cobros' },
-      { href: '/invoices', label: 'Facturas' },
-      { href: '/gastos', label: 'Gastos' },
-      { href: '/mora', label: 'Morosidad' },
-      { href: '/ledger', label: 'Bitácora' },
-      { href: '/reportes', label: 'Reportes' },
-      { href: '/pricing', label: 'Precios' },
-      { href: '/quotes', label: 'Cotizador' },
+      { href: '/payments', label: 'Pagos' },
+      { href: '/expenses', label: 'Gastos' },
+      { href: '/reports', label: 'Reportes' },
     ],
   },
   {
@@ -133,11 +122,18 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/maintenance',
     icon: 'Wrench',
     placement: 'top',
-    routes: ['/maintenance', '/housekeeping', '/reservations', '/search'],
+    routes: [
+      '/maintenance',
+      '/inspections',
+      '/documents',
+      '/housekeeping',
+      '/reservations',
+      '/search',
+    ],
     subNav: [
       { href: '/maintenance', label: 'Mantenimiento' },
-      { href: '/housekeeping', label: 'Housekeeping' },
-      { href: '/reservations', label: 'Reservaciones' },
+      { href: '/inspections', label: 'Inspecciones' },
+      { href: '/documents', label: 'Documentos' },
     ],
   },
   // Footer (separate, secondary)
@@ -155,11 +151,11 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/settings',
     icon: 'Settings2',
     placement: 'footer',
-    routes: ['/settings', '/onboarding', '/api-docs'],
+    routes: ['/settings', '/team', '/billing', '/onboarding', '/api-docs'],
     subNav: [
-      { href: '/settings', label: 'General' },
-      { href: '/onboarding', label: 'Configurar cuenta' },
-      { href: '/api-docs', label: 'API Docs' },
+      { href: '/settings', label: 'Configuración' },
+      { href: '/team', label: 'Equipo' },
+      { href: '/billing', label: 'Billing' },
     ],
   },
 ]

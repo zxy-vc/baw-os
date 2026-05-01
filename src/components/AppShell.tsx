@@ -24,7 +24,13 @@ const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Mission Control',
   '/units': 'Unidades',
+  '/tenants': 'Inquilinos',
   '/contracts': 'Contratos',
+  '/payments': 'Pagos',
+  '/expenses': 'Gastos',
+  '/reports': 'Reportes',
+  '/inspections': 'Inspecciones',
+  '/documents': 'Documentos',
   '/cobros': 'Cobros',
   '/payments/new': 'Registrar pago',
   '/invoices': 'Facturas',
@@ -51,6 +57,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/onboarding': 'Configurar cuenta',
   '/onboarding/bulk': 'Importar unidades',
   '/settings': 'Configuración',
+  '/team': 'Equipo',
+  '/billing': 'Billing',
 }
 
 function getPageTitle(pathname: string): string {

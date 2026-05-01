@@ -1,4 +1,4 @@
-@import "../../design/baw-design/tokens/index.css";
+@import "./baw-tokens.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -1,13 +1,6 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   title: 'BaW OS',
@@ -20,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={inter.variable} suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -46,7 +39,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} tabular-nums`}>
+      <body className="tabular-nums">
         <AppShell>{children}</AppShell>
       </body>
     </html>
