@@ -10,10 +10,11 @@ import type { PropertyOwner } from '@/types'
 interface Props {
   owner: PropertyOwner | null
   onSave: (data: Partial<PropertyOwner>) => void
+  onDelete?: () => void
   onClose: () => void
 }
 
-export default function OwnerModal({ owner, onSave, onClose }: Props) {
+export default function OwnerModal({ owner, onSave, onDelete, onClose }: Props) {
   const [form, setForm] = useState({
     full_name: owner?.full_name || '',
     email: owner?.email || '',
@@ -115,6 +116,15 @@ export default function OwnerModal({ owner, onSave, onClose }: Props) {
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
+            {owner && onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="mr-auto px-4 py-2 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+              >
+                Eliminar
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}

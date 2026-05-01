@@ -187,6 +187,45 @@ export default function OwnersPage() {
     fetchData()
   }
 
+  async function handleDeleteOwner() {
+    if (!editingOwner || !activeOrgId) return
+    if (
+      !confirm(
+        `¿Eliminar al propietario "${editingOwner.full_name}" y todos sus stakes asociados?`,
+      )
+    ) {
+      return
+    }
+
+    setError(null)
+
+    const { error: stakesErr } = await supabase
+      .from('ownership_stakes')
+      .delete()
+      .eq('org_id', activeOrgId)
+      .eq('property_owner_id', editingOwner.id)
+
+    if (stakesErr) {
+      setError(stakesErr.message)
+      return
+    }
+
+    const { error: ownerErr } = await supabase
+      .from('property_owners')
+      .delete()
+      .eq('org_id', activeOrgId)
+      .eq('id', editingOwner.id)
+
+    if (ownerErr) {
+      setError(ownerErr.message)
+      return
+    }
+
+    setOwnerModalOpen(false)
+    setEditingOwner(null)
+    fetchData()
+  }
+
   // % libre por building (excluyendo el stake actualmente en edición)
   function remainingByBuilding(excludeStakeId?: string): Record<string, number> {
     const used: Record<string, number> = {}
@@ -579,6 +618,7 @@ export default function OwnersPage() {
         <OwnerModal
           owner={editingOwner}
           onSave={handleSaveOwner}
+          onDelete={editingOwner ? handleDeleteOwner : undefined}
           onClose={() => {
             setOwnerModalOpen(false)
             setEditingOwner(null)
