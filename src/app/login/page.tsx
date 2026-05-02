@@ -64,6 +64,47 @@ function LoginForm() {
         setLoading(false)
         return
       }
+
+      // Sprint 6 followup #2 fix: infinite login loop con ?next=/admin.
+      //
+      // Causa raíz: hacíamos `window.location.href = '/admin'` inmediatamente
+      // tras el sync-session response. El browser no garantiza que el
+      // Set-Cookie del response esté commiteado antes del navigate, sobre
+      // todo cuando hay redirect HTTP en cadena. Si la cookie aún no está
+      // sincronizada al GET /admin, el guard server-side ve `getUser()===null`
+      // y redirige a /login?next=/admin → el form ve session en localStorage
+      // y vuelve a redirigir → loop infinito.
+      //
+      // Fix: hacer un round-trip server explícito (`/api/me`) para CONFIRMAR
+      // que la cookie está viva antes de navegar. Si la cookie aún no
+      // commitea, retry hasta 3 veces con backoff. Si tras eso falla,
+      // mostramos error claro — no entramos al loop.
+      let cookieReady = false
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const probe = await fetch('/api/me/whoami', {
+            credentials: 'include',
+            cache: 'no-store',
+          })
+          if (probe.ok) {
+            const j = await probe.json().catch(() => ({}))
+            if (j?.email) {
+              cookieReady = true
+              break
+            }
+          }
+        } catch {
+          // network blip; retry
+        }
+        await new Promise((r) => setTimeout(r, 150))
+      }
+      if (!cookieReady) {
+        setError(
+          'No se pudo establecer la sesión. Intenta una vez más o recarga la página.',
+        )
+        setLoading(false)
+        return
+      }
     }
 
     // Full reload so middleware and Server Components pick up the session cookie.

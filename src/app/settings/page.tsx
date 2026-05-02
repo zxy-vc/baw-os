@@ -64,9 +64,25 @@ export default function SettingsPage() {
     }
   }
 
+  // Sprint 6 followup #2 fix: el bug real de "Cargando configuración…" no era
+  // Promise.all rechazando — era que `useOrgContext` puede resolverse con
+  // `orgId === null` (sin org activa, /api/me/org devolvió 401/403, o el
+  // usuario no tiene memberships todavía). En ese caso `load()` JAMÁS se
+  // llamaba, `loading` quedaba en su default `true` para siempre, y el
+  // spinner se quedaba eterno aunque `orgLoading` ya hubiera terminado.
+  //
+  // Fix: cuando orgLoading termina, decidimos:
+  //   - hay orgId  → load(orgId) (igual que antes)
+  //   - no hay orgId → setLoading(false) para que renderice el mensaje
+  //     vacío de la línea ~135 en lugar del spinner.
   useEffect(() => {
-    if (orgId) load(orgId)
-  }, [orgId])
+    if (orgLoading) return
+    if (orgId) {
+      load(orgId)
+    } else {
+      setLoading(false)
+    }
+  }, [orgLoading, orgId])
 
   async function saveProfile() {
     if (!userId) return
@@ -136,7 +152,27 @@ export default function SettingsPage() {
   ] as const), [])
 
   if (orgLoading || loading) return <div className="text-sm page-subtitle">Cargando configuración…</div>
-  if (!orgId) return <div className="text-sm page-subtitle">No hay organización activa. Inicia sesión o completa el onboarding.</div>
+  if (!orgId) {
+    return (
+      <div className="max-w-2xl space-y-3">
+        <h1 className="text-2xl font-bold page-title">Configuración</h1>
+        <div className="card p-5 space-y-2">
+          <p className="text-sm page-subtitle">
+            No encontramos una organización activa para tu cuenta.
+          </p>
+          <p className="text-xs page-subtitle">
+            Esto suele pasar si tu sesión expiró o si todavía no completaste
+            el onboarding inicial. Intenta cerrar sesión y entrar de nuevo,
+            o configura tu cuenta desde el wizard.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <a href="/onboarding" className="btn-primary text-xs">Configurar cuenta</a>
+            <a href="/login" className="btn-secondary text-xs">Cerrar sesión</a>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-5xl">
