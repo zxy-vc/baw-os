@@ -45,9 +45,9 @@ const ROLE_LABEL: Record<Agent['role'], string> = {
 
 const STATUS_DOT: Record<AgentStatus, { color: string; label: string }> = {
   idle: { color: 'var(--baw-success-fg)', label: 'Activo' },
-  running: { color: '#60a5fa', label: 'Corriendo' },
-  paused: { color: '#fbbf24', label: 'Pausado' },
-  planned: { color: '#52525b', label: 'Planeado' },
+  running: { color: 'var(--baw-info-fg)', label: 'Corriendo' },
+  paused: { color: 'var(--baw-warning-fg)', label: 'Pausado' },
+  planned: { color: 'var(--baw-neutral-fg)', label: 'Planeado' },
 }
 
 interface Props {

@@ -97,13 +97,16 @@ export default async function MePage() {
           L2 · Usuario
         </div>
         <h1
-          className="text-[20px] font-semibold"
-          style={{ color: 'var(--baw-text)' }}
+          className="text-[28px] tracking-tight"
+          style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-display)' }}
         >
           Mi perfil
         </h1>
-        <p className="text-[12px]" style={{ color: 'var(--baw-muted)' }}>
-          Preferencias personales que viajan contigo entre tenants.
+        <p
+          className="text-[11px] uppercase tracking-wider mt-1"
+          style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
+        >
+          Preferencias personales que viajan contigo entre tenants
         </p>
       </div>
 
@@ -169,9 +172,10 @@ export default async function MePage() {
                 <span
                   className="px-1.5 py-0.5 text-[10px] rounded uppercase tracking-wider"
                   style={{
-                    backgroundColor: 'var(--baw-info-bg)',
-                    color: '#93C5FD',
-                    border: '1px solid rgba(59,130,246,0.25)',
+                    backgroundColor: 'var(--baw-info-bg-soft)',
+                    color: 'var(--baw-info-fg)',
+                    border: '1px solid var(--baw-info-border)',
+                    fontFamily: 'var(--font-mono)',
                   }}
                 >
                   {m.role}

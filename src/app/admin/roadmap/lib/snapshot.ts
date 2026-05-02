@@ -231,6 +231,24 @@ export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
   ],
 }
 
+// Tiers → tokens BaW (semántica del roadmap):
+//   t1 MVP        → success (verde)
+//   t2 Core       → info (azul)
+//   t2.5 Agent    → agent (morado)
+//   t3 Backlog    → neutral (gris)
+//   t4 Comercial  → orange
+//   t5 Future     → danger (rojo)
+export const TIER_TOKENS: Record<Tier, { fg: string; bg: string }> = {
+  t1:  { fg: 'var(--baw-success-fg)', bg: 'var(--baw-success-bg-soft)' },
+  t2:  { fg: 'var(--baw-info-fg)',    bg: 'var(--baw-info-bg-soft)' },
+  t25: { fg: 'var(--baw-agent-fg)',   bg: 'var(--baw-agent-bg-soft)' },
+  t3:  { fg: 'var(--baw-neutral-fg)', bg: 'var(--baw-neutral-bg-soft)' },
+  t4:  { fg: 'var(--baw-orange-fg)',  bg: 'var(--baw-orange-bg-soft)' },
+  t5:  { fg: 'var(--baw-danger-fg)',  bg: 'var(--baw-danger-bg-soft)' },
+}
+
+// @deprecated — mantener temporalmente por si algún import externo lo usa.
+// Eliminar tras Sprint 6 PR E.
 export const TIER_COLORS: Record<Tier, string> = {
   t1: '#10b981',
   t2: '#3b82f6',

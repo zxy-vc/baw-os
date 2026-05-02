@@ -5,29 +5,24 @@
 
 import { redirect } from 'next/navigation'
 import { isPlatformAdmin } from '@/lib/platform-admin'
-import { ROADMAP_SNAPSHOT, TIER_COLORS, type Tier, type Status } from './lib/snapshot'
+import { ROADMAP_SNAPSHOT, TIER_TOKENS, type Tier, type Status } from './lib/snapshot'
 
 export const dynamic = 'force-dynamic'
 
 const STATUS_BG: Record<SprintStatusKey, string> = {
-  done: 'rgba(16,185,129,0.12)',
-  next: 'rgba(245,158,11,0.12)',
-  future: 'rgba(107,114,128,0.12)',
+  done: 'var(--baw-success-bg-soft)',
+  next: 'var(--baw-warning-bg-soft)',
+  future: 'var(--baw-neutral-bg-soft)',
 }
 const STATUS_FG: Record<SprintStatusKey, string> = {
-  done: '#10b981',
-  next: '#f59e0b',
-  future: '#6b7280',
+  done: 'var(--baw-success-fg)',
+  next: 'var(--baw-warning-fg)',
+  future: 'var(--baw-neutral-fg)',
 }
 type SprintStatusKey = 'done' | 'next' | 'future'
 
 function tierStyle(tier: Tier) {
-  const c = TIER_COLORS[tier]
-  // Hex → rgba con alpha 0.15 sin depender de helpers
-  const r = parseInt(c.slice(1, 3), 16)
-  const g = parseInt(c.slice(3, 5), 16)
-  const b = parseInt(c.slice(5, 7), 16)
-  return { bg: `rgba(${r},${g},${b},0.15)`, fg: c }
+  return TIER_TOKENS[tier]
 }
 
 function ProgressBar({
@@ -44,10 +39,10 @@ function ProgressBar({
         border: '1px solid var(--baw-border)',
       }}
     >
-      <div style={{ width: pct(done), backgroundColor: '#10b981' }} />
-      <div style={{ width: pct(doing), backgroundColor: '#f59e0b' }} />
-      <div style={{ width: pct(backlog), backgroundColor: '#6b7280' }} />
-      <div style={{ width: pct(discarded), backgroundColor: '#ef4444', opacity: 0.4 }} />
+      <div style={{ width: pct(done), backgroundColor: 'var(--baw-success-fg)' }} />
+      <div style={{ width: pct(doing), backgroundColor: 'var(--baw-warning-fg)' }} />
+      <div style={{ width: pct(backlog), backgroundColor: 'var(--baw-neutral-fg)' }} />
+      <div style={{ width: pct(discarded), backgroundColor: 'var(--baw-danger-fg)', opacity: 0.4 }} />
     </div>
   )
 }
@@ -65,12 +60,15 @@ export default async function RoadmapPage() {
       {/* Header */}
       <div>
         <h1
-          className="text-[24px] font-semibold mb-1 tracking-tight"
-          style={{ color: 'var(--baw-text)' }}
+          className="text-[28px] mb-1 tracking-tight"
+          style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-display)' }}
         >
           BaW OS — Roadmap visual
         </h1>
-        <p className="text-[12px]" style={{ color: 'var(--baw-muted)' }}>
+        <p
+          className="text-[11px] uppercase tracking-wider"
+          style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
+        >
           {snap.asOf} · v1 snapshot · v2 leerá Notion + GitHub en vivo
         </p>
       </div>
@@ -79,9 +77,9 @@ export default async function RoadmapPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { num: t.total, label: 'Features totales', color: 'var(--baw-text)' },
-          { num: t.done, label: `Done · ${donePct}%`, color: '#10b981' },
-          { num: t.doing, label: 'En desarrollo', color: '#f59e0b' },
-          { num: t.backlog, label: 'Backlog', color: '#6b7280' },
+          { num: t.done, label: `Done · ${donePct}%`, color: 'var(--baw-success-fg)' },
+          { num: t.doing, label: 'En desarrollo', color: 'var(--baw-warning-fg)' },
+          { num: t.backlog, label: 'Backlog', color: 'var(--baw-neutral-fg)' },
         ].map((s, i) => (
           <div
             key={i}
@@ -91,12 +89,15 @@ export default async function RoadmapPage() {
               border: '1px solid var(--baw-border)',
             }}
           >
-            <div className="text-[26px] font-bold tabular-nums" style={{ color: s.color }}>
+            <div
+              className="text-[28px] font-semibold tabular-nums"
+              style={{ color: s.color, fontFamily: 'var(--font-mono)' }}
+            >
               {s.num}
             </div>
             <div
-              className="text-[11px] uppercase tracking-wider mt-1"
-              style={{ color: 'var(--baw-muted)' }}
+              className="text-[10px] uppercase tracking-wider mt-1"
+              style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
             >
               {s.label}
             </div>
@@ -108,10 +109,10 @@ export default async function RoadmapPage() {
       <div>
         <ProgressBar done={t.done} doing={t.doing} backlog={t.backlog} discarded={t.discarded} />
         <div className="flex flex-wrap gap-4 mt-2 text-[12px]" style={{ color: 'var(--baw-muted)' }}>
-          <span><span style={{ color: '#10b981' }}>●</span> Done · {t.done}</span>
-          <span><span style={{ color: '#f59e0b' }}>●</span> En desarrollo · {t.doing}</span>
-          <span><span style={{ color: '#6b7280' }}>●</span> Backlog · {t.backlog}</span>
-          <span><span style={{ color: '#ef4444', opacity: 0.6 }}>●</span> Descartado · {t.discarded}</span>
+          <span><span style={{ color: 'var(--baw-success-fg)' }}>●</span> Done · {t.done}</span>
+          <span><span style={{ color: 'var(--baw-warning-fg)' }}>●</span> En desarrollo · {t.doing}</span>
+          <span><span style={{ color: 'var(--baw-neutral-fg)' }}>●</span> Backlog · {t.backlog}</span>
+          <span><span style={{ color: 'var(--baw-danger-fg)', opacity: 0.6 }}>●</span> Descartado · {t.discarded}</span>
         </div>
       </div>
 
@@ -297,7 +298,7 @@ export default async function RoadmapPage() {
                       <span
                         className="absolute left-0"
                         style={{
-                          color: isDone ? '#10b981' : isDoing ? '#f59e0b' : 'var(--baw-muted)',
+                          color: isDone ? 'var(--baw-success-fg)' : isDoing ? 'var(--baw-warning-fg)' : 'var(--baw-muted)',
                         }}
                       >
                         {isDone ? '●' : isDoing ? '◐' : '○'}
@@ -316,11 +317,14 @@ export default async function RoadmapPage() {
       <div
         className="rounded-lg p-5"
         style={{
-          background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(168,85,247,0.05))',
-          border: '1px solid rgba(245,158,11,0.3)',
+          backgroundColor: 'var(--baw-warning-bg-soft)',
+          border: '1px solid var(--baw-warning-border)',
         }}
       >
-        <h3 className="text-[14px] font-semibold mb-3" style={{ color: '#f59e0b' }}>
+        <h3
+          className="text-[14px] font-semibold mb-3"
+          style={{ color: 'var(--baw-warning-fg)', fontFamily: 'var(--font-mono)' }}
+        >
           ⚡ Lo más urgente · candidatos a próximo sprint
         </h3>
         <ol className="ml-5 space-y-2 text-[13px]" style={{ color: 'var(--baw-text)' }}>
