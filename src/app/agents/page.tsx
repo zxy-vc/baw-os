@@ -62,26 +62,34 @@ async function loadData() {
   return { agents: (agentsData || []) as AgentRow[], runs, orgId }
 }
 
-// Modelo de agentes (decisión Fran 2026-05-02):
-//   - baw-coord: BaW Coordinador (agente principal del producto)
-//   - pm-ops: PM Operations (agentes nativos del producto BaW OS)
-//   - third-party: Third Party Operations (agentes externos conectables — ZXY entra aquí)
+// Modelo de agentes según Roster v0.2 (Notion canónico):
+//   - baw-coord: BaW Coordinador (cara única del workforce)
+//   - ops-core: Operaciones Core (Cobranza, Facturación, Mantenimiento) — Tier Starter+
+//   - experiencia: Experiencia (Atención, Reservas, Tarifas, Renovaciones) — Tier Professional+
+//   - inteligencia: Inteligencia (Reportes, Auditoría, Fiscal) — Tier Enterprise/Max
+//   - third-party: Third Party Operations (agentes externos conectables — ZXY Agent OS)
 const FAMILY_LABEL: Record<string, string> = {
   'baw-coord': 'BaW · Coordinador',
-  'pm-ops': 'PM Operations',
+  'ops-core': 'Operaciones Core',
+  'experiencia': 'Experiencia',
+  'inteligencia': 'Inteligencia',
   'third-party': 'Third Party Operations',
   // Legacy alias durante migración
+  'pm-ops': 'PM Operations (legacy)',
   'zxy-shared': 'Third Party Operations',
 }
 
 const FAMILY_DESC: Record<string, string> = {
-  'baw-coord': 'Orquestador raíz del sistema',
-  'pm-ops': 'Agentes nativos del producto BaW OS',
-  'third-party': 'Agentes externos conectables (ZXY, otros proveedores)',
+  'baw-coord': 'Cara única del workforce. Coordina los 10 especialistas, recibe todos los inputs del PM.',
+  'ops-core': 'Tier Starter+ · Cobro, facturación y operación del edificio',
+  'experiencia': 'Tier Professional+ · Comunicación, captación y ciclo de vida del residente',
+  'inteligencia': 'Tier Enterprise/Max · Reporting, governance y compliance',
+  'third-party': 'Agentes externos conectables (ZXY Agent OS, otros proveedores). No son parte del producto BaW OS.',
+  'pm-ops': 'Familia legacy — migrada a escuadrones',
   'zxy-shared': 'Agentes externos conectables (ZXY, otros proveedores)',
 }
 
-const FAMILY_ORDER = ['baw-coord', 'pm-ops', 'third-party', 'zxy-shared']
+const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 'third-party', 'pm-ops', 'zxy-shared']
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
@@ -141,7 +149,7 @@ export default async function AgentsPage() {
           Agentes
         </h1>
         <p className="text-[12px]" style={{ color: 'var(--baw-muted)' }}>
-          BaW Coordinador + PM Operations (nativos) + Third Party Operations (conectables). v1: Cobranza dunning.
+          BaW + 10 especialistas en 3 escuadrones (Operaciones Core · Experiencia · Inteligencia) + Third Party. Roster v0.2. v1: Cobranza dunning.
         </p>
       </div>
 
