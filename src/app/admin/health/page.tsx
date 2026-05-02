@@ -91,7 +91,7 @@ const statusStyles: Record<Check['status'], { bg: string; fg: string; border: st
   error: {
     bg: 'var(--baw-danger-bg)',
     fg: 'var(--baw-danger-fg)',
-    border: 'rgba(239,68,68,0.3)',
+    border: 'var(--baw-danger-border)',
     label: 'ERROR',
   },
 }

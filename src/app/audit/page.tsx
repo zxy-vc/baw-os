@@ -132,7 +132,7 @@ Timeline de actividad
               style={{
                 backgroundColor: active ? 'var(--baw-agent-bg-2)' : 'var(--baw-surface)',
                 color: active ? 'var(--baw-agent-fg)' : 'var(--baw-muted)',
-                border: `1px solid ${active ? 'rgba(139, 92, 246, 0.4)' : 'var(--baw-border)'}`,
+                border: `1px solid ${active ? 'var(--baw-agent-border)' : 'var(--baw-border)'}`,
               }}
             >
               {label}
@@ -231,7 +231,7 @@ Timeline de actividad
                             actorType === 'agent'
                               ? 'var(--baw-agent-bg)'
                               : actorType === 'system'
-                              ? 'rgba(139, 139, 149, 0.12)'
+                              ? 'var(--baw-neutral-bg-soft)'
                               : 'var(--baw-info-bg)',
                           color: actorType === 'agent' ? 'var(--baw-agent-fg)' : actorType === 'system' ? 'var(--baw-neutral-fg)' : 'var(--baw-info-fg)',
                         }}
@@ -277,8 +277,8 @@ Timeline de actividad
                         className="mt-2 text-[12px] leading-relaxed p-2 rounded"
                         style={{
                           color: 'var(--baw-text)',
-                          backgroundColor: actorType === 'agent' ? 'rgba(139, 92, 246, 0.06)' : 'rgba(255, 255, 255, 0.03)',
-                          border: `1px solid ${actorType === 'agent' ? 'rgba(139, 92, 246, 0.18)' : 'var(--baw-border)'}`,
+                          backgroundColor: actorType === 'agent' ? 'var(--baw-agent-bg-soft)' : 'var(--baw-elevated)',
+                          border: `1px solid ${actorType === 'agent' ? 'var(--baw-agent-border)' : 'var(--baw-border)'}`,
                         }}
                       >
                         {actorType === 'agent' ? (

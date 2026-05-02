@@ -247,13 +247,4 @@ export const TIER_TOKENS: Record<Tier, { fg: string; bg: string }> = {
   t5:  { fg: 'var(--baw-danger-fg)',  bg: 'var(--baw-danger-bg-soft)' },
 }
 
-// @deprecated — mantener temporalmente por si algún import externo lo usa.
-// Eliminar tras Sprint 6 PR E.
-export const TIER_COLORS: Record<Tier, string> = {
-  t1: '#10b981',
-  t2: '#3b82f6',
-  t25: '#a855f7',
-  t3: '#6b7280',
-  t4: '#f97316',
-  t5: '#dc2626',
-}
+

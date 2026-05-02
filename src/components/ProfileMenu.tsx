@@ -143,7 +143,7 @@ export default function ProfileMenu() {
         style={{
           backgroundColor: 'var(--baw-info-bg-2)',
           color: 'var(--baw-info-fg)',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
+          border: '1px solid var(--baw-info-border)',
         }}
         title={displayName}
         aria-label="Abrir menú de cuenta"

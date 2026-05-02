@@ -119,7 +119,8 @@ export default async function UsersPage() {
                       style={{
                         backgroundColor: 'var(--baw-danger-bg-2)',
                         color: 'var(--baw-danger-fg)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        border: '1px solid var(--baw-danger-border)',
+                        fontFamily: 'var(--font-mono)',
                       }}
                     >
                       L0
