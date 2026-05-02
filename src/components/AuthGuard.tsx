@@ -15,11 +15,28 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isPublic) { setChecking(false); return }
+
+    // Honor ?next= when leaving /login with a valid session (prevents redirect loops
+    // when a Server Component bounced the user here from a protected route).
+    const getNext = (): string => {
+      if (typeof window === 'undefined') return '/'
+      const param = new URLSearchParams(window.location.search).get('next')
+      if (param && param.startsWith('/') && !param.startsWith('//')) return param
+      return '/'
+    }
+
+    const buildLoginUrl = (): string => {
+      if (typeof window === 'undefined') return '/login'
+      const current = pathname + window.location.search
+      const safe = current && current.startsWith('/') && !current.startsWith('//') ? current : '/'
+      return `/login?next=${encodeURIComponent(safe)}`
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session && pathname !== '/login') {
-        router.replace('/login')
+        router.replace(buildLoginUrl())
       } else if (session && pathname === '/login') {
-        router.replace('/')
+        router.replace(getNext())
       } else {
         setChecking(false)
       }
@@ -28,9 +45,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (isPublic) return
       if (!session && pathname !== '/login') {
-        router.replace('/login')
+        router.replace(buildLoginUrl())
       } else if (session && pathname === '/login') {
-        router.replace('/')
+        router.replace(getNext())
       } else {
         setChecking(false)
       }
