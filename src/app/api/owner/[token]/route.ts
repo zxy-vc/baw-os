@@ -8,8 +8,15 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 
 const OWNER_TOKEN = process.env.OWNER_TOKEN!
 
-// TODO S4-1.5: ligar OWNER_TOKEN a un property_owner específico que pertenece
-// a una org concreta (tabla owner_tokens). Por ahora resolvemos primera org.
+// Sprint 5 / fix #25: este endpoint legacy queda detrás de un feature flag.
+// Solo responde si `OWNER_LEGACY_TOKEN_ENABLED=true` está explicitamente seteado.
+// Default: desactivado — los owners deben usar /owner con login real (S4-2 Owner Portal v2).
+//
+// Para reactivar temporalmente (e.g. para que un owner termine de migrar):
+//   1. Set OWNER_LEGACY_TOKEN_ENABLED=true en Vercel
+//   2. Avisar al owner que la URL está viva por X días
+//   3. Quitar el flag al término
+const LEGACY_ENABLED = process.env.OWNER_LEGACY_TOKEN_ENABLED === 'true'
 
 function createPortalClient() {
   return createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -21,6 +28,17 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { token: string } }
 ) {
+  if (!LEGACY_ENABLED) {
+    return NextResponse.json(
+      {
+        error: 'Endpoint deprecated',
+        message:
+          'Este endpoint legacy fue desactivado. Inicia sesión en /owner con tu cuenta real.',
+      },
+      { status: 410 },
+    )
+  }
+
   const { token } = params
 
   if (token !== OWNER_TOKEN) {

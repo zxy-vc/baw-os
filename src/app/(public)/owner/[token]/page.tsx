@@ -94,16 +94,22 @@ export default function OwnerPortalPage() {
   const token = Array.isArray(params.token) ? params.token[0] : params.token
   const [data, setData] = useState<OwnerData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<'denied' | 'deprecated' | null>(null)
 
   useEffect(() => {
     fetch(`/api/owner/${token}`)
-      .then((res) => {
-        if (!res.ok) throw new Error()
+      .then(async (res) => {
+        if (res.status === 410) {
+          // Sprint 5 / fix #25: ruta legacy desactivada via OWNER_LEGACY_TOKEN_ENABLED.
+          throw new Error('deprecated')
+        }
+        if (!res.ok) throw new Error('denied')
         return res.json()
       })
       .then(setData)
-      .catch(() => setError(true))
+      .catch((err: Error) =>
+        setError(err.message === 'deprecated' ? 'deprecated' : 'denied'),
+      )
       .finally(() => setLoading(false))
   }, [token])
 
@@ -120,6 +126,31 @@ export default function OwnerPortalPage() {
     )
   }
 
+  if (error === 'deprecated') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">&#128737;</span>
+          </div>
+          <h1 className="text-xl font-bold text-slate-900 mb-2">
+            Esta URL ya no funciona
+          </h1>
+          <p className="text-slate-500 text-sm mb-4">
+            BaW migró el portal de Property Owners a un sistema con login real
+            por seguridad. Inicia sesión con tu correo para ver tu estado de cuenta.
+          </p>
+          <a
+            href="/owner"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold"
+          >
+            Ir al portal Owner
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   if (error || !data) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
@@ -128,7 +159,9 @@ export default function OwnerPortalPage() {
             <span className="text-3xl">&#128274;</span>
           </div>
           <h1 className="text-xl font-bold text-slate-900 mb-2">Acceso denegado</h1>
-          <p className="text-slate-500 text-sm">Este enlace no es valido o no tienes autorizacion.</p>
+          <p className="text-slate-500 text-sm">
+            Este enlace no es válido o no tienes autorización.
+          </p>
         </div>
       </div>
     )
