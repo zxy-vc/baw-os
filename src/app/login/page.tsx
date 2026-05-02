@@ -29,7 +29,7 @@ function LoginForm() {
     setError(null)
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError(error.message)
@@ -37,7 +37,26 @@ function LoginForm() {
       return
     }
 
-    // Full reload so middleware picks up the new session cookie
+    const session = data.session ?? (await supabase.auth.getSession()).data.session
+
+    if (session?.access_token && session?.refresh_token) {
+      const sync = await fetch('/api/auth/sync-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        }),
+      })
+
+      if (!sync.ok) {
+        setError('No se pudo sincronizar la sesión. Intenta de nuevo.')
+        setLoading(false)
+        return
+      }
+    }
+
+    // Full reload so middleware and Server Components pick up the session cookie.
     // Validamos que nextPath sea relativa (no open-redirect)
     const safeNext = nextPath.startsWith('/') && !nextPath.startsWith('//')
       ? nextPath
