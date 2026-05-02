@@ -93,11 +93,11 @@ const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 't
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
-    live: { bg: 'var(--baw-success-bg)', fg: '#22c55e' },
-    beta: { bg: 'rgba(168,85,247,0.12)', fg: '#a855f7' },
-    planned: { bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8' },
-    paused: { bg: 'var(--baw-warning-bg)', fg: 'var(--baw-warning)' },
-    deprecated: { bg: 'var(--baw-danger-bg)', fg: 'var(--baw-danger)' },
+    live: { bg: 'var(--baw-success-bg-soft)', fg: 'var(--baw-success-fg)' },
+    beta: { bg: 'var(--baw-agent-bg-soft)', fg: 'var(--baw-agent-fg)' },
+    planned: { bg: 'var(--baw-neutral-bg-soft)', fg: 'var(--baw-neutral-fg)' },
+    paused: { bg: 'var(--baw-warning-bg-soft)', fg: 'var(--baw-warning-fg)' },
+    deprecated: { bg: 'var(--baw-danger-bg-soft)', fg: 'var(--baw-danger-fg)' },
   }
   const s = styles[status] || styles.planned
   return (
@@ -112,11 +112,11 @@ function StatusBadge({ status }: { status: string }) {
 
 function RunStatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
-    running: { bg: 'var(--baw-info-bg)', fg: '#3b82f6' },
-    succeeded: { bg: 'var(--baw-success-bg)', fg: '#22c55e' },
-    failed: { bg: 'var(--baw-danger-bg)', fg: 'var(--baw-danger)' },
-    partial: { bg: 'var(--baw-warning-bg)', fg: 'var(--baw-warning)' },
-    canceled: { bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8' },
+    running: { bg: 'var(--baw-info-bg-soft)', fg: 'var(--baw-info-fg)' },
+    succeeded: { bg: 'var(--baw-success-bg-soft)', fg: 'var(--baw-success-fg)' },
+    failed: { bg: 'var(--baw-danger-bg-soft)', fg: 'var(--baw-danger-fg)' },
+    partial: { bg: 'var(--baw-warning-bg-soft)', fg: 'var(--baw-warning-fg)' },
+    canceled: { bg: 'var(--baw-neutral-bg-soft)', fg: 'var(--baw-neutral-fg)' },
   }
   const s = styles[status] || styles.canceled
   return (
@@ -143,13 +143,16 @@ export default async function AgentsPage() {
     <div className="space-y-8">
       <div>
         <h1
-          className="text-[24px] font-semibold mb-1"
-          style={{ color: 'var(--baw-text)' }}
+          className="text-[28px] mb-1 tracking-tight"
+          style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-display)' }}
         >
           Agentes
         </h1>
-        <p className="text-[12px]" style={{ color: 'var(--baw-muted)' }}>
-          BaW + 10 especialistas en 3 escuadrones (Operaciones Core · Experiencia · Inteligencia) + Third Party. Roster v0.2. v1: Cobranza dunning.
+        <p
+          className="text-[11px] uppercase tracking-wider"
+          style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
+        >
+          BaW + 10 especialistas en 3 escuadrones · Operaciones Core · Experiencia · Inteligencia · Third Party · Roster v0.2 · v1: Cobranza dunning
         </p>
       </div>
 
@@ -159,8 +162,8 @@ export default async function AgentsPage() {
         <section key={family}>
           <div className="mb-3">
             <h2
-              className="text-[14px] font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--baw-muted)' }}
+              className="text-[12px] font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
             >
               {FAMILY_LABEL[family] || family}
             </h2>

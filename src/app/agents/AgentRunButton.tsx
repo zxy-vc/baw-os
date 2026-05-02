@@ -57,7 +57,7 @@ export default function AgentRunButton({ agentId, agentName }: Props) {
           disabled={running}
           className="flex-1 text-[11px] px-3 py-1.5 rounded-md font-medium transition-opacity disabled:opacity-50"
           style={{
-            backgroundColor: 'var(--baw-accent, #7c3aed)',
+            backgroundColor: 'var(--baw-agent-fg)',
             color: 'var(--baw-on-primary)',
           }}
         >
