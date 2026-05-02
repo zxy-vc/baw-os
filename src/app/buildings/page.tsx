@@ -5,7 +5,7 @@
 // Cuenta unidades por building via relación inversa.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Building2, Pencil, MapPin } from 'lucide-react'
+import { Plus, Building2, Pencil, MapPin, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Building } from '@/types'
 import { SkeletonTable } from '@/components/Skeleton'
@@ -134,6 +134,53 @@ export default function BuildingsPage() {
     refresh()
   }
 
+  async function deleteBuilding(building: Building) {
+    if (!activeOrgId) return
+    const current = buildings.find((item) => item.id === building.id)
+    const unitsCount = current?.units_count ?? 0
+
+    if (unitsCount > 0) {
+      setError(
+        `No se puede eliminar "${building.name}" porque todavía tiene ${unitsCount} unidades ligadas.`,
+      )
+      return
+    }
+
+    if (!confirm(`¿Eliminar el edificio "${building.name}"?`)) return
+
+    setError(null)
+
+    const { error: stakesErr } = await supabase
+      .from('ownership_stakes')
+      .delete()
+      .eq('org_id', activeOrgId)
+      .eq('building_id', building.id)
+
+    if (stakesErr) {
+      setError(stakesErr.message)
+      return
+    }
+
+    const { error: deleteErr } = await supabase
+      .from('buildings')
+      .delete()
+      .eq('org_id', activeOrgId)
+      .eq('id', building.id)
+
+    if (deleteErr) {
+      setError(deleteErr.message)
+      return
+    }
+
+    if (editing?.id === building.id) {
+      setModalOpen(false)
+      setEditing(null)
+    }
+
+    await fetchBuildings()
+    refresh()
+  }
+
   const totalUnits = useMemo(
     () => buildings.reduce((acc, b) => acc + (b.units_count || 0), 0),
     [buildings],
@@ -202,13 +249,9 @@ export default function BuildingsPage() {
           {/* Mobile: cards apiladas. Desktop: tabla. Sprint 4 / S4-0 fix responsive. */}
           <div className="md:hidden space-y-2">
             {buildings.map((b) => (
-              <button
+              <div
                 key={b.id}
-                onClick={() => {
-                  setEditing(b)
-                  setModalOpen(true)
-                }}
-                className="w-full text-left card p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                className="w-full card p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -236,9 +279,27 @@ export default function BuildingsPage() {
                       </span>
                     </div>
                   </div>
-                  <Pencil className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => {
+                        setEditing(b)
+                        setModalOpen(true)
+                      }}
+                      className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                      title="Editar"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteBuilding(b)}
+                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 
@@ -250,7 +311,7 @@ export default function BuildingsPage() {
                   <th className="px-4 py-3">Ubicación</th>
                   <th className="px-4 py-3 text-right">Unidades</th>
                   <th className="px-4 py-3 text-right">Propietarios</th>
-                  <th className="px-4 py-3 w-12"></th>
+                  <th className="px-4 py-3 w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
@@ -294,16 +355,25 @@ export default function BuildingsPage() {
                       {b.owners_count ?? 0}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => {
-                          setEditing(b)
-                          setModalOpen(true)
-                        }}
-                        className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditing(b)
+                            setModalOpen(true)
+                          }}
+                          className="text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteBuilding(b)}
+                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -317,6 +387,7 @@ export default function BuildingsPage() {
         <BuildingModal
           building={editing}
           onSave={handleSave}
+          onDelete={editing ? () => deleteBuilding(editing) : undefined}
           onClose={() => {
             setModalOpen(false)
             setEditing(null)
