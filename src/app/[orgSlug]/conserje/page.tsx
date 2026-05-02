@@ -104,18 +104,18 @@ function PinLogin({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <form
         onSubmit={handleSubmit}
-        className={`bg-white rounded-2xl shadow-lg p-8 w-full max-w-xs text-center ${
+        className={`bg-slate-900 rounded-2xl shadow-lg p-8 w-full max-w-xs text-center ${
           error ? 'animate-shake' : ''
         }`}
       >
         <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Home className="w-8 h-8 text-white" />
         </div>
-        <h1 className="text-xl font-bold text-slate-900 mb-1">Conserje</h1>
-        <p className="text-sm text-slate-500 mb-6">{org.name}</p>
+        <h1 className="text-xl font-bold text-slate-100 mb-1">Conserje</h1>
+        <p className="text-sm text-slate-400 mb-6">{org.name}</p>
 
         <input
           ref={inputRef}
@@ -126,7 +126,7 @@ function PinLogin({
           placeholder="PIN"
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-          className="w-full h-14 text-center text-2xl tracking-[0.5em] font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+          className="w-full h-14 text-center text-2xl tracking-[0.5em] font-mono border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
           autoFocus
         />
 
@@ -206,23 +206,23 @@ function TabDeptos({ orgId }: { orgId: string }) {
           <ChevronLeft className="w-5 h-5" /> Volver
         </button>
 
-        <div className="bg-white rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900 rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-lg font-bold text-slate-100">
               Depto {selected.number}
             </h3>
             <StatusChip status={selected.status} unitType={selected.type} />
           </div>
           {selected.floor != null && (
-            <p className="text-sm text-slate-500 mb-4">Piso {selected.floor}</p>
+            <p className="text-sm text-slate-400 mb-4">Piso {selected.floor}</p>
           )}
 
           {loadingOccupant && (
             <p className="text-sm text-slate-400">Cargando inquilino...</p>
           )}
           {occupant && (
-            <div className="border-t border-slate-100 pt-4">
-              <p className="font-medium text-slate-900">
+            <div className="border-t border-slate-800 pt-4">
+              <p className="font-medium text-slate-100">
                 {occupant.first_name} {occupant.last_name}
               </p>
               {occupant.phone && (
@@ -250,10 +250,10 @@ function TabDeptos({ orgId }: { orgId: string }) {
         <button
           key={u.id}
           onClick={() => handleSelect(u)}
-          className="w-full bg-white rounded-xl p-4 shadow-sm flex items-center justify-between active:bg-slate-50 transition-colors text-left"
+          className="w-full bg-slate-900 rounded-xl p-4 shadow-sm flex items-center justify-between active:bg-slate-800 transition-colors text-left"
         >
           <div>
-            <span className="font-semibold text-slate-900">{u.number}</span>
+            <span className="font-semibold text-slate-100">{u.number}</span>
             {u.floor != null && (
               <span className="text-slate-400 text-sm ml-2">
                 Piso {u.floor}
@@ -313,6 +313,8 @@ function TabIncidencias({ orgId }: { orgId: string }) {
     if (!unitId || !category) return
     setSaving(true)
 
+    // reported_by es uuid (FK auth.users) — el conserje no tiene auth.
+    // Dejamos null y marcamos source en notes para auditoría.
     const { error } = await supabase.from('incidents').insert({
       org_id: orgId,
       unit_id: unitId,
@@ -320,8 +322,13 @@ function TabIncidencias({ orgId }: { orgId: string }) {
       description: description || null,
       status: 'open',
       priority: 'medium',
-      reported_by: 'conserje',
+      notes: 'Reportado desde tablet conserje',
     })
+
+    if (error) {
+      // Visible en consola para debug; el toast es para el conserje.
+      console.error('Error creando incidencia:', error)
+    }
 
     setSaving(false)
     if (!error) {
@@ -361,9 +368,9 @@ function TabIncidencias({ orgId }: { orgId: string }) {
 
           <div className="space-y-2">
             {incidents.map((inc) => (
-              <div key={inc.id} className="bg-white rounded-xl p-4 shadow-sm">
+              <div key={inc.id} className="bg-slate-900 rounded-xl p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-slate-900">
+                  <span className="font-semibold text-slate-100">
                     {inc.title}
                   </span>
                   <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
@@ -371,12 +378,12 @@ function TabIncidencias({ orgId }: { orgId: string }) {
                   </span>
                 </div>
                 {inc.unit && (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-400">
                     Depto {inc.unit.number}
                   </p>
                 )}
                 {inc.description && (
-                  <p className="text-sm text-slate-600 mt-1">
+                  <p className="text-sm text-slate-300 mt-1">
                     {inc.description}
                   </p>
                 )}
@@ -403,13 +410,13 @@ function TabIncidencias({ orgId }: { orgId: string }) {
           </button>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-200 mb-1">
               Departamento
             </label>
             <select
               value={unitId}
               onChange={(e) => setUnitId(e.target.value)}
-              className="w-full h-12 border border-slate-200 rounded-xl px-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-12 border border-slate-700 rounded-xl px-3 text-base bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="">Seleccionar...</option>
@@ -422,7 +429,7 @@ function TabIncidencias({ orgId }: { orgId: string }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="block text-sm font-medium text-slate-200 mb-2">
               Categoría
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -434,7 +441,7 @@ function TabIncidencias({ orgId }: { orgId: string }) {
                   className={`h-12 rounded-xl font-medium text-base transition-colors ${
                     category === cat
                       ? 'bg-blue-600 text-white'
-                      : 'bg-white border border-slate-200 text-slate-700 active:bg-slate-50'
+                      : 'bg-slate-900 border border-slate-700 text-slate-200 active:bg-slate-800'
                   }`}
                 >
                   {cat}
@@ -444,14 +451,14 @@ function TabIncidencias({ orgId }: { orgId: string }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-200 mb-1">
               Descripción (opcional)
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full border border-slate-200 rounded-xl px-3 py-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-slate-700 rounded-xl px-3 py-3 text-base bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               placeholder="Detalles del problema..."
             />
           </div>
@@ -541,19 +548,19 @@ function TabCobros({ orgId }: { orgId: string }) {
           const unit = p.contract?.unit
           const occ = p.contract?.occupant
           return (
-            <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm">
+            <div key={p.id} className="bg-slate-900 rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <span className="font-semibold text-slate-900">
+                  <span className="font-semibold text-slate-100">
                     {unit ? `Depto ${unit.number}` : '—'}
                   </span>
                   {occ && (
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-slate-400">
                       {occ.first_name} {occ.last_name}
                     </p>
                   )}
                 </div>
-                <span className="text-lg font-bold text-slate-900">
+                <span className="text-lg font-bold text-slate-100">
                   ${p.amount.toLocaleString('es-MX')}
                 </span>
               </div>
@@ -596,7 +603,7 @@ function StatusChip({
   const isStr = unitType === 'str' || unitType === 'STR'
   if (!isOccupied && isStr) {
     return (
-      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-600">
+      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-900/40 text-blue-600">
         STR
       </span>
     )
@@ -605,8 +612,8 @@ function StatusChip({
     <span
       className={`text-xs font-medium px-2.5 py-1 rounded-full ${
         isOccupied
-          ? 'bg-green-100 text-green-700'
-          : 'bg-slate-100 text-slate-500'
+          ? 'bg-emerald-900/40 text-emerald-300'
+          : 'bg-slate-950 text-slate-400'
       }`}
     >
       {isOccupied ? 'Ocupado' : 'Libre'}
@@ -632,12 +639,12 @@ function Toast({ message }: { message: string }) {
 
 function NotFound({ slug }: { slug: string }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
-        <h1 className="text-xl font-bold text-slate-900 mb-2">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="bg-slate-900 rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
+        <h1 className="text-xl font-bold text-slate-100 mb-2">
           Organización no encontrada
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-400">
           No existe ningún PM con el slug "{slug}".
         </p>
       </div>
@@ -691,10 +698,10 @@ export default function ConserjePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-screen bg-slate-950 pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 h-14 flex items-center justify-between">
-        <h1 className="font-bold text-slate-900 text-base">
+      <header className="sticky top-0 z-30 bg-slate-900 border-b border-slate-700 px-4 h-14 flex items-center justify-between">
+        <h1 className="font-bold text-slate-100 text-base">
           Conserje · {org.name}
         </h1>
         <button
@@ -702,7 +709,7 @@ export default function ConserjePage() {
             sessionStorage.removeItem(`${SESSION_KEY_PREFIX}${org.slug}`)
             setAuthed(false)
           }}
-          className="text-slate-400 active:text-slate-600 p-2 -mr-2"
+          className="text-slate-400 active:text-slate-300 p-2 -mr-2"
           aria-label="Cerrar sesión"
         >
           <LogOut className="w-5 h-5" />
@@ -717,7 +724,7 @@ export default function ConserjePage() {
       </main>
 
       {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 flex h-16 safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-30 bg-slate-900 border-t border-slate-700 flex h-16 safe-area-bottom">
         <TabButton
           icon={<Home className="w-5 h-5" />}
           label="Deptos"
@@ -769,7 +776,7 @@ function TabButton({
     <button
       onClick={onClick}
       className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
-        active ? 'text-blue-600' : 'text-slate-400 active:text-slate-600'
+        active ? 'text-blue-600' : 'text-slate-400 active:text-slate-300'
       }`}
     >
       {icon}

@@ -19,7 +19,16 @@ import { findSection } from '@/lib/navigation'
 // `/owners` (plural, interno) NO matchee con `/owner` (singular, público).
 // `/admin` (S4-1.5) tiene su propio chrome en `admin/layout.tsx` y debe
 // renderizarse fuera del AppShell de tenant.
+// `/conserje` (legacy redirect) y rutas multi-tenant `/<orgSlug>/conserje` viven
+// fuera del AppShell. La detección de `/<orgSlug>/conserje` se hace por sufijo
+// `/conserje` en el segundo segmento, abajo en el match de isPublic.
 const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', '/admin']
+
+function isMultiTenantConserje(pathname: string): boolean {
+  // Match `/baw-operations/conserje` y subrutas, sin colisionar con rutas internas.
+  const parts = pathname.split('/').filter(Boolean)
+  return parts.length >= 2 && parts[1] === 'conserje'
+}
 
 const PAGE_TITLES: Record<string, string> = {
   '/': 'Mission Control',
@@ -175,9 +184,9 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const isPublic = PUBLIC_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + '/')
-  )
+  const isPublic =
+    PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/')) ||
+    isMultiTenantConserje(pathname)
 
   if (isPublic) {
     return <>{children}</>
