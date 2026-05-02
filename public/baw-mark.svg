@@ -1,5 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none" aria-label="BaW">
-  <path d="M40 168 L120 200 L200 168 L120 136 Z" fill="currentColor"/>
-  <path d="M52 128 L132 160 L212 128 L132 96 Z" fill="currentColor" opacity="0.7"/>
-  <path d="M40 88 L120 120 L200 88 L120 56 Z" fill="currentColor" opacity="0.5"/>
+  <!-- BaW Mark · 02 Cube · 30° iso · 3 caras alineadas -->
+  <!-- top face -->
+  <path d="M120 40 L200 80 L120 120 L40 80 Z" fill="currentColor" opacity="0.55"/>
+  <!-- left face -->
+  <path d="M40 80 L120 120 L120 200 L40 160 Z" fill="currentColor" opacity="0.8"/>
+  <!-- right face -->
+  <path d="M200 80 L120 120 L120 200 L200 160 Z" fill="currentColor"/>
 </svg>

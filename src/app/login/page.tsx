@@ -28,6 +28,16 @@ function LoginForm() {
     setError(null)
     setLoading(true)
 
+    // Sprint 5.5 fix: clear any stale split-session (localStorage tokens
+    // without matching sb-* cookies) before signing in. Otherwise the
+    // browser keeps a UI-only session while middleware sees no cookies
+    // and redirects every protected route back to /login.
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {
+      // Best-effort cleanup; proceed regardless.
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
@@ -82,7 +92,7 @@ function LoginForm() {
         {/* Mark + wordmark */}
         <div className="flex flex-col items-center mb-12">
           <div className="text-[--baw-text] mb-5">
-            {/* Mark: 3 placas isométricas apiladas — design/baw-design/references/Mark Final.html */}
+            {/* Mark: 02 Cube — 3 caras isométricas alineadas (design/baw-design/references/Mark Final.html) */}
             <svg
               viewBox="0 0 240 240"
               width="56"
@@ -91,9 +101,12 @@ function LoginForm() {
               aria-label="BaW"
               className="block"
             >
-              <path d="M40 168 L120 200 L200 168 L120 136 Z" fill="currentColor" />
-              <path d="M52 128 L132 160 L212 128 L132 96 Z" fill="currentColor" opacity="0.7" />
-              <path d="M40 88 L120 120 L200 88 L120 56 Z" fill="currentColor" opacity="0.5" />
+              {/* top */}
+              <path d="M120 40 L200 80 L120 120 L40 80 Z" fill="currentColor" opacity="0.55" />
+              {/* left */}
+              <path d="M40 80 L120 120 L120 200 L40 160 Z" fill="currentColor" opacity="0.8" />
+              {/* right */}
+              <path d="M200 80 L120 120 L120 200 L200 160 Z" fill="currentColor" />
             </svg>
           </div>
 
