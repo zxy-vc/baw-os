@@ -79,8 +79,15 @@ function LoginForm() {
       // que la cookie está viva antes de navegar. Si la cookie aún no
       // commitea, retry hasta 3 veces con backoff. Si tras eso falla,
       // mostramos error claro — no entramos al loop.
+      // Probe up to 6 times with 200ms backoff (~1.2s max). The probe is
+      // best-effort: if the cookie is committed, great — we navigate fast.
+      // If after 6 tries we still see 401, we navigate ANYWAY because the
+      // sync-session call returned 200 OK and the middleware will refresh
+      // tokens on the next request. A logged-in user should not be blocked
+      // by a flaky probe — the worst case becomes a normal redirect, not a
+      // hard error message.
       let cookieReady = false
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 6; attempt++) {
         try {
           const probe = await fetch('/api/me/whoami', {
             credentials: 'include',
@@ -96,14 +103,11 @@ function LoginForm() {
         } catch {
           // network blip; retry
         }
-        await new Promise((r) => setTimeout(r, 150))
+        await new Promise((r) => setTimeout(r, 200))
       }
-      if (!cookieReady) {
-        setError(
-          'No se pudo establecer la sesión. Intenta una vez más o recarga la página.',
-        )
-        setLoading(false)
-        return
+      if (!cookieReady && process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.warn('[login] cookie probe never confirmed, navigating anyway')
       }
     }
 
