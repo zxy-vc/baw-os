@@ -9,6 +9,7 @@ import SectionTopNav from '@/components/SectionTopNav'
 import AuthGuard from '@/components/AuthGuard'
 import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
+import BawGrid from '@/components/BawGrid'
 import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import { findSection } from '@/lib/navigation'
@@ -196,6 +197,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <ToastProvider>
         <AuthGuard>
+          {/* Retícula 32×32 — misma del /login, da continuidad visual entre
+              autenticación y producto. Vive detrás de todo (z-index 0). */}
+          <BawGrid fixed />
           <Sidebar />
           {/*
             Sprint 3 / S7: el `paddingLeft` del main lee el CSS var
