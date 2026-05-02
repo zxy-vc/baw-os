@@ -53,9 +53,10 @@ export default async function OwnerBuildingDetail({
         <div
           className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"
           style={{
-            backgroundColor: 'rgba(168, 85, 247, 0.15)',
-            color: '#D8B4FE',
-            border: '1px solid rgba(168, 85, 247, 0.3)',
+            backgroundColor: 'var(--baw-agent-bg-soft)',
+            color: 'var(--baw-agent-fg)',
+            border: '1px solid var(--baw-agent-border)',
+            fontFamily: 'var(--font-mono)',
           }}
         >
           Edificio
@@ -153,13 +154,13 @@ export default async function OwnerBuildingDetail({
 function UnitStatusBadge({ status }: { status: string | null }) {
   const map: Record<string, { bg: string; fg: string; border: string; label: string }> = {
     occupied: { bg: 'var(--baw-success-bg-2)', fg: 'var(--baw-success-fg)', border: 'var(--baw-success-border)', label: 'Ocupada' },
-    available: { bg: 'rgba(59,130,246,0.15)', fg: '#93C5FD', border: 'rgba(59,130,246,0.3)', label: 'Disponible' },
+    available: { bg: 'var(--baw-info-bg-soft)', fg: 'var(--baw-info-fg)', border: 'var(--baw-info-border)', label: 'Disponible' },
     maintenance: { bg: 'var(--baw-warning-bg-2)', fg: 'var(--baw-warning-fg)', border: 'var(--baw-warning-border)', label: 'Mantenimiento' },
   }
   const s = map[status ?? ''] ?? {
-    bg: 'rgba(148,163,184,0.15)',
-    fg: '#94A3B8',
-    border: 'rgba(148,163,184,0.3)',
+    bg: 'var(--baw-neutral-bg-soft)',
+    fg: 'var(--baw-neutral-fg)',
+    border: 'var(--baw-neutral-border)',
     label: status ?? '—',
   }
   return (
