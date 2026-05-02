@@ -369,7 +369,10 @@ export default function WizardFirstRun() {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <header className="mb-8 text-center">
-          <h1 className="text-[28px] font-semibold tracking-tight">
+          <h1
+            className="text-[32px] tracking-tight"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
             Bienvenido a BaW OS
           </h1>
           <p className="muted-text text-[14px] mt-2">
@@ -386,9 +389,9 @@ export default function WizardFirstRun() {
           <div
             className="mt-6 px-4 py-3 rounded-md flex items-start gap-2 text-[13px]"
             style={{
-              backgroundColor: 'rgba(248, 113, 113, 0.08)',
-              border: '1px solid rgba(248, 113, 113, 0.3)',
-              color: '#fca5a5',
+              backgroundColor: 'var(--baw-danger-bg-soft)',
+              border: '1px solid var(--baw-danger-border)',
+              color: 'var(--baw-danger-fg)',
             }}
           >
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
@@ -585,7 +588,7 @@ function StepPMCompany({
       <p
         className="text-[12px] px-3 py-2 rounded-md"
         style={{
-          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+          backgroundColor: 'var(--baw-info-bg-soft)',
           color: 'var(--baw-muted)',
         }}
       >
@@ -979,7 +982,7 @@ function StepOwner({
               className="text-left rounded-md p-4 transition"
               style={{
                 backgroundColor: active
-                  ? 'rgba(59, 130, 246, 0.08)'
+                  ? 'var(--baw-info-bg-soft)'
                   : 'var(--baw-bg)',
                 border: active
                   ? '1px solid var(--baw-primary)'
@@ -1015,7 +1018,7 @@ function StepOwner({
         <div
           className="text-[12px] px-3 py-2 rounded-md"
           style={{
-            backgroundColor: 'rgba(74, 222, 128, 0.08)',
+            backgroundColor: 'var(--baw-success-bg-soft)',
             color: 'var(--baw-muted)',
           }}
         >
