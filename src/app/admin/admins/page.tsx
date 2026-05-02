@@ -110,8 +110,8 @@ export default async function PlatformAdminsPage() {
       <div
         className="rounded-lg p-4 text-[12px]"
         style={{
-          backgroundColor: 'rgba(59,130,246,0.08)',
-          border: '1px solid rgba(59,130,246,0.2)',
+          backgroundColor: 'var(--baw-info-bg-soft)',
+          border: '1px solid var(--baw-info-border)',
           color: 'var(--baw-muted)',
         }}
       >

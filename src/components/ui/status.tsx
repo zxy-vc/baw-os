@@ -79,7 +79,7 @@ const STATUS_MAP: Record<StatusKind, StatusStyle> = {
     label: 'Blocked',
     bg: 'transparent',
     color: 'var(--baw-danger-fg)',
-    border: 'rgba(239, 68, 68, 0.50)',
+    border: 'var(--baw-danger-border)',
     outline: true,
   },
   failed: {
@@ -214,7 +214,7 @@ const PRIORITY_MAP: Record<Priority, { label: string; color: string; bg: string;
     label: 'Critical',
     color: 'var(--baw-danger-fg)',
     bg: 'var(--baw-danger-bg-2)',
-    border: 'rgba(239, 68, 68, 0.35)',
+    border: 'var(--baw-danger-border)',
   },
   high: {
     label: 'High',
@@ -351,7 +351,7 @@ export function ActorAvatar({
           ...dim,
           backgroundColor: 'var(--baw-agent-bg-2)',
           color: 'var(--baw-agent-fg)',
-          border: '1px solid rgba(139, 92, 246, 0.35)',
+          border: '1px solid var(--baw-agent-border)',
         }}
       >
         <svg
@@ -375,7 +375,7 @@ export function ActorAvatar({
       className={cn('inline-flex items-center justify-center rounded-md', className)}
       style={{
         ...dim,
-        backgroundColor: 'var(--baw-neutral-bg-2, rgba(139, 139, 149, 0.15))',
+        backgroundColor: 'var(--baw-neutral-bg-2)',
         color: 'var(--baw-neutral-fg)',
         border: '1px solid var(--baw-neutral-border)',
       }}
@@ -409,11 +409,11 @@ export function KPICard({
   className?: string
 }) {
   const borderColor = critical
-    ? 'rgba(239, 68, 68, 0.5)'
+    ? 'var(--baw-danger-border)'
     : warning
-    ? 'rgba(245, 158, 11, 0.5)'
+    ? 'var(--baw-warning-border)'
     : accent === 'agent'
-    ? 'rgba(139, 92, 246, 0.35)'
+    ? 'var(--baw-agent-border)'
     : 'var(--baw-border)'
 
   const deltaPositive = (delta ?? 0) >= 0

@@ -118,7 +118,8 @@ function GlobalHeader({ pathname }: { pathname: string }) {
             style={{
               backgroundColor: 'var(--baw-success-bg-soft)',
               color: 'var(--baw-success-fg)',
-              border: '1px solid rgba(34, 197, 94, 0.25)',
+              border: '1px solid var(--baw-success-border)',
+              fontFamily: 'var(--font-mono)',
             }}
           >
             <span

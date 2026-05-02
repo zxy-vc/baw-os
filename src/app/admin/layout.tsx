@@ -41,14 +41,15 @@ export default async function AdminLayout({
             style={{
               backgroundColor: 'var(--baw-danger-bg-2)',
               color: 'var(--baw-danger-fg)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              border: '1px solid var(--baw-danger-border)',
+              fontFamily: 'var(--font-mono)',
             }}
           >
             L0 · Platform
           </div>
           <h1
             className="text-[14px] font-medium"
-            style={{ color: 'var(--baw-text)' }}
+            style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-mono)' }}
           >
             Platform Admin
           </h1>
