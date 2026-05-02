@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 64" fill="none" aria-label="BaW OS">
+  <g transform="translate(0,12)">
+    <path d="M8 32 L28 40 L48 32 L28 24 Z" fill="currentColor"/>
+    <path d="M11 24 L31 32 L51 24 L31 16 Z" fill="currentColor" opacity="0.7"/>
+    <path d="M8 16 L28 24 L48 16 L28 8 Z" fill="currentColor" opacity="0.5"/>
+  </g>
+  <text x="64" y="40" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="28" font-weight="500" fill="currentColor" letter-spacing="-0.5">BaW</text>
+  <text x="146" y="40" font-family="'IBM Plex Mono', ui-monospace, monospace" font-size="14" font-weight="400" fill="currentColor" opacity="0.55" letter-spacing="0.5">/ OS</text>
+</svg>
