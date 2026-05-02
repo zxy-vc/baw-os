@@ -106,14 +106,18 @@ export default async function OwnerDashboard() {
           <div
             className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded"
             style={{
-              backgroundColor: 'rgba(168, 85, 247, 0.15)',
-              color: '#D8B4FE',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
+              backgroundColor: 'var(--baw-agent-bg-soft)',
+              color: 'var(--baw-agent-fg)',
+              border: '1px solid var(--baw-agent-border)',
+              fontFamily: 'var(--font-mono)',
             }}
           >
             Portal Propietario
           </div>
-          <h1 className="text-[14px] font-medium" style={{ color: 'var(--baw-text)' }}>
+          <h1
+            className="text-[14px] font-medium"
+            style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-mono)' }}
+          >
             {ctx.email}
           </h1>
         </div>
@@ -218,8 +222,8 @@ export default async function OwnerDashboard() {
           <section
             className="rounded-lg p-4 flex items-center gap-3"
             style={{
-              backgroundColor: 'rgba(234, 179, 8, 0.08)',
-              border: '1px solid rgba(234, 179, 8, 0.25)',
+              backgroundColor: 'var(--baw-warning-bg-soft)',
+              border: '1px solid var(--baw-warning-border)',
             }}
           >
             <AlertCircle size={18} style={{ color: 'var(--baw-warning-fg)' }} />
@@ -239,9 +243,9 @@ export default async function OwnerDashboard() {
               href="/owner/incidents"
               className="text-[12px] px-3 py-1.5 rounded"
               style={{
-                backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                backgroundColor: 'var(--baw-warning-bg)',
                 color: 'var(--baw-warning-fg)',
-                border: '1px solid rgba(234, 179, 8, 0.3)',
+                border: '1px solid var(--baw-warning-border)',
               }}
             >
               Ver detalles
