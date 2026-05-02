@@ -112,11 +112,17 @@ export default function OnboardingPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1
+          className="text-[28px] tracking-tight"
+          style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-display)' }}
+        >
           Configurar cuenta
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Administra tu PM Company, agrega activos y gestiona el equipo desde un solo lugar.
+        <p
+          className="mt-1 text-[11px] uppercase tracking-wider"
+          style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
+        >
+          Administra tu PM Company · agrega activos · gestiona el equipo
         </p>
       </div>
 
@@ -255,8 +261,9 @@ export default function OnboardingPage() {
             className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded shrink-0"
             style={{
               backgroundColor: 'var(--baw-warning-bg-soft)',
-              color: 'var(--baw-warning)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
+              color: 'var(--baw-warning-fg)',
+              border: '1px solid var(--baw-warning-border)',
+              fontFamily: 'var(--font-mono)',
             }}
           >
             Próximamente
@@ -320,8 +327,9 @@ export default function OnboardingPage() {
             className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded shrink-0"
             style={{
               backgroundColor: 'var(--baw-warning-bg-soft)',
-              color: 'var(--baw-warning)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
+              color: 'var(--baw-warning-fg)',
+              border: '1px solid var(--baw-warning-border)',
+              fontFamily: 'var(--font-mono)',
             }}
           >
             Próximamente
