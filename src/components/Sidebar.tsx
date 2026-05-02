@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
+import BawMark from '@/components/BawMark'
 import {
   SIDEBAR_SECTIONS,
   isSectionActive,
@@ -190,27 +191,36 @@ export default function Sidebar() {
           borderRight: '1px solid var(--baw-sidebar-border)',
         }}
       >
-        {/* Brand */}
+        {/* Brand — Mark B + IBM Plex Mono wordmark */}
         <div
           className="flex items-center gap-3 px-3 h-14 shrink-0"
           style={{ borderBottom: '1px solid var(--baw-sidebar-border)' }}
         >
           <div
-            className="flex items-center justify-center rounded-md shrink-0"
-            style={{
-              width: 32,
-              height: 32,
-              backgroundColor: 'var(--baw-primary)',
-              color: 'var(--baw-on-primary)',
-            }}
+            className="shrink-0"
+            style={{ color: 'var(--baw-text)' }}
           >
-            <span className="font-bold text-[14px] leading-none">B</span>
+            <BawMark size={28} />
           </div>
           {expanded && (
             <div className="flex items-center justify-between flex-1 min-w-0">
               <div className="min-w-0">
-                <div className="text-[14px] font-semibold text-white truncate">BaW OS</div>
-                <div className="text-[11px] truncate" style={{ color: 'var(--baw-muted)' }}>
+                <div
+                  style={{ fontFamily: 'var(--font-mono)', color: 'var(--baw-text)' }}
+                  className="text-[14px] font-medium tracking-tight leading-none truncate"
+                >
+                  BaW
+                  <span
+                    className="ml-1.5 text-[11px] font-normal opacity-55"
+                    style={{ color: 'var(--baw-muted)' }}
+                  >
+                    / OS
+                  </span>
+                </div>
+                <div
+                  className="text-[10px] mt-1 truncate uppercase tracking-wider"
+                  style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
+                >
                   Building Always Working
                 </div>
               </div>
