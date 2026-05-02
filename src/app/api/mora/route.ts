@@ -24,12 +24,20 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const todayStr = now.toISOString().split('T')[0]
 
+    // Sprint 5 / fix #22: filtro multi-tenant opcional. Si el caller pasa
+    // ?org_id=<uuid> solo se devuelven datos de ese tenant. Si no se pasa,
+    // se devuelven datos cross-tenant (legacy behavior, solo seguro mientras
+    // hay 1 tenant en el sistema).
+    const orgIdParam = request.nextUrl.searchParams.get('org_id')
+
     // 1. Fetch overdue unconfirmed payments
-    const { data: payments, error: paymentsErr } = await supabase
+    let paymentsQuery = supabase
       .from('payments')
       .select('id, contract_id, due_date, amount, status, confirmed_by')
       .in('status', ['pending', 'late'])
       .lt('due_date', todayStr)
+    if (orgIdParam) paymentsQuery = paymentsQuery.eq('org_id', orgIdParam)
+    const { data: payments, error: paymentsErr } = await paymentsQuery
 
     if (paymentsErr) {
       return NextResponse.json({ success: false, error: paymentsErr.message }, { status: 500 })
@@ -54,11 +62,13 @@ export async function GET(request: NextRequest) {
 
     // 3. Fetch contract + unit + occupant data
     const contractIds = Array.from(byContract.keys())
-    const { data: contracts, error: contractsErr } = await supabase
+    let contractsQuery = supabase
       .from('contracts')
       .select('id, unit_id, occupant_id, status')
       .in('id', contractIds)
       .in('status', ['active', 'en_renovacion'])
+    if (orgIdParam) contractsQuery = contractsQuery.eq('org_id', orgIdParam)
+    const { data: contracts, error: contractsErr } = await contractsQuery
 
     if (contractsErr) {
       return NextResponse.json({ success: false, error: contractsErr.message }, { status: 500 })
