@@ -142,4 +142,99 @@ export async function resolveOrgIdFromRequest(
   return resolveOrgId()
 }
 
+/**
+ * Resuelve el org_id para webhooks externos / cron jobs sin sesión.
+ *
+ * Sprint 5 / fix #22: reemplaza el shim deprecated `getOrgIdAsync()` que
+ * silenciosamente devolvía la primera org por created_at — comportamiento
+ * que rompe en cuanto hay 2+ tenants.
+ *
+ * Orden de resolución:
+ *   1. Header `x-baw-org-id` (UUID) — uso recomendado en integraciones
+ *   2. Header `x-baw-org-slug` (slug) — alternativa human-friendly
+ *   3. Query string `?org=<slug>` — útil para webhooks configurables por URL
+ *   4. Body JSON `org_id` o `org_slug` (si `body` se pasa)
+ *   5. `null` — el caller decide si fallback a iterar todos los tenants
+ *      o devolver 400.
+ *
+ * Siempre valida que el org existe y devuelve su UUID canónico.
+ */
+export async function resolveOrgIdForWebhook(
+  request: NextRequest,
+  body?: Record<string, unknown> | null,
+): Promise<string | null> {
+  const service = createServiceClient()
+
+  // 1. UUID en header
+  const headerUuid = request.headers.get('x-baw-org-id')
+  if (headerUuid && /^[0-9a-f-]{36}$/i.test(headerUuid)) {
+    const { data } = await service
+      .from('organizations')
+      .select('id')
+      .eq('id', headerUuid)
+      .maybeSingle()
+    if (data?.id) return data.id
+  }
+
+  // 2. Slug en header
+  const headerSlug = request.headers.get('x-baw-org-slug')
+  if (headerSlug) {
+    const { data } = await service
+      .from('organizations')
+      .select('id')
+      .eq('slug', headerSlug)
+      .maybeSingle()
+    if (data?.id) return data.id
+  }
+
+  // 3. Query string
+  const querySlug = request.nextUrl.searchParams.get('org')
+  if (querySlug) {
+    const { data } = await service
+      .from('organizations')
+      .select('id')
+      .eq('slug', querySlug)
+      .maybeSingle()
+    if (data?.id) return data.id
+  }
+
+  // 4. Body
+  if (body) {
+    const bodyUuid = typeof body.org_id === 'string' ? body.org_id : null
+    const bodySlug = typeof body.org_slug === 'string' ? body.org_slug : null
+    if (bodyUuid && /^[0-9a-f-]{36}$/i.test(bodyUuid)) {
+      const { data } = await service
+        .from('organizations')
+        .select('id')
+        .eq('id', bodyUuid)
+        .maybeSingle()
+      if (data?.id) return data.id
+    }
+    if (bodySlug) {
+      const { data } = await service
+        .from('organizations')
+        .select('id')
+        .eq('slug', bodySlug)
+        .maybeSingle()
+      if (data?.id) return data.id
+    }
+  }
+
+  return null
+}
+
+/**
+ * Lista todos los org_ids del sistema. Útil para cron jobs que iteran
+ * sobre cada tenant cuando no se especifica `org_id` explícito.
+ */
+export async function listAllOrgIds(): Promise<string[]> {
+  const service = createServiceClient()
+  const { data, error } = await service
+    .from('organizations')
+    .select('id')
+    .order('created_at', { ascending: true })
+  if (error || !data) return []
+  return data.map((row) => row.id)
+}
+
 export const ACTIVE_ORG_COOKIE_NAME = ACTIVE_ORG_COOKIE

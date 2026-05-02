@@ -1,12 +1,16 @@
 // BaW OS — Sync Channex bookings → Supabase reservations
-import { NextResponse } from 'next/server'
+//
+// Sprint 5 / fix #22: el cron debe llamarse con `?org=<slug>` o
+// `x-baw-org-id` para indicar a qué tenant sincronizar. Si el caller no
+// provee org y solo hay 1 tenant en el sistema, lo usa automáticamente;
+// si hay 2+ tenants devuelve 400 (cada tenant Channex tiene su propio
+// cron URL con su org).
+import { NextRequest, NextResponse } from 'next/server'
 import { channexFetch } from '@/lib/channex'
-import { createServiceClient, getOrgIdAsync } from '@/lib/api-auth'
+import { createServiceClient } from '@/lib/api-auth'
+import { resolveOrgIdForWebhook, listAllOrgIds } from '@/lib/org-context'
 
 export const dynamic = 'force-dynamic'
-
-// TODO S4-1.5: aceptar org_id en query string del cron job (cada tenant
-// con Channex tendrá su propio cron URL con su org_id)
 
 interface ChannexBooking {
   id: string
@@ -45,8 +49,24 @@ function mapStatus(status: string | undefined): string {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    let orgId = await resolveOrgIdForWebhook(request, null)
+    if (!orgId) {
+      const allOrgs = await listAllOrgIds()
+      if (allOrgs.length === 1) {
+        orgId = allOrgs[0]
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Missing org context. Pass ?org=<slug> or x-baw-org-id header (multi-tenant safe).',
+          },
+          { status: 400 },
+        )
+      }
+    }
     const now = new Date()
     const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     const params = new URLSearchParams({
@@ -62,7 +82,7 @@ export async function POST() {
     const bookings = response.data || []
 
     const supabase = createServiceClient()
-    const ORG_ID = await getOrgIdAsync()
+    const ORG_ID = orgId
     let synced = 0
     let errors = 0
 
