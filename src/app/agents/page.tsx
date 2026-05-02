@@ -70,11 +70,11 @@ const FAMILY_LABEL: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
-    live: { bg: 'rgba(34,197,94,0.12)', fg: '#22c55e' },
+    live: { bg: 'var(--baw-success-bg)', fg: '#22c55e' },
     beta: { bg: 'rgba(168,85,247,0.12)', fg: '#a855f7' },
     planned: { bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8' },
-    paused: { bg: 'rgba(234,179,8,0.12)', fg: '#eab308' },
-    deprecated: { bg: 'rgba(239,68,68,0.12)', fg: '#ef4444' },
+    paused: { bg: 'var(--baw-warning-bg)', fg: 'var(--baw-warning)' },
+    deprecated: { bg: 'var(--baw-danger-bg)', fg: 'var(--baw-danger)' },
   }
   const s = styles[status] || styles.planned
   return (
@@ -89,10 +89,10 @@ function StatusBadge({ status }: { status: string }) {
 
 function RunStatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
-    running: { bg: 'rgba(59,130,246,0.12)', fg: '#3b82f6' },
-    succeeded: { bg: 'rgba(34,197,94,0.12)', fg: '#22c55e' },
-    failed: { bg: 'rgba(239,68,68,0.12)', fg: '#ef4444' },
-    partial: { bg: 'rgba(234,179,8,0.12)', fg: '#eab308' },
+    running: { bg: 'var(--baw-info-bg)', fg: '#3b82f6' },
+    succeeded: { bg: 'var(--baw-success-bg)', fg: '#22c55e' },
+    failed: { bg: 'var(--baw-danger-bg)', fg: 'var(--baw-danger)' },
+    partial: { bg: 'var(--baw-warning-bg)', fg: 'var(--baw-warning)' },
     canceled: { bg: 'rgba(148,163,184,0.12)', fg: '#94a3b8' },
   }
   const s = styles[status] || styles.canceled

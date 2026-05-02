@@ -109,7 +109,7 @@ export default function Sidebar() {
           'hover:bg-white/5'
         )}
         style={{
-          backgroundColor: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+          backgroundColor: active ? 'var(--baw-info-bg-soft)' : 'transparent',
           color: active ? 'var(--baw-text)' : 'var(--baw-muted)',
         }}
         title={!expanded ? section.label : undefined}
@@ -129,7 +129,7 @@ export default function Sidebar() {
             {showBadge && (
               <span
                 className="ml-2 text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none tabular-nums min-w-[18px] text-center"
-                style={{ backgroundColor: 'var(--baw-danger)', color: '#FFFFFF' }}
+                style={{ backgroundColor: 'var(--baw-danger)', color: 'var(--baw-on-primary)' }}
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
@@ -186,14 +186,14 @@ export default function Sidebar() {
         )}
         style={{
           width: mobileOpen ? EXPANDED_WIDTH : width,
-          backgroundColor: '#0F0F12',
-          borderRight: '1px solid #2A2A32',
+          backgroundColor: 'var(--baw-sidebar-bg)',
+          borderRight: '1px solid var(--baw-sidebar-border)',
         }}
       >
         {/* Brand */}
         <div
           className="flex items-center gap-3 px-3 h-14 shrink-0"
-          style={{ borderBottom: '1px solid #2A2A32' }}
+          style={{ borderBottom: '1px solid var(--baw-sidebar-border)' }}
         >
           <div
             className="flex items-center justify-center rounded-md shrink-0"
@@ -201,7 +201,7 @@ export default function Sidebar() {
               width: 32,
               height: 32,
               backgroundColor: 'var(--baw-primary)',
-              color: '#FFFFFF',
+              color: 'var(--baw-on-primary)',
             }}
           >
             <span className="font-bold text-[14px] leading-none">B</span>
@@ -243,12 +243,12 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer sections (Agentes · Configuración) */}
-        <div className="shrink-0 py-2" style={{ borderTop: '1px solid #2A2A32' }}>
+        <div className="shrink-0 py-2" style={{ borderTop: '1px solid var(--baw-sidebar-border)' }}>
           {footerSections.map((s) => renderEntry(s))}
         </div>
 
         {/* Workspace switcher */}
-        <div className="shrink-0 py-2" style={{ borderTop: '1px solid #2A2A32' }}>
+        <div className="shrink-0 py-2" style={{ borderTop: '1px solid var(--baw-sidebar-border)' }}>
           <WorkspaceSwitcher expanded={expanded} />
         </div>
       </aside>

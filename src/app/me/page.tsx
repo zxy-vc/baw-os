@@ -169,7 +169,7 @@ export default async function MePage() {
                 <span
                   className="px-1.5 py-0.5 text-[10px] rounded uppercase tracking-wider"
                   style={{
-                    backgroundColor: 'rgba(59,130,246,0.12)',
+                    backgroundColor: 'var(--baw-info-bg)',
                     color: '#93C5FD',
                     border: '1px solid rgba(59,130,246,0.25)',
                   }}

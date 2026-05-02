@@ -229,7 +229,7 @@ export default function MissionControl() {
           <div
             className="w-12 h-12 rounded-full mx-auto flex items-center justify-center mb-4"
             style={{
-              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+              backgroundColor: 'var(--baw-info-bg)',
               color: 'var(--baw-primary)',
             }}
           >
@@ -243,7 +243,7 @@ export default function MissionControl() {
           <Link
             href="/onboarding"
             className="inline-block mt-6 px-5 py-2 rounded-md text-[13px] font-medium"
-            style={{ backgroundColor: 'var(--baw-primary)', color: '#fff' }}
+            style={{ backgroundColor: 'var(--baw-primary)', color: 'var(--baw-on-primary)' }}
           >
             Empezar onboarding
           </Link>

@@ -77,20 +77,20 @@ async function runChecks(): Promise<Check[]> {
 
 const statusStyles: Record<Check['status'], { bg: string; fg: string; border: string; label: string }> = {
   ok: {
-    bg: 'rgba(34,197,94,0.12)',
-    fg: '#86EFAC',
-    border: 'rgba(34,197,94,0.3)',
+    bg: 'var(--baw-success-bg)',
+    fg: 'var(--baw-success-fg)',
+    border: 'var(--baw-success-border)',
     label: 'OK',
   },
   warn: {
-    bg: 'rgba(234,179,8,0.12)',
-    fg: '#FDE68A',
-    border: 'rgba(234,179,8,0.3)',
+    bg: 'var(--baw-warning-bg)',
+    fg: 'var(--baw-warning-fg)',
+    border: 'var(--baw-warning-border)',
     label: 'WARN',
   },
   error: {
-    bg: 'rgba(239,68,68,0.12)',
-    fg: '#FCA5A5',
+    bg: 'var(--baw-danger-bg)',
+    fg: 'var(--baw-danger-fg)',
     border: 'rgba(239,68,68,0.3)',
     label: 'ERROR',
   },

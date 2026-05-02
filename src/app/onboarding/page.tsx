@@ -236,7 +236,7 @@ export default function OnboardingPage() {
             <div
               className="flex items-center justify-center w-9 h-9 rounded-md shrink-0"
               style={{
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                backgroundColor: 'var(--baw-agent-bg-soft)',
                 color: 'var(--baw-primary)',
               }}
             >
@@ -254,8 +254,8 @@ export default function OnboardingPage() {
           <span
             className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded shrink-0"
             style={{
-              backgroundColor: 'rgba(245, 158, 11, 0.1)',
-              color: '#F59E0B',
+              backgroundColor: 'var(--baw-warning-bg-soft)',
+              color: 'var(--baw-warning)',
               border: '1px solid rgba(245, 158, 11, 0.25)',
             }}
           >
@@ -277,7 +277,7 @@ export default function OnboardingPage() {
             <div
               className="flex items-center justify-center w-9 h-9 rounded-md shrink-0"
               style={{
-                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                backgroundColor: 'var(--baw-agent-bg-soft)',
                 color: 'var(--baw-primary)',
               }}
             >
@@ -305,7 +305,7 @@ export default function OnboardingPage() {
         <div
           className="card p-4 flex items-start justify-between gap-4"
           style={{
-            borderColor: 'rgba(239, 68, 68, 0.25)',
+            borderColor: 'var(--baw-danger-border-soft)',
           }}
         >
           <div className="min-w-0">
@@ -319,8 +319,8 @@ export default function OnboardingPage() {
           <span
             className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded shrink-0"
             style={{
-              backgroundColor: 'rgba(245, 158, 11, 0.1)',
-              color: '#F59E0B',
+              backgroundColor: 'var(--baw-warning-bg-soft)',
+              color: 'var(--baw-warning)',
               border: '1px solid rgba(245, 158, 11, 0.25)',
             }}
           >
@@ -385,7 +385,7 @@ function ShortcutCard({
         <div
           className="flex items-center justify-center w-9 h-9 rounded-md shrink-0"
           style={{
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            backgroundColor: 'var(--baw-agent-bg-soft)',
             color: 'var(--baw-primary)',
           }}
         >

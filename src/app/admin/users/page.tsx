@@ -117,8 +117,8 @@ export default async function UsersPage() {
                     <span
                       className="px-1.5 py-0.5 text-[10px] rounded uppercase tracking-wider"
                       style={{
-                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                        color: '#FCA5A5',
+                        backgroundColor: 'var(--baw-danger-bg-2)',
+                        color: 'var(--baw-danger-fg)',
                         border: '1px solid rgba(239, 68, 68, 0.3)',
                       }}
                     >

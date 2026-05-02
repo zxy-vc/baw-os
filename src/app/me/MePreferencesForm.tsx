@@ -180,7 +180,7 @@ export default function MePreferencesForm({ initial }: { initial: Prefs }) {
           </span>
         )}
         {error && (
-          <span className="text-[11px]" style={{ color: '#FCA5A5' }}>
+          <span className="text-[11px]" style={{ color: 'var(--baw-danger-fg)' }}>
             Error: {error}
           </span>
         )}

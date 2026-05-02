@@ -103,9 +103,9 @@ export default function AuditPage() {
       <div className="flex items-center gap-3">
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(139, 92, 246, 0.12)' }}
+          style={{ backgroundColor: 'var(--baw-agent-bg)' }}
         >
-          <ClipboardList className="w-5 h-5" style={{ color: '#A78BFA' }} />
+          <ClipboardList className="w-5 h-5" style={{ color: 'var(--baw-agent-fg)' }} />
         </div>
         <div>
           <h1 className="text-[22px] font-semibold">
@@ -130,8 +130,8 @@ Timeline de actividad
               onClick={() => setTab(key)}
               className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors"
               style={{
-                backgroundColor: active ? 'rgba(139, 92, 246, 0.15)' : 'var(--baw-surface)',
-                color: active ? '#A78BFA' : 'var(--baw-muted)',
+                backgroundColor: active ? 'var(--baw-agent-bg-2)' : 'var(--baw-surface)',
+                color: active ? 'var(--baw-agent-fg)' : 'var(--baw-muted)',
                 border: `1px solid ${active ? 'rgba(139, 92, 246, 0.4)' : 'var(--baw-border)'}`,
               }}
             >
@@ -154,9 +154,9 @@ Timeline de actividad
                 onClick={() => setTypeFilter(key)}
                 className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors"
                 style={{
-                  backgroundColor: active ? 'rgba(59, 130, 246, 0.15)' : 'var(--baw-surface)',
-                  color: active ? '#60A5FA' : 'var(--baw-muted)',
-                  border: `1px solid ${active ? 'rgba(59, 130, 246, 0.4)' : 'var(--baw-border)'}`,
+                  backgroundColor: active ? 'var(--baw-info-bg-2)' : 'var(--baw-surface)',
+                  color: active ? 'var(--baw-info-fg)' : 'var(--baw-muted)',
+                  border: `1px solid ${active ? 'var(--baw-info-border-strong)' : 'var(--baw-border)'}`,
                 }}
               >
                 {label}
@@ -229,11 +229,11 @@ Timeline de actividad
                         style={{
                           backgroundColor:
                             actorType === 'agent'
-                              ? 'rgba(139, 92, 246, 0.12)'
+                              ? 'var(--baw-agent-bg)'
                               : actorType === 'system'
                               ? 'rgba(139, 139, 149, 0.12)'
-                              : 'rgba(59, 130, 246, 0.12)',
-                          color: actorType === 'agent' ? '#A78BFA' : actorType === 'system' ? '#A0A0AB' : '#60A5FA',
+                              : 'var(--baw-info-bg)',
+                          color: actorType === 'agent' ? 'var(--baw-agent-fg)' : actorType === 'system' ? 'var(--baw-neutral-fg)' : 'var(--baw-info-fg)',
                         }}
                       >
                         {actorType}
@@ -283,7 +283,7 @@ Timeline de actividad
                       >
                         {actorType === 'agent' ? (
                           <>
-                            <span style={{ color: '#A78BFA' }}>Razonamiento: </span>
+                            <span style={{ color: 'var(--baw-agent-fg)' }}>Razonamiento: </span>
                             Acción ejecutada bajo autonomía supervisada. Entidad relacionada {entry.entity_type || 'n/a'}
                             {entry.entity_id ? ` (${entry.entity_id.slice(0, 8)}…)` : ''}. Traza completa disponible en el log del agente.
                           </>
