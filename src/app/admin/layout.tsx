@@ -4,7 +4,7 @@
 // L1 admins de tenant deben usar /settings/account, no /admin.
 
 import { redirect } from 'next/navigation'
-import { isPlatformAdmin } from '@/lib/platform-admin'
+import { getPlatformAdminContext } from '@/lib/platform-admin'
 import Link from 'next/link'
 import { LayoutDashboard, Building2, Users, Server, Activity } from 'lucide-react'
 
@@ -19,8 +19,13 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const ok = await isPlatformAdmin()
-  if (!ok) {
+  const admin = await getPlatformAdminContext()
+
+  if (!admin.email) {
+    redirect('/login?next=/admin')
+  }
+
+  if (!admin.isAdmin) {
     redirect('/?error=forbidden')
   }
 
