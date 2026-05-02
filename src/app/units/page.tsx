@@ -6,12 +6,13 @@
 // hay 2+, columna "Edificio" condicional, filtro real por org_id + building_id.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Building2 } from 'lucide-react'
+import { Plus, Building2, Layers } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Unit, UnitType, UnitStatus } from '@/types'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import UnitModal from './UnitModal'
+import BulkUnitsModal from './BulkUnitsModal'
 import { StatusBadge, type StatusKind } from '@/components/ui/status'
 import { useActiveContext } from '@/lib/useActiveContext'
 
@@ -64,6 +65,11 @@ export default function UnitsPage() {
   const [buildingFilter, setBuildingFilter] = useState<string>(ALL_BUILDINGS)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
+  // Sprint 6 followup #2: bulk generator (Cantidad/Prefijo/Empezar/Tipo)
+  // restaurado del wizard. Solo se habilita cuando hay un building activo
+  // (ALL_BUILDINGS no permite bulk — Supabase requiere building_id NOT NULL).
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkBanner, setBulkBanner] = useState<string | null>(null)
 
   // Buildings de la org activa (lo que el user puede ver/elegir)
   const orgBuildings = useMemo(
@@ -199,14 +205,46 @@ export default function UnitsPage() {
           <h1 className="text-[22px] font-semibold">Unidades</h1>
           <p className="text-[13px] muted-text mt-0.5 truncate">{subtitle}</p>
         </div>
-        <button
-          onClick={handleNew}
-          className="btn-primary flex items-center gap-2 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          Nueva unidad
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/*
+            Sprint 6 followup #2: botón "Generar varias" portado del wizard
+            de onboarding (Cantidad / Prefijo / Empezar en / Tipo). Solo
+            visible cuando hay un building activo en el filtro — sin
+            building_id Supabase rechazaría el insert con NOT NULL.
+          */}
+          {buildingFilter !== ALL_BUILDINGS && (
+            <button
+              onClick={() => setBulkOpen(true)}
+              className="btn-secondary flex items-center gap-2"
+              title="Crear varias unidades a la vez"
+            >
+              <Layers className="w-4 h-4" />
+              Generar varias
+            </button>
+          )}
+          <button
+            onClick={handleNew}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva unidad
+          </button>
+        </div>
       </div>
+
+      {/* Sprint 6 followup #2: banner de éxito tras bulk insert */}
+      {bulkBanner && (
+        <div
+          className="rounded-md px-3 py-2 text-sm"
+          style={{
+            backgroundColor: 'var(--baw-success-bg-soft)',
+            color: 'var(--baw-success-fg)',
+            border: '1px solid var(--baw-success-border)',
+          }}
+        >
+          {bulkBanner}
+        </div>
+      )}
 
       {/* Building selector pills (solo si hay 2+ buildings) */}
       {showBuildingPills && (
@@ -405,6 +443,23 @@ export default function UnitsPage() {
           onClose={() => {
             setModalOpen(false)
             setEditingUnit(null)
+          }}
+        />
+      )}
+
+      {/* Sprint 6 followup #2: bulk modal */}
+      {bulkOpen && activeOrgId && buildingFilter !== ALL_BUILDINGS && (
+        <BulkUnitsModal
+          orgId={activeOrgId}
+          buildingId={buildingFilter}
+          buildingName={activeFilterBuilding?.name ?? null}
+          onClose={() => setBulkOpen(false)}
+          onSuccess={(insertedCount) => {
+            setBulkOpen(false)
+            setBulkBanner(`✓ ${insertedCount} unidades creadas correctamente.`)
+            fetchUnits()
+            // Auto-clear banner tras 4s
+            setTimeout(() => setBulkBanner(null), 4000)
           }}
         />
       )}
