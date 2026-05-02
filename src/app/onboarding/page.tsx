@@ -188,9 +188,26 @@ export default function OnboardingPage() {
 
       {/* Atajos para agregar */}
       <section>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Agregar nuevos activos
-        </h3>
+        <div className="flex items-baseline justify-between mb-3 gap-3">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+            Agregar nuevos activos
+          </h3>
+          {/*
+            Sprint 6 followup: link "Importar masivo" también en el header,
+            además de la card destacada abajo. Para PM Pros con cientos de
+            unidades, agregar uno a uno es un pain — el bulk debe estar
+            visible desde el primer scroll. Antes solo vivía al final como
+            sección separada "Importar datos".
+          */}
+          <Link
+            href="/onboarding/bulk"
+            className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+            style={{ color: 'var(--baw-primary)' }}
+          >
+            <Upload className="w-3 h-3" />
+            Importar masivo (CSV)
+          </Link>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <ShortcutCard
             icon={Building2}
@@ -219,17 +236,55 @@ export default function OnboardingPage() {
         </div>
       </section>
 
-      {/* Importar / Bulk */}
+      {/* Importar / Bulk — card destacada para PM Pros
+          Sprint 6 followup: el wizard de onboarding inicial ya soporta bulk,
+          pero "Configurar cuenta" (post-onboarding) solo permitía 1-a-1, lo
+          cual es un pain para Professional PMs con grandes portafolios.
+          Card de ancho completo + bg destacado para subrayar la opción. */}
       <section>
         <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-          Importar datos
+          Importar masivamente
         </h3>
-        <ShortcutCard
-          icon={Upload}
-          title="Importar unidades desde CSV"
-          description="Carga masiva de unidades, ocupantes y contratos vigentes."
+        <Link
           href="/onboarding/bulk"
-        />
+          className="card p-5 flex items-start justify-between gap-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+          style={{
+            backgroundColor: 'var(--baw-agent-bg-soft)',
+            borderColor: 'var(--baw-agent-border-soft)',
+          }}
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className="flex items-center justify-center w-10 h-10 rounded-md shrink-0"
+              style={{
+                backgroundColor: 'var(--baw-agent-bg)',
+                color: 'var(--baw-primary)',
+              }}
+            >
+              <Upload className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                Importar unidades, propietarios y contratos desde CSV
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Carga masiva con preview, validación por columna y assignment
+                a edificio existente. Recomendado para portafolios con 10+ unidades.
+              </div>
+            </div>
+          </div>
+          <span
+            className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded shrink-0 self-start"
+            style={{
+              backgroundColor: 'var(--baw-agent-bg)',
+              color: 'var(--baw-agent-fg)',
+              border: '1px solid var(--baw-agent-border)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            Bulk
+          </span>
+        </Link>
       </section>
 
       {/* Equipo */}

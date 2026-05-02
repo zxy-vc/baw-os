@@ -23,26 +23,45 @@ export default function SettingsPage() {
 
   async function load(activeOrgId: string) {
     setLoading(true)
-    const { data: sessionData } = await supabase.auth.getSession()
-    const sessionUser = sessionData.session?.user || null
-    setUserId(sessionUser?.id || null)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const sessionUser = sessionData.session?.user || null
+      setUserId(sessionUser?.id || null)
 
-    const [profileRes, orgRes, membersRes] = await Promise.all([
-      sessionUser?.id ? supabase.from('user_profiles').select('*').eq('id', sessionUser.id).maybeSingle() : Promise.resolve({ data: null }),
-      supabase.from('organizations').select('*').eq('id', activeOrgId).single(),
-      supabase.from('org_members').select('*').eq('org_id', activeOrgId).order('created_at'),
-    ])
+      // Sprint 6 followup fix: usar .maybeSingle() en lugar de .single() para
+      // organizations — si por alguna razón el row no existe (org id stale,
+      // RLS niega, etc.) `.single()` rechaza con PGRST116 y deja al usuario
+      // atorado en "Cargando configuración…" para siempre. Con maybeSingle
+      // recibimos `{data: null}` y caemos a la rama vacía en línea de abajo.
+      //
+      // Además envolvemos todo en try/finally: aunque supabase-js no rechaza
+      // por errores de query, otras causas (timeout de red, fallo en
+      // getSession, etc.) sí pueden lanzar. Sin esto, setLoading(false) nunca
+      // se ejecuta y el spinner queda eterno (bug pattern conocido en BaW OS).
+      const [profileRes, orgRes, membersRes] = await Promise.all([
+        sessionUser?.id
+          ? supabase.from('user_profiles').select('*').eq('id', sessionUser.id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase.from('organizations').select('*').eq('id', activeOrgId).maybeSingle(),
+        supabase.from('org_members').select('*').eq('org_id', activeOrgId).order('created_at'),
+      ])
 
-    setProfile({
-      id: sessionUser?.id,
-      full_name: profileRes.data?.full_name || sessionUser?.user_metadata?.full_name || '',
-      phone: profileRes.data?.phone || '',
-      job_title: profileRes.data?.job_title || '',
-      avatar_url: profileRes.data?.avatar_url || '',
-    })
-    setOrganization(orgRes.data || {})
-    setMembers((membersRes.data || []) as OrgMember[])
-    setLoading(false)
+      setProfile({
+        id: sessionUser?.id,
+        full_name: profileRes.data?.full_name || sessionUser?.user_metadata?.full_name || '',
+        phone: profileRes.data?.phone || '',
+        job_title: profileRes.data?.job_title || '',
+        avatar_url: profileRes.data?.avatar_url || '',
+      })
+      setOrganization(orgRes.data || {})
+      setMembers((membersRes.data || []) as OrgMember[])
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Settings: error cargando configuración', err)
+      setMessage(err instanceof Error ? `Error: ${err.message}` : 'Error cargando configuración')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
