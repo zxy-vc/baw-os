@@ -6,7 +6,7 @@
 import { redirect } from 'next/navigation'
 import { getPlatformAdminContext } from '@/lib/platform-admin'
 import Link from 'next/link'
-import { LayoutDashboard, Building2, Users, Server, Activity } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Server, Activity, Map } from 'lucide-react'
 
 export const metadata = {
   title: 'Platform Admin · BaW OS',
@@ -67,6 +67,7 @@ export default async function AdminLayout({
         style={{ borderColor: 'var(--baw-border)' }}
       >
         <AdminTab href="/admin" icon={<LayoutDashboard size={14} />} label="Dashboard" />
+        <AdminTab href="/admin/roadmap" icon={<Map size={14} />} label="Roadmap" />
         <AdminTab href="/admin/tenants" icon={<Building2 size={14} />} label="Tenants" />
         <AdminTab href="/admin/users" icon={<Users size={14} />} label="Usuarios" />
         <AdminTab href="/admin/admins" icon={<Server size={14} />} label="Platform Admins" />

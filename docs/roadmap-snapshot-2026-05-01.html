@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>BaW OS — Roadmap visual</title>
+<style>
+:root{
+  --bg:#0a0a0a; --surface:#111; --surface-2:#1a1a1a;
+  --text:#e8e8e8; --muted:#8a8a8a; --border:#262626;
+  --done:#10b981; --doing:#f59e0b; --backlog:#6b7280; --discarded:#ef4444;
+  --t1:#10b981; --t2:#3b82f6; --t25:#a855f7; --t3:#6b7280; --t4:#f97316; --t5:#dc2626;
+  --accent:#fff;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+  background:var(--bg); color:var(--text); padding:32px 40px;
+  font-size:14px; line-height:1.5;
+}
+h1{font-size:28px; font-weight:700; letter-spacing:-0.02em; margin-bottom:6px}
+h2{font-size:18px; font-weight:600; margin:32px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--border)}
+h3{font-size:14px; font-weight:600; margin-bottom:10px; color:var(--text)}
+.subtitle{color:var(--muted); margin-bottom:24px}
+
+/* Stats summary */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:8px}
+.stat{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px}
+.stat-num{font-size:26px; font-weight:700}
+.stat-lbl{font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-top:4px}
+.stat.done .stat-num{color:var(--done)}
+.stat.doing .stat-num{color:var(--doing)}
+.stat.backlog .stat-num{color:var(--backlog)}
+.stat.total .stat-num{color:var(--accent)}
+
+/* Progress bar */
+.progress-wrap{margin:24px 0 8px}
+.progress-bar{height:10px; background:var(--surface-2); border-radius:6px; overflow:hidden; display:flex; border:1px solid var(--border)}
+.progress-bar > div{height:100%}
+.progress-done{background:var(--done)}
+.progress-doing{background:var(--doing)}
+.progress-backlog{background:var(--backlog)}
+.progress-discarded{background:var(--discarded); opacity:0.4}
+.progress-legend{display:flex; gap:18px; margin-top:8px; font-size:12px; color:var(--muted)}
+.progress-legend span::before{content:"●"; margin-right:6px}
+.legend-done::before{color:var(--done)}
+.legend-doing::before{color:var(--doing)}
+.legend-backlog::before{color:var(--backlog)}
+.legend-discarded::before{color:var(--discarded)}
+
+/* Sprint timeline */
+.timeline{position:relative; margin:20px 0 32px; padding-left:0}
+.sprint-row{display:grid; grid-template-columns:90px 1fr; gap:20px; padding:14px 0; border-bottom:1px solid var(--border)}
+.sprint-row:last-child{border-bottom:none}
+.sprint-label{font-weight:600; color:var(--muted); font-size:12px}
+.sprint-label .name{display:block; color:var(--text); font-size:14px; margin-bottom:2px}
+.sprint-label .status{font-size:10px; text-transform:uppercase; letter-spacing:0.08em; padding:2px 8px; border-radius:4px; display:inline-block}
+.sprint-label .status.done{background:rgba(16,185,129,0.12); color:var(--done)}
+.sprint-label .status.next{background:rgba(245,158,11,0.12); color:var(--doing)}
+.sprint-label .status.future{background:rgba(107,114,128,0.12); color:var(--backlog)}
+.sprint-pills{display:flex; flex-wrap:wrap; gap:6px}
+.pill{padding:4px 10px; background:var(--surface); border:1px solid var(--border); border-radius:6px; font-size:12px}
+.pill .num{color:var(--muted); font-weight:600; margin-right:4px}
+
+/* Kanban */
+.kanban{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:14px}
+.col{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px}
+.col-h{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border)}
+.col-h .count{background:var(--surface-2); padding:2px 8px; border-radius:10px; font-size:11px; color:var(--muted)}
+.card{background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:8px; font-size:13px}
+.card .tier{font-size:10px; text-transform:uppercase; letter-spacing:0.05em; padding:1px 6px; border-radius:3px; display:inline-block; margin-bottom:4px; font-weight:600}
+.tier-t1{background:rgba(16,185,129,0.15); color:var(--t1)}
+.tier-t2{background:rgba(59,130,246,0.15); color:var(--t2)}
+.tier-t25{background:rgba(168,85,247,0.15); color:var(--t25)}
+.tier-t3{background:rgba(107,114,128,0.15); color:var(--t3)}
+.tier-t4{background:rgba(249,115,22,0.15); color:var(--t4)}
+.tier-t5{background:rgba(220,38,38,0.15); color:var(--t5)}
+
+/* Tier breakdown */
+.tier-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:14px}
+.tier-box{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px}
+.tier-box h3{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+.tier-box .progress-bar{height:6px; margin-bottom:12px}
+.tier-list{list-style:none; font-size:12.5px; color:var(--text)}
+.tier-list li{padding:5px 0; border-bottom:1px dashed var(--border); position:relative; padding-left:14px}
+.tier-list li:last-child{border-bottom:none}
+.tier-list li::before{content:"○"; position:absolute; left:0; color:var(--muted)}
+.tier-list li.done::before{content:"●"; color:var(--done)}
+.tier-list li.doing::before{content:"◐"; color:var(--doing)}
+.tier-list li.done{color:var(--muted); text-decoration:line-through}
+
+.next-up{background:linear-gradient(135deg, rgba(245,158,11,0.08), rgba(168,85,247,0.05)); border:1px solid rgba(245,158,11,0.3); border-radius:10px; padding:18px; margin-top:14px}
+.next-up h3{color:var(--doing); margin-bottom:10px}
+.next-up ol{margin-left:18px; font-size:13px}
+.next-up li{margin-bottom:6px}
+
+footer{margin-top:36px; padding-top:16px; border-top:1px solid var(--border); color:var(--muted); font-size:11px; text-align:center}
+</style>
+</head>
+<body>
+
+<h1>BaW OS — Roadmap visual</h1>
+<p class="subtitle">Foto al cierre Sprint 4 · 2026-05-01</p>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat total"><div class="stat-num">100</div><div class="stat-lbl">Features totales</div></div>
+  <div class="stat done"><div class="stat-num">47</div><div class="stat-lbl">Done · 47%</div></div>
+  <div class="stat doing"><div class="stat-num">1</div><div class="stat-lbl">En desarrollo</div></div>
+  <div class="stat backlog"><div class="stat-num">47</div><div class="stat-lbl">Backlog</div></div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-bar">
+    <div class="progress-done" style="width:47%"></div>
+    <div class="progress-doing" style="width:1%"></div>
+    <div class="progress-backlog" style="width:47%"></div>
+    <div class="progress-discarded" style="width:5%"></div>
+  </div>
+  <div class="progress-legend">
+    <span class="legend-done">Done · 47</span>
+    <span class="legend-doing">En desarrollo · 1</span>
+    <span class="legend-backlog">Backlog · 47</span>
+    <span class="legend-discarded">Descartado · 5</span>
+  </div>
+</div>
+
+<!-- Sprint timeline -->
+<h2>Sprints — lo recorrido y lo siguiente</h2>
+<div class="timeline">
+
+  <div class="sprint-row">
+    <div class="sprint-label"><span class="name">Sprint 1-2</span><span class="status done">Done</span></div>
+    <div class="sprint-pills">
+      <span class="pill"><span class="num">UX</span>Skeletons + Empty states + Toast + Modals</span>
+      <span class="pill"><span class="num">UX</span>Sidebar v2 + paleta Vercel</span>
+      <span class="pill"><span class="num">PWA</span>Vista Conserje (PIN + deptos + cobros)</span>
+    </div>
+  </div>
+
+  <div class="sprint-row">
+    <div class="sprint-label"><span class="name">Sprint 3</span><span class="status done">Done</span></div>
+    <div class="sprint-pills">
+      <span class="pill"><span class="num">Core</span>Webhooks + Notificaciones in-app</span>
+      <span class="pill"><span class="num">Core</span>API Docs (17 endpoints)</span>
+      <span class="pill"><span class="num">Core</span>Multi-tenant base</span>
+      <span class="pill"><span class="num">Core</span>Stripe checkout + webhook</span>
+      <span class="pill"><span class="num">Core</span>Channex channel manager</span>
+      <span class="pill"><span class="num">Core</span>Mora 5 niveles + Cotizador STR</span>
+    </div>
+  </div>
+
+  <div class="sprint-row">
+    <div class="sprint-label"><span class="name">Sprint 4</span><span class="status done">Done · 5 PRs</span></div>
+    <div class="sprint-pills">
+      <span class="pill"><span class="num">#14</span>S4-0 Sidebar 6 secciones + SectionTopNav</span>
+      <span class="pill"><span class="num">#15</span>S4-1 Refactor multi-tenant resolveOrgId()</span>
+      <span class="pill"><span class="num">#16</span>S4-1.5 Platform Admin /admin + 3 capas L0/L1/L2</span>
+      <span class="pill"><span class="num">#17</span>S4-2 Owner Portal v2 con login real</span>
+      <span class="pill"><span class="num">#18</span>S4-3 Agente Cobranza v1 + infra 10+1</span>
+      <span class="pill"><span class="num">#27</span>Hardening: AGENTS.md + PR template</span>
+    </div>
+  </div>
+
+  <div class="sprint-row">
+    <div class="sprint-label"><span class="name">Sprint 5</span><span class="status next">Siguiente</span></div>
+    <div class="sprint-pills">
+      <span class="pill"><span class="num">Deuda</span>#20 conserje /[orgSlug]</span>
+      <span class="pill"><span class="num">Deuda</span>#22 webhooks getOrgIdAsync</span>
+      <span class="pill"><span class="num">Deuda</span>#25 owners legacy OWNER_TOKEN</span>
+      <span class="pill"><span class="num">Deuda</span>#19 /admin → /login</span>
+      <span class="pill"><span class="num">Deuda</span>#24 206+ HEX → tokens BaW</span>
+    </div>
+  </div>
+
+  <div class="sprint-row">
+    <div class="sprint-label"><span class="name">Sprint 6+</span><span class="status future">Planeado</span></div>
+    <div class="sprint-pills">
+      <span class="pill"><span class="num">Agents</span>10+1 agentes (5 más)</span>
+      <span class="pill"><span class="num">Agents</span>Handoff UI · Decision trees · Escalation</span>
+      <span class="pill"><span class="num">Comercial</span>WhatsApp → ticket · Unified Inbox</span>
+      <span class="pill"><span class="num">Comercial</span>Pre-contrato /apply · INPC · SPEI</span>
+      <span class="pill"><span class="num">SaaS</span>Billing Stripe · Demo mode · Multi-property dashboard</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Kanban current -->
+<h2>Estado actual · Kanban abreviado</h2>
+<div class="kanban">
+
+  <div class="col">
+    <div class="col-h"><h3>✅ Done</h3><span class="count">47</span></div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Sprint 4 completo (#14-#18)</div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Channel Manager Channex</div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Stripe checkout inquilinos</div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Mora escalamiento 5 niveles</div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Owner Portal v2 con login</div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Vista Conserje PWA</div>
+    <div class="card"><span class="tier tier-t1">T1 MVP</span><br>Cotizador STR + Bulk CSV import</div>
+    <div class="card"><span class="tier tier-t2">T2 Core</span><br>Webhooks + Notificaciones in-app</div>
+    <div class="card"><span class="tier tier-t25">T2.5 Agent</span><br>Audit log con actor field</div>
+    <div class="card"><span class="tier tier-t4">T4 Comercial</span><br>Self check-in digital · Onboarding wizard</div>
+    <div class="card" style="text-align:center; color:var(--muted)">+ 37 features más</div>
+  </div>
+
+  <div class="col">
+    <div class="col-h"><h3>🔨 En desarrollo</h3><span class="count">1</span></div>
+    <div class="card"><span class="tier tier-t25">T2.5 Agent</span><br>S4-3 · Agente Cobranza v1 + infra común agentes (10+1)</div>
+    <div style="margin-top:12px; padding:10px; background:var(--surface-2); border-radius:6px; font-size:12px; color:var(--muted)">
+      <strong style="color:var(--text)">Próximo a entrar:</strong><br>
+      Hardening de deuda Sprint 4 (#19-#25)<br>antes de abrir Sprint 5 funcional.
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="col-h"><h3>📋 Backlog</h3><span class="count">47</span></div>
+    <div class="card"><span class="tier tier-t1">T1 MVP · 4</span><br>Deuda Sprint 4: #19, #20, #22, #25</div>
+    <div class="card"><span class="tier tier-t2">T2 Core · 1</span><br>#24 · Migrar 206+ HEX a tokens</div>
+    <div class="card"><span class="tier tier-t25">T2.5 Agent · 5</span><br>Handoff UI · Decision trees · Escalation rules</div>
+    <div class="card"><span class="tier tier-t3">T3 Backlog · 7</span><br>BaW Public website · Booking engine STR</div>
+    <div class="card"><span class="tier tier-t4">T4 Comercial · 19</span><br>WhatsApp ticket · Pre-contrato · SPEI · INPC · Billing SaaS</div>
+    <div class="card"><span class="tier tier-t5">T5 Escala · 11</span><br>3D Viewer · Smart locks · Community · Compliance</div>
+  </div>
+
+</div>
+
+<!-- Tier deep dive -->
+<h2>Desglose por Tier · qué falta</h2>
+<div class="tier-grid">
+
+  <div class="tier-box">
+    <h3>Tier 1 — MVP <span style="font-size:12px; color:var(--muted); font-weight:400">22 total · 18 done · 4 backlog</span></h3>
+    <div class="progress-bar"><div class="progress-done" style="width:82%"></div><div class="progress-backlog" style="width:18%"></div></div>
+    <ul class="tier-list">
+      <li class="done">Sprint 4 entero (S4-0 a S4-3)</li>
+      <li class="done">+ 14 features Tier 1 anteriores</li>
+      <li>Deuda #20 · /[orgSlug]/conserje (multi-tenant verdadero)</li>
+      <li>Deuda #22 · Webhooks externos getOrgIdAsync</li>
+      <li>Deuda #25 · Migrar owners legacy OWNER_TOKEN</li>
+      <li>Bug #19 · /admin redirige a /login</li>
+    </ul>
+  </div>
+
+  <div class="tier-box">
+    <h3>Tier 2 — Core <span style="font-size:12px; color:var(--muted); font-weight:400">14 total · 13 done · 1 backlog</span></h3>
+    <div class="progress-bar"><div class="progress-done" style="width:93%"></div><div class="progress-backlog" style="width:7%"></div></div>
+    <ul class="tier-list">
+      <li class="done">UX Polish · Webhooks · API Docs · Sidebar v2 · multi-tenant</li>
+      <li>Deuda #24 · Migrar 206+ HEX/rgba a tokens BaW</li>
+    </ul>
+  </div>
+
+  <div class="tier-box">
+    <h3>Tier 2.5 — Agent Ready <span style="font-size:12px; color:var(--muted); font-weight:400">10 total · 4 done · 6 pending</span></h3>
+    <div class="progress-bar"><div class="progress-done" style="width:40%"></div><div class="progress-doing" style="width:10%"></div><div class="progress-backlog" style="width:50%"></div></div>
+    <ul class="tier-list">
+      <li class="done">Audit log + actor field · Task creation API · Onboarding wizard · Conserje PWA</li>
+      <li class="doing">S4-3 · Agente Cobranza v1 (en review)</li>
+      <li>Agent handoff UI (botón "Automatizar esto")</li>
+      <li>Agent decision trees (occupancy/pricing)</li>
+      <li>Automated escalation rules (if X then Y)</li>
+      <li>Escalation rules configurables</li>
+      <li>Handoff protocol configurable</li>
+    </ul>
+  </div>
+
+  <div class="tier-box">
+    <h3>Tier 3 — Backlog <span style="font-size:12px; color:var(--muted); font-weight:400">8 total · 1 done · 7 pending</span></h3>
+    <div class="progress-bar"><div class="progress-done" style="width:13%"></div><div class="progress-backlog" style="width:87%"></div></div>
+    <ul class="tier-list">
+      <li>Bug #21 · /apply public_prefix sin ruta</li>
+      <li>Deuda #23 · Eliminar enum legacy member_role</li>
+      <li>BaW Public — SEO + mobile-first</li>
+      <li>BaW Public — Galería deptos LTR</li>
+      <li>BaW Public — Formulario interés LTR</li>
+      <li>BaW Public — Booking Engine público STR</li>
+      <li>BaW Public — Website STR público</li>
+    </ul>
+  </div>
+
+  <div class="tier-box" style="grid-column:1/-1">
+    <h3>Tier 4 — Comercial <span style="font-size:12px; color:var(--muted); font-weight:400">29 total · 10 done · 19 pending</span></h3>
+    <div class="progress-bar"><div class="progress-done" style="width:34%"></div><div class="progress-backlog" style="width:66%"></div></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px">
+      <ul class="tier-list">
+        <li><strong>Legal/Fiscal:</strong> Acuerdos D201/D303 · INPC + carta convenio · Bitácora inmutable · Notificaciones acuse · Retenciones Airbnb · IVA STR/LTR/MTR</li>
+        <li><strong>Pagos:</strong> SPEI conciliación · P&L por unidad · Mora 12 días alertas</li>
+        <li><strong>Operaciones:</strong> WhatsApp → ticket auto · Mantenimiento ficha técnica · Housekeeping checkout</li>
+      </ul>
+      <ul class="tier-list">
+        <li><strong>UI/UX:</strong> Pre-contrato /apply · Multi-property dashboard · Demo mode</li>
+        <li><strong>Integraciones:</strong> Unified Inbox WhatsApp+OTAs · Mensajería auto WhatsApp · PriceLabs API</li>
+        <li><strong>SaaS:</strong> Billing Stripe (Starter/Pro/Enterprise)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tier-box" style="grid-column:1/-1">
+    <h3>Tier 5 — Escala <span style="font-size:12px; color:var(--muted); font-weight:400">17 total · 1 done · 11 pending · 5 descartados</span></h3>
+    <div class="progress-bar"><div class="progress-done" style="width:6%"></div><div class="progress-backlog" style="width:65%"></div><div class="progress-discarded" style="width:29%"></div></div>
+    <ul class="tier-list">
+      <li><strong>Compliance:</strong> LFPDPPP aviso privacidad (obligatorio antes SaaS externo)</li>
+      <li><strong>SaaS:</strong> Billing module · Demo mode · Sandbox</li>
+      <li><strong>Smart Building:</strong> Smart lock Igloohome/Yale · Moodpad guest controls · 3D Viewer + iOS LiDAR</li>
+      <li><strong>Community:</strong> Guest experience app · Perfil residente + eventos</li>
+      <li><strong>Asset-light:</strong> Management fee module (gestión de terceros)</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- Next up call-out -->
+<div class="next-up">
+  <h3>⚡ Lo más urgente · candidatos a Sprint 5</h3>
+  <ol>
+    <li><strong>Deuda #20</strong> · /(public)/conserje UUID hardcoded → /[orgSlug]/conserje. <em>Bloquea producción multi-tenant verdadera.</em></li>
+    <li><strong>Deuda #22</strong> · Webhooks externos siguen usando shim getOrgIdAsync. <em>Bug si hay 2+ tenants.</em></li>
+    <li><strong>Deuda #25</strong> · Migrar owners legacy del OWNER_TOKEN compartido. <em>Security: token único compartido.</em></li>
+    <li><strong>Bug #19</strong> · /admin redirige a / en lugar de /login. <em>UX confusa.</em></li>
+    <li><strong>Cierre #18</strong> · Mergear Agente Cobranza v1 (en review) + abrir 5 agentes restantes del 10+1.</li>
+  </ol>
+</div>
+
+<footer>
+  Datos: GitHub PRs/Issues · Notion Feature Board (100 features) · AGENTS.md
+</footer>
+
+</body>
+</html>
