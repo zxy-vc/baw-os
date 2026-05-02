@@ -71,12 +71,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
 
-  // Override default body with the email confirmation while keeping cookies.
-  const ok = NextResponse.json({ email: data.user?.email ?? null })
-  // Copy Set-Cookie headers from `response` to `ok` so the browser receives them.
-  response.cookies.getAll().forEach((c) => {
-    ok.cookies.set(c.name, c.value, c)
-  })
-
-  return ok
+  // CRITICAL: do NOT create a new NextResponse and try to copy cookies onto it.
+  // The previous version did `ok.cookies.set(c.name, c.value, c)` where `c`
+  // was the ResponseCookie returned by getAll() — its shape is NOT a valid
+  // CookieOptions (it has `name`, `value`, plus Set-Cookie attributes), and
+  // the third arg ended up half-discarded. Result: the browser sometimes
+  // received cookies missing `path`, `httpOnly`, `sameSite`, etc., or did
+  // not commit them at all → race with the subsequent navigate to /admin.
+  //
+  // Fix: mutate the body of the original `response` (which already has the
+  // correct Set-Cookie headers from the cookie adapter above) and ship it.
+  return NextResponse.json(
+    { ok: true, email: data.user?.email ?? null },
+    { headers: response.headers },
+  )
 }
