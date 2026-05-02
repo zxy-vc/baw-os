@@ -103,8 +103,8 @@ function LoginForm() {
               className="block"
             >
               <path d="M10 82 L60 100 L110 82 L60 64 Z" fill="currentColor" />
-              <path d="M10 58 L60 76 L110 58 L60 40 Z" fill="currentColor" opacity="0.7" />
-              <path d="M10 34 L60 52 L110 34 L60 16 Z" fill="currentColor" opacity="0.5" />
+              <path d="M16 58 L66 76 L116 58 L66 40 Z" fill="currentColor" opacity="0.7" />
+              <path d="M4 34 L54 52 L104 34 L54 16 Z" fill="currentColor" opacity="0.5" />
             </svg>
           </div>
 

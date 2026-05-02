@@ -1,7 +1,13 @@
-// BaW OS — Mark B (Wordmark Explorations v2) — componente reutilizable
+// BaW OS — Mark A (Wordmark Explorations v2) — componente reutilizable
 //
-// 3 placas apiladas sobre eje vertical alineado, leyéndose como un edificio
-// de 3 niveles visto en isométrico. Color hereda de currentColor.
+// 3 placas con desfase pronunciado en X (offsets +6 / -6) que se asume como
+// decisión de diseño: rompe la lectura de "cubo mal dibujado" y comunica
+// capas operativas / floors de software / jerarquía. Color hereda de
+// currentColor.
+//
+// Histórico: durante Sprint 5.5 se probó Mark B (placas alineadas a eje
+// vertical) en /login. Tras verlo en producción se eligió volver a Mark A
+// — el desfase es la voz de la marca.
 //
 // Uso:
 //   <BawMark size={32} />              // mark solo
@@ -44,8 +50,8 @@ export default function BawMark({
         className="block shrink-0"
       >
         <path d="M10 82 L60 100 L110 82 L60 64 Z" fill="currentColor" />
-        <path d="M10 58 L60 76 L110 58 L60 40 Z" fill="currentColor" opacity="0.7" />
-        <path d="M10 34 L60 52 L110 34 L60 16 Z" fill="currentColor" opacity="0.5" />
+        <path d="M16 58 L66 76 L116 58 L66 40 Z" fill="currentColor" opacity="0.7" />
+        <path d="M4 34 L54 52 L104 34 L54 16 Z" fill="currentColor" opacity="0.5" />
       </svg>
 
       {withWordmark && (
