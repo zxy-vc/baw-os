@@ -6,12 +6,18 @@ import { supabase } from '@/lib/supabase'
 
 const PUBLIC_PATHS = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply', '/login']
 
+// Multi-tenant conserje: /<orgSlug>/conserje. Match por segundo segmento.
+function isMultiTenantConserje(pathname: string): boolean {
+  const parts = pathname.split('/').filter(Boolean)
+  return parts.length >= 2 && parts[1] === 'conserje'
+}
+
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [checking, setChecking] = useState(true)
 
-  const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p))
+  const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p)) || isMultiTenantConserje(pathname)
 
   useEffect(() => {
     if (isPublic) { setChecking(false); return }
