@@ -1,17 +1,36 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, IBM_Plex_Mono, Instrument_Serif } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
 
+// BaW Design typography stack — source of truth: design/baw-design/tokens/typography.css
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
 })
 
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
+})
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--font-instrument-serif',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'BaW OS',
   description: 'Property Management System — BaW Design Lab · ZXY Ventures',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -20,7 +39,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={inter.variable} suppressHydrationWarning>
+    <html
+      lang="es"
+      className={`${inter.variable} ${ibmPlexMono.variable} ${instrumentSerif.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
