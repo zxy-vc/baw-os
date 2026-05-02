@@ -236,14 +236,14 @@ export default function UnitsPage() {
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total" value={counts.total} />
-        <StatCard label="Ocupadas" value={counts.occupied} accent="#60A5FA" />
-        <StatCard label="Disponibles" value={counts.vacant} accent="#4ADE80" />
+        <StatCard label="Ocupadas" value={counts.occupied} accent="var(--baw-info-fg)" />
+        <StatCard label="Disponibles" value={counts.vacant} accent="var(--baw-success-fg)" />
         <StatCard
           label="Mantenimiento"
           value={counts.maintenance}
-          accent="#FBBF24"
+          accent="var(--baw-warning-fg)"
         />
-        <StatCard label="Reservadas" value={counts.reserved} accent="#A78BFA" />
+        <StatCard label="Reservadas" value={counts.reserved} accent="var(--baw-agent-fg)" />
       </div>
 
       {/* Filter chips de estado */}
@@ -266,11 +266,11 @@ export default function UnitsPage() {
               className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors"
               style={{
                 backgroundColor: active
-                  ? 'rgba(59, 130, 246, 0.15)'
+                  ? 'var(--baw-info-bg-2)'
                   : 'var(--baw-surface)',
-                color: active ? '#60A5FA' : 'var(--baw-muted)',
+                color: active ? 'var(--baw-info-fg)' : 'var(--baw-muted)',
                 border: `1px solid ${
-                  active ? 'rgba(59, 130, 246, 0.4)' : 'var(--baw-border)'
+                  active ? 'var(--baw-info-border-strong)' : 'var(--baw-border)'
                 }`,
               }}
             >
@@ -459,11 +459,11 @@ function BuildingPill({
       className="px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors flex items-center gap-1.5"
       style={{
         backgroundColor: active
-          ? 'rgba(59, 130, 246, 0.15)'
+          ? 'var(--baw-info-bg-2)'
           : 'var(--baw-surface)',
-        color: active ? '#60A5FA' : 'var(--baw-text)',
+        color: active ? 'var(--baw-info-fg)' : 'var(--baw-text)',
         border: `1px solid ${
-          active ? 'rgba(59, 130, 246, 0.4)' : 'var(--baw-border)'
+          active ? 'var(--baw-info-border-strong)' : 'var(--baw-border)'
         }`,
       }}
     >

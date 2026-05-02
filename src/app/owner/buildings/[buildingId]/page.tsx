@@ -152,9 +152,9 @@ export default async function OwnerBuildingDetail({
 
 function UnitStatusBadge({ status }: { status: string | null }) {
   const map: Record<string, { bg: string; fg: string; border: string; label: string }> = {
-    occupied: { bg: 'rgba(34,197,94,0.15)', fg: '#86EFAC', border: 'rgba(34,197,94,0.3)', label: 'Ocupada' },
+    occupied: { bg: 'var(--baw-success-bg-2)', fg: 'var(--baw-success-fg)', border: 'var(--baw-success-border)', label: 'Ocupada' },
     available: { bg: 'rgba(59,130,246,0.15)', fg: '#93C5FD', border: 'rgba(59,130,246,0.3)', label: 'Disponible' },
-    maintenance: { bg: 'rgba(234,179,8,0.15)', fg: '#FDE68A', border: 'rgba(234,179,8,0.3)', label: 'Mantenimiento' },
+    maintenance: { bg: 'var(--baw-warning-bg-2)', fg: 'var(--baw-warning-fg)', border: 'var(--baw-warning-border)', label: 'Mantenimiento' },
   }
   const s = map[status ?? ''] ?? {
     bg: 'rgba(148,163,184,0.15)',

@@ -222,7 +222,7 @@ export default async function OwnerDashboard() {
               border: '1px solid rgba(234, 179, 8, 0.25)',
             }}
           >
-            <AlertCircle size={18} style={{ color: '#FDE68A' }} />
+            <AlertCircle size={18} style={{ color: 'var(--baw-warning-fg)' }} />
             <div className="flex-1">
               <div
                 className="text-[13px] font-medium"
@@ -240,7 +240,7 @@ export default async function OwnerDashboard() {
               className="text-[12px] px-3 py-1.5 rounded"
               style={{
                 backgroundColor: 'rgba(234, 179, 8, 0.15)',
-                color: '#FDE68A',
+                color: 'var(--baw-warning-fg)',
                 border: '1px solid rgba(234, 179, 8, 0.3)',
               }}
             >

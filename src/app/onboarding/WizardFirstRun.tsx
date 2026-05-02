@@ -466,7 +466,7 @@ export default function WizardFirstRun() {
                 className="flex items-center gap-2 px-5 py-2 rounded-md text-[13px] font-medium"
                 style={{
                   backgroundColor: 'var(--baw-primary)',
-                  color: '#fff',
+                  color: 'var(--baw-on-primary)',
                 }}
               >
                 Continuar
@@ -480,7 +480,7 @@ export default function WizardFirstRun() {
                 className="flex items-center gap-2 px-5 py-2 rounded-md text-[13px] font-medium"
                 style={{
                   backgroundColor: 'var(--baw-primary)',
-                  color: '#fff',
+                  color: 'var(--baw-on-primary)',
                   opacity: submitting ? 0.6 : 1,
                   cursor: submitting ? 'wait' : 'pointer',
                 }}
@@ -515,10 +515,10 @@ function Stepper({ currentStep }: { currentStep: number }) {
                 backgroundColor: active
                   ? 'var(--baw-primary)'
                   : done
-                  ? 'rgba(74, 222, 128, 0.15)'
+                  ? 'var(--baw-success-bg-2)'
                   : 'var(--baw-surface)',
                 border: '1px solid var(--baw-border)',
-                color: active ? '#fff' : done ? '#86efac' : 'var(--baw-muted)',
+                color: active ? 'var(--baw-on-primary)' : done ? 'var(--baw-success-fg)' : 'var(--baw-muted)',
               }}
             >
               {done ? <CheckCircle2 size={16} /> : <Icon size={16} />}
@@ -904,7 +904,7 @@ function StepUnits({
                       <button
                         type="button"
                         onClick={() => removeUnit(idx)}
-                        style={{ color: '#f87171' }}
+                        style={{ color: 'var(--baw-danger-fg)' }}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1117,8 +1117,8 @@ function StepDone({
       <div
         className="w-14 h-14 rounded-full mx-auto flex items-center justify-center mb-4"
         style={{
-          backgroundColor: 'rgba(74, 222, 128, 0.15)',
-          color: '#86efac',
+          backgroundColor: 'var(--baw-success-bg-2)',
+          color: 'var(--baw-success-fg)',
         }}
       >
         <CheckCircle2 size={28} />
@@ -1139,7 +1139,7 @@ function StepDone({
         type="button"
         onClick={onContinue}
         className="mt-6 px-5 py-2 rounded-md text-[13px] font-medium"
-        style={{ backgroundColor: 'var(--baw-primary)', color: '#fff' }}
+        style={{ backgroundColor: 'var(--baw-primary)', color: 'var(--baw-on-primary)' }}
       >
         Ir a Mission Control
       </button>
@@ -1176,7 +1176,7 @@ function Field({
     <label className="block">
       <span className="text-[12px] font-medium block mb-1.5">
         {label}
-        {required && <span style={{ color: '#f87171' }}> *</span>}
+        {required && <span style={{ color: 'var(--baw-danger-fg)' }}> *</span>}
       </span>
       {children}
       {hint && (

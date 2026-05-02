@@ -33,112 +33,114 @@ type StatusStyle = {
   outline?: boolean
 }
 
+// Sprint 5 / fix #24: HEX/rgba migrados a tokens var(--baw-*) definidos en globals.css.
+// Mantiene paleta visual idéntica al diseño Sprint 3 pero centraliza para theming tenant futuro.
 const STATUS_MAP: Record<StatusKind, StatusStyle> = {
   suggested_by_agent: {
     label: 'Suggested',
     bg: 'transparent',
-    color: '#A78BFA',
-    border: 'rgba(139, 92, 246, 0.5)',
+    color: 'var(--baw-agent-fg)',
+    border: 'var(--baw-agent-border-strong)',
     outline: true,
   },
   pending_approval: {
     label: 'Pending Approval',
-    bg: 'rgba(245, 158, 11, 0.15)',
-    color: '#FBBF24',
-    border: 'rgba(245, 158, 11, 0.3)',
+    bg: 'var(--baw-warning-bg-2)',
+    color: 'var(--baw-warning-fg)',
+    border: 'var(--baw-warning-border)',
   },
   approved: {
     label: 'Approved',
     bg: 'transparent',
-    color: '#60A5FA',
-    border: 'rgba(59, 130, 246, 0.5)',
+    color: 'var(--baw-info-fg)',
+    border: 'var(--baw-info-border-strong)',
     outline: true,
   },
   executing: {
     label: 'Executing',
-    bg: 'rgba(59, 130, 246, 0.15)',
-    color: '#60A5FA',
-    border: 'rgba(59, 130, 246, 0.3)',
+    bg: 'var(--baw-info-bg-2)',
+    color: 'var(--baw-info-fg)',
+    border: 'var(--baw-info-border)',
     pulse: true,
   },
   completed: {
     label: 'Completed',
-    bg: 'rgba(34, 197, 94, 0.15)',
-    color: '#4ADE80',
-    border: 'rgba(34, 197, 94, 0.3)',
+    bg: 'var(--baw-success-bg-2)',
+    color: 'var(--baw-success-fg)',
+    border: 'var(--baw-success-border)',
   },
   escalated: {
     label: 'Escalated',
-    bg: 'rgba(249, 115, 22, 0.15)',
-    color: '#FB923C',
-    border: 'rgba(249, 115, 22, 0.3)',
+    bg: 'var(--baw-orange-bg)',
+    color: 'var(--baw-orange-fg)',
+    border: 'var(--baw-orange-border)',
   },
   blocked: {
     label: 'Blocked',
     bg: 'transparent',
-    color: '#F87171',
-    border: 'rgba(239, 68, 68, 0.5)',
+    color: 'var(--baw-danger-fg)',
+    border: 'rgba(239, 68, 68, 0.50)',
     outline: true,
   },
   failed: {
     label: 'Failed',
-    bg: 'rgba(239, 68, 68, 0.15)',
-    color: '#F87171',
-    border: 'rgba(239, 68, 68, 0.3)',
+    bg: 'var(--baw-danger-bg-2)',
+    color: 'var(--baw-danger-fg)',
+    border: 'var(--baw-danger-border)',
   },
   paid: {
     label: 'Paid',
-    bg: 'rgba(34, 197, 94, 0.1)',
-    color: '#4ADE80',
-    border: 'rgba(34, 197, 94, 0.25)',
+    bg: 'var(--baw-success-bg-soft)',
+    color: 'var(--baw-success-fg)',
+    border: 'var(--baw-success-border-soft)',
   },
   pending: {
     label: 'Pending',
-    bg: 'rgba(245, 158, 11, 0.1)',
-    color: '#FBBF24',
-    border: 'rgba(245, 158, 11, 0.25)',
+    bg: 'var(--baw-warning-bg-soft)',
+    color: 'var(--baw-warning-fg)',
+    border: 'var(--baw-warning-border-soft)',
   },
   late: {
     label: 'Late',
-    bg: 'rgba(239, 68, 68, 0.1)',
-    color: '#F87171',
-    border: 'rgba(239, 68, 68, 0.25)',
+    bg: 'var(--baw-danger-bg-soft)',
+    color: 'var(--baw-danger-fg)',
+    border: 'var(--baw-danger-border-soft)',
   },
   active: {
     label: 'Active',
-    bg: 'rgba(34, 197, 94, 0.1)',
-    color: '#4ADE80',
-    border: 'rgba(34, 197, 94, 0.25)',
+    bg: 'var(--baw-success-bg-soft)',
+    color: 'var(--baw-success-fg)',
+    border: 'var(--baw-success-border-soft)',
   },
   expired: {
     label: 'Expired',
-    bg: 'rgba(139, 139, 149, 0.08)',
-    color: '#A0A0AB',
-    border: 'rgba(139, 139, 149, 0.2)',
+    bg: 'var(--baw-neutral-bg-soft)',
+    color: 'var(--baw-neutral-fg)',
+    border: 'var(--baw-neutral-border-soft)',
   },
   occupied: {
     label: 'Occupied',
-    bg: 'rgba(59, 130, 246, 0.1)',
-    color: '#60A5FA',
-    border: 'rgba(59, 130, 246, 0.25)',
+    bg: 'var(--baw-info-bg-soft)',
+    color: 'var(--baw-info-fg)',
+    border: 'var(--baw-info-border-soft)',
   },
   available: {
     label: 'Available',
-    bg: 'rgba(34, 197, 94, 0.1)',
-    color: '#4ADE80',
-    border: 'rgba(34, 197, 94, 0.25)',
+    bg: 'var(--baw-success-bg-soft)',
+    color: 'var(--baw-success-fg)',
+    border: 'var(--baw-success-border-soft)',
   },
   maintenance: {
     label: 'Maintenance',
-    bg: 'rgba(245, 158, 11, 0.1)',
-    color: '#FBBF24',
-    border: 'rgba(245, 158, 11, 0.25)',
+    bg: 'var(--baw-warning-bg-soft)',
+    color: 'var(--baw-warning-fg)',
+    border: 'var(--baw-warning-border-soft)',
   },
   reserved: {
     label: 'Reserved',
-    bg: 'rgba(139, 92, 246, 0.1)',
-    color: '#A78BFA',
-    border: 'rgba(139, 92, 246, 0.25)',
+    bg: 'var(--baw-agent-bg-soft)',
+    color: 'var(--baw-agent-fg)',
+    border: 'var(--baw-agent-border-soft)',
   },
 }
 
@@ -192,9 +194,9 @@ export function AgentBadge({
         className
       )}
       style={{
-        backgroundColor: 'rgba(139, 92, 246, 0.12)',
-        color: '#A78BFA',
-        border: '1px solid rgba(139, 92, 246, 0.3)',
+        backgroundColor: 'var(--baw-agent-bg)',
+        color: 'var(--baw-agent-fg)',
+        border: '1px solid var(--baw-agent-border)',
       }}
     >
       <Bot className="w-3 h-3" />
@@ -210,27 +212,27 @@ export type Priority = 'critical' | 'high' | 'medium' | 'low'
 const PRIORITY_MAP: Record<Priority, { label: string; color: string; bg: string; border: string }> = {
   critical: {
     label: 'Critical',
-    color: '#F87171',
-    bg: 'rgba(239, 68, 68, 0.15)',
+    color: 'var(--baw-danger-fg)',
+    bg: 'var(--baw-danger-bg-2)',
     border: 'rgba(239, 68, 68, 0.35)',
   },
   high: {
     label: 'High',
-    color: '#FB923C',
-    bg: 'rgba(249, 115, 22, 0.15)',
-    border: 'rgba(249, 115, 22, 0.3)',
+    color: 'var(--baw-orange-fg)',
+    bg: 'var(--baw-orange-bg)',
+    border: 'var(--baw-orange-border)',
   },
   medium: {
     label: 'Medium',
-    color: '#FBBF24',
-    bg: 'rgba(245, 158, 11, 0.12)',
-    border: 'rgba(245, 158, 11, 0.25)',
+    color: 'var(--baw-warning-fg)',
+    bg: 'var(--baw-warning-bg)',
+    border: 'var(--baw-warning-border-soft)',
   },
   low: {
     label: 'Low',
-    color: '#A0A0AB',
-    bg: 'rgba(139, 139, 149, 0.1)',
-    border: 'rgba(139, 139, 149, 0.25)',
+    color: 'var(--baw-neutral-fg)',
+    bg: 'var(--baw-neutral-bg)',
+    border: 'var(--baw-neutral-border)',
   },
 }
 
@@ -271,12 +273,17 @@ export function ConfidenceBar({
   showLabel?: boolean
 }) {
   const pct = Math.max(0, Math.min(100, value))
-  const color = pct >= 90 ? '#22C55E' : pct >= 70 ? '#F59E0B' : '#EF4444'
+  const color =
+    pct >= 90
+      ? 'var(--baw-success)'
+      : pct >= 70
+      ? 'var(--baw-warning)'
+      : 'var(--baw-danger)'
   return (
     <div className={cn('flex items-center gap-2 min-w-[80px]', className)}>
       <div
         className="flex-1 h-1.5 rounded-full overflow-hidden"
-        style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+        style={{ backgroundColor: 'var(--baw-overlay-on-dark)' }}
       >
         <div
           className="h-full rounded-full transition-all"
@@ -326,9 +333,9 @@ export function ActorAvatar({
         className={cn('inline-flex items-center justify-center rounded-full font-semibold', className)}
         style={{
           ...dim,
-          backgroundColor: 'rgba(59, 130, 246, 0.15)',
-          color: '#60A5FA',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
+          backgroundColor: 'var(--baw-info-bg-2)',
+          color: 'var(--baw-info-fg)',
+          border: '1px solid var(--baw-info-border)',
         }}
       >
         {initials}
@@ -342,8 +349,8 @@ export function ActorAvatar({
         className={cn('inline-flex items-center justify-center rounded-md font-semibold', className)}
         style={{
           ...dim,
-          backgroundColor: 'rgba(139, 92, 246, 0.15)',
-          color: '#A78BFA',
+          backgroundColor: 'var(--baw-agent-bg-2)',
+          color: 'var(--baw-agent-fg)',
           border: '1px solid rgba(139, 92, 246, 0.35)',
         }}
       >
@@ -368,9 +375,9 @@ export function ActorAvatar({
       className={cn('inline-flex items-center justify-center rounded-md', className)}
       style={{
         ...dim,
-        backgroundColor: 'rgba(139, 139, 149, 0.15)',
-        color: '#A0A0AB',
-        border: '1px solid rgba(139, 139, 149, 0.3)',
+        backgroundColor: 'var(--baw-neutral-bg-2, rgba(139, 139, 149, 0.15))',
+        color: 'var(--baw-neutral-fg)',
+        border: '1px solid var(--baw-neutral-border)',
       }}
     >
       <Settings2 style={{ width: size * 0.5, height: size * 0.5 }} />
@@ -410,7 +417,7 @@ export function KPICard({
     : 'var(--baw-border)'
 
   const deltaPositive = (delta ?? 0) >= 0
-  const deltaColor = deltaPositive ? '#4ADE80' : '#F87171'
+  const deltaColor = deltaPositive ? 'var(--baw-success-fg)' : 'var(--baw-danger-fg)'
   const DeltaIcon = deltaPositive ? ArrowUp : ArrowDown
 
   return (
@@ -428,7 +435,7 @@ export function KPICard({
         {(warning || critical) && (
           <AlertTriangle
             className="w-3.5 h-3.5"
-            style={{ color: critical ? '#F87171' : '#FBBF24' }}
+            style={{ color: critical ? 'var(--baw-danger-fg)' : 'var(--baw-warning-fg)' }}
           />
         )}
       </div>
@@ -436,7 +443,7 @@ export function KPICard({
         <span
           className="text-[24px] font-semibold leading-none tabular-nums"
           style={{
-            color: accent === 'agent' ? '#A78BFA' : 'var(--baw-text)',
+            color: accent === 'agent' ? 'var(--baw-agent-fg)' : 'var(--baw-text)',
           }}
         >
           {value}

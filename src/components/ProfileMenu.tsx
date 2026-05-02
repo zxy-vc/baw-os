@@ -141,8 +141,8 @@ export default function ProfileMenu() {
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center justify-center w-8 h-8 rounded-full text-[12px] font-semibold overflow-hidden"
         style={{
-          backgroundColor: 'rgba(59, 130, 246, 0.15)',
-          color: '#60A5FA',
+          backgroundColor: 'var(--baw-info-bg-2)',
+          color: 'var(--baw-info-fg)',
           border: '1px solid rgba(59, 130, 246, 0.3)',
         }}
         title={displayName}
@@ -237,7 +237,7 @@ export default function ProfileMenu() {
                   Platform Admin
                   <span
                     className="ml-auto text-[9px] uppercase tracking-wider"
-                    style={{ color: '#FCA5A5' }}
+                    style={{ color: 'var(--baw-danger-fg)' }}
                   >
                     L0
                   </span>
@@ -318,7 +318,7 @@ function ThemeButton({
       onClick={onClick}
       className="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-md text-[10px]"
       style={{
-        backgroundColor: active ? 'rgba(59,130,246,0.12)' : 'transparent',
+        backgroundColor: active ? 'var(--baw-info-bg)' : 'transparent',
         border: active
           ? '1px solid var(--baw-primary)'
           : '1px solid var(--baw-border)',

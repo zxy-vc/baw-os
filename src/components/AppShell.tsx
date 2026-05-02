@@ -107,14 +107,14 @@ function GlobalHeader({ pathname }: { pathname: string }) {
           <span
             className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium"
             style={{
-              backgroundColor: 'rgba(34, 197, 94, 0.1)',
-              color: '#4ADE80',
+              backgroundColor: 'var(--baw-success-bg-soft)',
+              color: 'var(--baw-success-fg)',
               border: '1px solid rgba(34, 197, 94, 0.25)',
             }}
           >
             <span
               className="w-1.5 h-1.5 rounded-full animate-pulse-soft"
-              style={{ backgroundColor: '#22C55E' }}
+              style={{ backgroundColor: 'var(--baw-success)' }}
             />
             Live
           </span>
@@ -157,7 +157,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
                 className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full px-1 text-[10px] font-semibold leading-none flex items-center justify-center tabular-nums"
                 style={{
                   backgroundColor: 'var(--baw-danger)',
-                  color: '#FFFFFF',
+                  color: 'var(--baw-on-primary)',
                 }}
               >
                 {unread > 99 ? '99+' : unread}

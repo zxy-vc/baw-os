@@ -57,6 +57,64 @@ html.dark {
   --baw-success:      var(--green-500);
   --baw-warning:      var(--amber-500);
   --baw-danger:       var(--red-500);
+
+  /* ── Status tokens (Sprint 5 / fix #24) ─────────────────────────────
+     Tokens semanticos para los badges de status/priority/actor. Mantienen
+     los HEX legacy exactos para no romper visualmente, pero centralizados
+     aqui para soportar theming tenant futuro. */
+  --baw-success-fg:    #4ADE80;
+  --baw-success-bg:    rgba(34, 197, 94, 0.12);
+  --baw-success-bg-2:  rgba(34, 197, 94, 0.15);
+  --baw-success-bg-soft: rgba(34, 197, 94, 0.10);
+  --baw-success-border: rgba(34, 197, 94, 0.30);
+  --baw-success-border-soft: rgba(34, 197, 94, 0.25);
+
+  --baw-warning-fg:    #FBBF24;
+  --baw-warning-bg:    rgba(245, 158, 11, 0.12);
+  --baw-warning-bg-2:  rgba(245, 158, 11, 0.15);
+  --baw-warning-bg-soft: rgba(245, 158, 11, 0.10);
+  --baw-warning-border: rgba(245, 158, 11, 0.30);
+  --baw-warning-border-soft: rgba(245, 158, 11, 0.25);
+
+  --baw-danger-fg:     #F87171;
+  --baw-danger-bg:     rgba(239, 68, 68, 0.12);
+  --baw-danger-bg-2:   rgba(239, 68, 68, 0.15);
+  --baw-danger-bg-soft: rgba(239, 68, 68, 0.10);
+  --baw-danger-border: rgba(239, 68, 68, 0.35);
+  --baw-danger-border-soft: rgba(239, 68, 68, 0.25);
+
+  --baw-info-fg:       #60A5FA;
+  --baw-info-bg:       rgba(59, 130, 246, 0.12);
+  --baw-info-bg-2:     rgba(59, 130, 246, 0.15);
+  --baw-info-bg-soft:  rgba(59, 130, 246, 0.10);
+  --baw-info-border:   rgba(59, 130, 246, 0.30);
+  --baw-info-border-soft: rgba(59, 130, 246, 0.25);
+  --baw-info-border-strong: rgba(59, 130, 246, 0.50);
+
+  --baw-agent-fg:      #A78BFA;
+  --baw-agent-bg:      rgba(139, 92, 246, 0.12);
+  --baw-agent-bg-2:    rgba(139, 92, 246, 0.15);
+  --baw-agent-bg-soft: rgba(139, 92, 246, 0.10);
+  --baw-agent-border:  rgba(139, 92, 246, 0.30);
+  --baw-agent-border-soft: rgba(139, 92, 246, 0.25);
+  --baw-agent-border-strong: rgba(139, 92, 246, 0.50);
+
+  --baw-orange-fg:     #FB923C;
+  --baw-orange-bg:     rgba(249, 115, 22, 0.15);
+  --baw-orange-border: rgba(249, 115, 22, 0.30);
+
+  --baw-neutral-fg:    #A0A0AB;
+  --baw-neutral-bg:    rgba(139, 139, 149, 0.10);
+  --baw-neutral-bg-soft: rgba(139, 139, 149, 0.08);
+  --baw-neutral-border: rgba(139, 139, 149, 0.25);
+  --baw-neutral-border-soft: rgba(139, 139, 149, 0.20);
+
+  --baw-overlay-on-dark: rgba(255, 255, 255, 0.08);
+
+  /* Sidebar chrome (oscuro siempre, independiente del modo de la app) */
+  --baw-sidebar-bg:     #0F0F12;
+  --baw-sidebar-border: #2A2A32;
+  --baw-on-primary:     #FFFFFF;
 }
 
 /* ── Modo light ─────────────────────────────────────────────────────── */

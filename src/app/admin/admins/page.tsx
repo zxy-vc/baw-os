@@ -87,11 +87,11 @@ export default async function PlatformAdminsPage() {
                     className="px-1.5 py-0.5 text-[10px] rounded uppercase tracking-wider"
                     style={{
                       backgroundColor: a.user_id
-                        ? 'rgba(34,197,94,0.15)'
-                        : 'rgba(234,179,8,0.15)',
-                      color: a.user_id ? '#86EFAC' : '#FDE68A',
+                        ? 'var(--baw-success-bg-2)'
+                        : 'var(--baw-warning-bg-2)',
+                      color: a.user_id ? 'var(--baw-success-fg)' : 'var(--baw-warning-fg)',
                       border: `1px solid ${
-                        a.user_id ? 'rgba(34,197,94,0.3)' : 'rgba(234,179,8,0.3)'
+                        a.user_id ? 'var(--baw-success-border)' : 'var(--baw-warning-border)'
                       }`,
                     }}
                   >
