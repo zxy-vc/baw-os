@@ -30,6 +30,14 @@ Un PMS (Property Management System) construido para el futuro de la operación i
 
 ## Documentación
 
+### Para agentes (Claude Code, Codex, Cursor, Computer)
+- 🤖 [`AGENTS.md`](./AGENTS.md) — **Léelo primero.** Protocolo operacional canónico.
+- 🤖 [`CLAUDE.md`](./CLAUDE.md) — Específico de Claude Code.
+- 📊 [`docs/PROJECT_STATE.md`](./docs/PROJECT_STATE.md) — Estado vivo del sprint actual.
+- 🚀 [`docs/MIGRATION_GUIDE.md`](./docs/MIGRATION_GUIDE.md) — Cómo arrancar en cada plataforma.
+- 🤝 [`docs/COLAB_ANDRES.md`](./docs/COLAB_ANDRES.md) — Protocolo de colaboración con Andrés CTO.
+
+### Producto y datos
 - 📋 [PRD v0.1](./docs/PRD.md) — Product Requirements Document completo
 - 🗄️ [Schema SQL](./docs/schema.sql) — Estructura de base de datos
 
