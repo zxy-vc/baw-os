@@ -62,11 +62,34 @@ async function loadData() {
   return { agents: (agentsData || []) as AgentRow[], runs, orgId }
 }
 
+// Modelo de agentes según Roster v0.2 (Notion canónico):
+//   - baw-coord: BaW Coordinador (cara única del workforce)
+//   - ops-core: Operaciones Core (Cobranza, Facturación, Mantenimiento) — Tier Starter+
+//   - experiencia: Experiencia (Atención, Reservas, Tarifas, Renovaciones) — Tier Professional+
+//   - inteligencia: Inteligencia (Reportes, Auditoría, Fiscal) — Tier Enterprise/Max
+//   - third-party: Third Party Operations (agentes externos conectables — ZXY Agent OS)
 const FAMILY_LABEL: Record<string, string> = {
   'baw-coord': 'BaW · Coordinador',
-  'pm-ops': 'PM Operations',
-  'zxy-shared': 'ZXY Shared',
+  'ops-core': 'Operaciones Core',
+  'experiencia': 'Experiencia',
+  'inteligencia': 'Inteligencia',
+  'third-party': 'Third Party Operations',
+  // Legacy alias durante migración
+  'pm-ops': 'PM Operations (legacy)',
+  'zxy-shared': 'Third Party Operations',
 }
+
+const FAMILY_DESC: Record<string, string> = {
+  'baw-coord': 'Cara única del workforce. Coordina los 10 especialistas, recibe todos los inputs del PM.',
+  'ops-core': 'Tier Starter+ · Cobro, facturación y operación del edificio',
+  'experiencia': 'Tier Professional+ · Comunicación, captación y ciclo de vida del residente',
+  'inteligencia': 'Tier Enterprise/Max · Reporting, governance y compliance',
+  'third-party': 'Agentes externos conectables (ZXY Agent OS, otros proveedores). No son parte del producto BaW OS.',
+  'pm-ops': 'Familia legacy — migrada a escuadrones',
+  'zxy-shared': 'Agentes externos conectables (ZXY, otros proveedores)',
+}
+
+const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 'third-party', 'pm-ops', 'zxy-shared']
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
@@ -126,18 +149,27 @@ export default async function AgentsPage() {
           Agentes
         </h1>
         <p className="text-[12px]" style={{ color: 'var(--baw-muted)' }}>
-          10+1 agentes BaW OS · BaW coordinador + 4 PM-Ops + 6 ZXY shared. v1: Cobranza dunning.
+          BaW + 10 especialistas en 3 escuadrones (Operaciones Core · Experiencia · Inteligencia) + Third Party. Roster v0.2. v1: Cobranza dunning.
         </p>
       </div>
 
-      {Object.entries(grouped).map(([family, list]) => (
+      {Object.entries(grouped)
+        .sort(([a], [b]) => FAMILY_ORDER.indexOf(a) - FAMILY_ORDER.indexOf(b))
+        .map(([family, list]) => (
         <section key={family}>
-          <h2
-            className="text-[14px] font-semibold mb-3 uppercase tracking-wider"
-            style={{ color: 'var(--baw-muted)' }}
-          >
-            {FAMILY_LABEL[family] || family}
-          </h2>
+          <div className="mb-3">
+            <h2
+              className="text-[14px] font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--baw-muted)' }}
+            >
+              {FAMILY_LABEL[family] || family}
+            </h2>
+            {FAMILY_DESC[family] && (
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--baw-faint)' }}>
+                {FAMILY_DESC[family]}
+              </p>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {list.map((a) => {
               const isImpl = implemented.has(a.id)
