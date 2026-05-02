@@ -21,6 +21,17 @@
    ──────────────────────────────────────────────────────────────────────── */
 
 /* ── Modo dark (default) ─────────────────────────────────────────────── */
+:root {
+  /* BaW Design typography aliases — source of truth: layout.tsx        */
+  /* Las next/font variables (--font-inter, --font-ibm-plex-mono,        */
+  /* --font-instrument-serif) viven en <html>. Aquí las re-exponemos     */
+  /* con nombres semánticos para que el resto del código use --font-sans */
+  /* / --font-mono / --font-display sin acoplarse al nombre familia.     */
+  --font-sans:    var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono:    var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display: var(--font-instrument-serif), Georgia, 'Times New Roman', serif;
+}
+
 :root,
 html.dark {
   /* Activamos el scope canónico --dark como variables semánticas */
