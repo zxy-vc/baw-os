@@ -92,21 +92,19 @@ function LoginForm() {
         {/* Mark + wordmark */}
         <div className="flex flex-col items-center mb-12">
           <div className="text-[--baw-text] mb-5">
-            {/* Mark: 02 Cube — 3 caras isométricas alineadas (design/baw-design/references/Mark Final.html) */}
+            {/* Mark · B — Alineado a cubo (3 placas apiladas sobre eje vertical) */}
+            {/* design/baw-design/references/Wordmark Explorations v2.html */}
             <svg
-              viewBox="0 0 240 240"
+              viewBox="0 0 120 120"
               width="56"
               height="56"
               fill="none"
               aria-label="BaW"
               className="block"
             >
-              {/* top */}
-              <path d="M120 40 L200 80 L120 120 L40 80 Z" fill="currentColor" opacity="0.55" />
-              {/* left */}
-              <path d="M40 80 L120 120 L120 200 L40 160 Z" fill="currentColor" opacity="0.8" />
-              {/* right */}
-              <path d="M200 80 L120 120 L120 200 L200 160 Z" fill="currentColor" />
+              <path d="M10 82 L60 100 L110 82 L60 64 Z" fill="currentColor" />
+              <path d="M10 58 L60 76 L110 58 L60 40 Z" fill="currentColor" opacity="0.7" />
+              <path d="M10 34 L60 52 L110 34 L60 16 Z" fill="currentColor" opacity="0.5" />
             </svg>
           </div>
 
