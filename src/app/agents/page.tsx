@@ -62,11 +62,26 @@ async function loadData() {
   return { agents: (agentsData || []) as AgentRow[], runs, orgId }
 }
 
+// Modelo de agentes (decisión Fran 2026-05-02):
+//   - baw-coord: BaW Coordinador (agente principal del producto)
+//   - pm-ops: PM Operations (agentes nativos del producto BaW OS)
+//   - third-party: Third Party Operations (agentes externos conectables — ZXY entra aquí)
 const FAMILY_LABEL: Record<string, string> = {
   'baw-coord': 'BaW · Coordinador',
   'pm-ops': 'PM Operations',
-  'zxy-shared': 'ZXY Shared',
+  'third-party': 'Third Party Operations',
+  // Legacy alias durante migración
+  'zxy-shared': 'Third Party Operations',
 }
+
+const FAMILY_DESC: Record<string, string> = {
+  'baw-coord': 'Orquestador raíz del sistema',
+  'pm-ops': 'Agentes nativos del producto BaW OS',
+  'third-party': 'Agentes externos conectables (ZXY, otros proveedores)',
+  'zxy-shared': 'Agentes externos conectables (ZXY, otros proveedores)',
+}
+
+const FAMILY_ORDER = ['baw-coord', 'pm-ops', 'third-party', 'zxy-shared']
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
@@ -126,18 +141,27 @@ export default async function AgentsPage() {
           Agentes
         </h1>
         <p className="text-[12px]" style={{ color: 'var(--baw-muted)' }}>
-          10+1 agentes BaW OS · BaW coordinador + 4 PM-Ops + 6 ZXY shared. v1: Cobranza dunning.
+          BaW Coordinador + PM Operations (nativos) + Third Party Operations (conectables). v1: Cobranza dunning.
         </p>
       </div>
 
-      {Object.entries(grouped).map(([family, list]) => (
+      {Object.entries(grouped)
+        .sort(([a], [b]) => FAMILY_ORDER.indexOf(a) - FAMILY_ORDER.indexOf(b))
+        .map(([family, list]) => (
         <section key={family}>
-          <h2
-            className="text-[14px] font-semibold mb-3 uppercase tracking-wider"
-            style={{ color: 'var(--baw-muted)' }}
-          >
-            {FAMILY_LABEL[family] || family}
-          </h2>
+          <div className="mb-3">
+            <h2
+              className="text-[14px] font-semibold uppercase tracking-wider"
+              style={{ color: 'var(--baw-muted)' }}
+            >
+              {FAMILY_LABEL[family] || family}
+            </h2>
+            {FAMILY_DESC[family] && (
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--baw-faint)' }}>
+                {FAMILY_DESC[family]}
+              </p>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {list.map((a) => {
               const isImpl = implemented.has(a.id)
