@@ -11,6 +11,7 @@ import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
+import BawGrid from '@/components/BawGrid'
 import { findSection } from '@/lib/navigation'
 
 // Sprint 4 / S4-0 + S4-1.5: estos prefijos son rutas públicas con su propio
@@ -197,6 +198,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <ToastProvider>
         <AuthGuard>
+          {/*
+            Sprint 6 followup: retícula BaW homologada a TODA la plataforma.
+            Antes solo se veía en /login. Va `fixed` al viewport detrás de
+            todo (z=0, pointer-events-none) y opacity theme-aware via CSS
+            var --baw-grid-opacity (0.045 dark / 0.07 light).
+          */}
+          <BawGrid position="fixed" />
           <Sidebar />
           {/*
             Sprint 3 / S7: el `paddingLeft` del main lee el CSS var
@@ -212,8 +220,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             así que el contenido debe ocupar 100% del ancho. La var
             `--sidebar-effective-width` se aplica solo desde `md`.
           */}
+          {/*
+            Sprint 6 followup: `relative` + bg transparente en `<main>` para
+            que la BawGrid (fixed inset-0 z-0) sea visible a través del
+            contenido. Cards, header sticky y banners conservan sus bg
+            opacos en sus propias capas; solo el wrapper del shell deja
+            pasar la retícula del body.
+          */}
           <main
-            className="min-h-screen md:transition-[padding] md:duration-200 md:[padding-left:var(--sidebar-effective-width,0px)]"
+            className="relative min-h-screen md:transition-[padding] md:duration-200 md:[padding-left:var(--sidebar-effective-width,0px)]"
           >
             <GlobalHeader pathname={pathname} />
             <SectionTopNav />

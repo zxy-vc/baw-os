@@ -115,6 +115,12 @@ html.dark {
   --baw-sidebar-bg:     #0F0F12;
   --baw-sidebar-border: #2A2A32;
   --baw-on-primary:     #FFFFFF;
+
+  /* BawGrid (retícula 32×32 en login + AppShell). Opacity por tema:
+     en dark, --baw-text es claro contra fondo oscuro → 0.045 alcanza.
+     En light se override más abajo (--baw-text es oscuro contra fondo
+     blanco, necesita más densidad para ser perceptible sin ruido). */
+  --baw-grid-opacity: 0.045;
 }
 
 /* ── Modo light ─────────────────────────────────────────────────────── */
@@ -146,6 +152,9 @@ html.light {
   --baw-text:         var(--text);
   --baw-muted:        var(--text-2);
   --baw-faint:        var(--text-3);
+  /* En light mode --baw-text es oscuro: contra fondo blanco la retícula
+     necesita más opacity para ser perceptible sin invadir. */
+  --baw-grid-opacity: 0.07;
 }
 
 /* Sidebar mantiene su chrome oscuro independiente del tema de la app:

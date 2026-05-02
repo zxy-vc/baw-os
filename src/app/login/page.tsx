@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import BawGrid from '@/components/BawGrid'
 
 // Sprint 4 / S4-2: useSearchParams requiere Suspense boundary en Next.js 14
 export default function LoginPage() {
@@ -76,17 +77,10 @@ function LoginForm() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[--baw-bg]">
-      {/* Subtle grid background — comunica precisión técnica de la marca */}
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.035] pointer-events-none"
-        style={{
-          backgroundImage:
-            'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
-          color: 'var(--baw-text)',
-        }}
-      />
+      {/* Subtle grid background — comunica precisión técnica de la marca.
+          Sprint 6 followup: migrado al componente reutilizable BawGrid para
+          que /login y AppShell usen exactamente la misma retícula. */}
+      <BawGrid position="absolute" />
 
       <div className="relative w-full max-w-sm mx-auto px-6">
         {/* Mark + wordmark */}
