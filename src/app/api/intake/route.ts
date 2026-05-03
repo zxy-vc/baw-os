@@ -50,6 +50,10 @@ export async function POST(request: NextRequest) {
     if (body.avales !== undefined) updates.avales = body.avales
     if (body.contract_data !== undefined) updates.contract_data = body.contract_data
     if (body.docs !== undefined) updates.docs = body.docs
+    if (body.empresa !== undefined) updates.empresa = body.empresa
+    if (body.tercero_pagador !== undefined) updates.tercero_pagador = body.tercero_pagador
+    // Permitir setear contract_type desde el form público
+    if (body.contract_type !== undefined) updates.contract_type = body.contract_type
 
     // Si submit=true → marcar como enviada
     if (body.submit === true) {
