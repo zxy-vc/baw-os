@@ -2,7 +2,7 @@
 
 > Plan canónico para convertir BaW OS en una plataforma operada por humanos **y** agentes (internos + third-party). Basado en los principios condensados en [`docs/AGENTIC_PRINCIPLES.md`](./AGENTIC_PRINCIPLES.md), el roster definido en [`docs/AGENT_ROSTER.md`](./AGENT_ROSTER.md), y el protocolo de integración de [`docs/AGENT_INTEGRATION.md`](./AGENT_INTEGRATION.md).
 >
-> Última actualización: 2026-05-03
+> Última actualización: 2026-05-03 — **Fases 0-4 cerradas (~80% delivery, pendiente Fase 5: irreversibles externos)**
 
 ---
 
@@ -14,9 +14,9 @@ BaW OS evoluciona de **app multi-tenant para humanos** → **plataforma multi-ac
 |---|---|---|---|---|
 | **0** | Documentos canónicos en repo | 1 sesión | — | Sí (solo docs) |
 | **1** | Identidad por agente (API keys, scopes) | 1 sprint | Fases 2–4 | Sí (feature flag) |
-| **2** | API pública v1 (REST → MCP adapter) | 2 sprints | Fase 4 | Parcial (versionada) |
-| **3** | Modo Human/Agent en UI | 1 sprint | — | Sí (toggle por user) |
-| **4** | Autonomy slider + policies engine | 1 sprint | — | Sí (defaults conservadores) |
+| **2** ✅ | API pública v1 (REST → MCP adapter) | 2 sprints | Fase 4 | Parcial (versionada) |
+| **3** ✅ | Modo Human/Agent en UI | 1 sprint | — | Sí (toggle por user) |
+| **4** ✅ | Autonomy slider + policies engine | 1 sprint | — | Sí (defaults conservadores) |
 
 ---
 
@@ -104,7 +104,9 @@ RLS: solo platform admins y admins del tenant ven las credenciales del tenant. N
 
 ---
 
-## Fase 2 — API pública v1
+## Fase 2 — API pública v1 ✅ (cerrada 2026-05-03)
+
+**Estado:** 16 endpoints v1 entregados — 11 reads (`units`, `reservations`, `payments`, `contracts`, `incidents`, `tasks`, `runs`, `agents`, `insights/summary`, `approvals`, `approvals/:id`) + 5 writes con clasificación AUTO/LOG/REQUIRE_APPROVAL (`incidents`, `tasks`, `messages`, `agents/:id/run`, `approvals/:id/grant|deny`). Helper compartido (`v1Read` + `v1Write`) con idempotency, scopes, classifier y middleware. Dispatcher diferido por `action_type`. 28 tests pure-logic passing. Ver `docs/AGENT_INTEGRATION.md` Apéndice A para curl examples.
 
 **Objetivo:** superficie estable y versionada bajo `/api/v1/*` que los agentes (internos y ZXY) usan para leer y escribir el estado del sistema.
 
@@ -143,7 +145,9 @@ Después de v1 estable, exponer las mismas operaciones vía MCP server. El adapt
 
 ---
 
-## Fase 3 — Modo Human/Agent en UI
+## Fase 3 — Modo Human/Agent en UI ✅ (cerrada 2026-05-03)
+
+**Estado:** ViewModeSwitch integrado en sidebar global. AgentModeView muestra roster con autonomy badges L0-L4. ApprovalQueueClient conectada a `/api/admin/approvals/:id/(grant|deny)` con UI inline. Retícula BaW global confirmada (`<BawGrid position="fixed" />` en AppShell). Links a `/agents/[id]/policies` en cada card del roster.
 
 **Objetivo:** que la UI tenga dos lenguajes visuales según el contexto del usuario, sin duplicar páginas.
 
@@ -194,7 +198,9 @@ Layout 3-paneles típico:
 
 ---
 
-## Fase 4 — Autonomy slider + policies engine
+## Fase 4 — Autonomy slider + policies engine ✅ (cerrada 2026-05-03)
+
+**Estado:** UI `/agents/[id]/policies` con slider 0-4 + per-action overrides agrupados + rate caps. API admin `GET|PUT /api/admin/agents/:id/policies` con audit. Classifier respeta override per-action salvo para irreversibles externos (locked: payment.charge, payment.refund, cfdi.emit, contract.sign, contract.terminate, policy.modify). Defaults conservadores: L4 (read-only) para Rafa/Reportes/Auditoría; L1 (suggest) para Beto/Maribel/Tarifas/Facturación/Fiscal.
 
 **Objetivo:** que el dueño del tenant pueda regular **cuánto** decide cada agente sin tocar código, y que policies se respeten transversalmente.
 

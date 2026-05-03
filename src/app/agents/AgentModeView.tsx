@@ -4,6 +4,7 @@
 
 import Link from 'next/link'
 import ViewModeSwitch from '@/components/ViewModeSwitch'
+import ApprovalQueueClient, { type ApprovalRow } from './ApprovalQueueClient'
 
 interface AgentRow {
   id: string
@@ -16,6 +17,7 @@ interface AgentRow {
   feedback_level: number
   status: string
   is_shared_zxy: boolean
+  autonomy_level?: number // policy efectiva por org
 }
 
 interface AgentRunRow {
@@ -38,6 +40,7 @@ interface AgentRunRow {
 interface Props {
   agents: AgentRow[]
   runs: AgentRunRow[]
+  approvals: ApprovalRow[]
   orgId: string | null
   viewMode: 'human' | 'agent'
 }
@@ -73,7 +76,49 @@ function fmtRelative(iso: string): string {
   return `${d}d ago`
 }
 
-export default function AgentModeView({ agents, runs, orgId, viewMode }: Props) {
+function autonomyBadge(level: number | undefined): { label: string; bg: string; fg: string } {
+  const lv = level ?? 1
+  switch (lv) {
+    case 0:
+      return {
+        label: 'L0',
+        bg: 'var(--baw-danger-bg-soft)',
+        fg: 'var(--baw-danger-fg)',
+      }
+    case 1:
+      return {
+        label: 'L1',
+        bg: 'var(--baw-neutral-bg-soft)',
+        fg: 'var(--baw-neutral-fg)',
+      }
+    case 2:
+      return {
+        label: 'L2',
+        bg: 'var(--baw-info-bg-soft)',
+        fg: 'var(--baw-info-fg)',
+      }
+    case 3:
+      return {
+        label: 'L3',
+        bg: 'var(--baw-warning-bg-soft)',
+        fg: 'var(--baw-warning-fg)',
+      }
+    case 4:
+      return {
+        label: 'L4',
+        bg: 'var(--baw-success-bg-soft)',
+        fg: 'var(--baw-success-fg)',
+      }
+    default:
+      return {
+        label: `L${lv}`,
+        bg: 'var(--baw-neutral-bg-soft)',
+        fg: 'var(--baw-neutral-fg)',
+      }
+  }
+}
+
+export default function AgentModeView({ agents, runs, approvals, orgId, viewMode }: Props) {
   // Exceptions = runs failed o partial recientes
   const exceptions = runs.filter(
     (r) => r.status === 'failed' || r.status === 'partial'
@@ -192,40 +237,52 @@ export default function AgentModeView({ agents, runs, orgId, viewMode }: Props) 
             ROSTER
           </div>
           <div className="space-y-0.5">
-            {rosterSorted.map((a) => (
-              <Link
-                key={a.id}
-                href={`/agents/${a.id}/credentials`}
-                className="flex items-center justify-between gap-2 px-1.5 py-1 rounded text-[11px] hover:bg-black/5"
-                style={{ color: 'var(--baw-text)' }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="text-[9px] px-1 py-0.5 rounded shrink-0"
-                    style={{
-                      backgroundColor: 'var(--baw-neutral-bg-soft)',
-                      color: 'var(--baw-neutral-fg)',
-                    }}
-                  >
-                    {FAMILY_LABEL[a.family] || '?'}
-                  </span>
-                  <span className="truncate">{a.display_name}</span>
-                </div>
-                <span
-                  className="text-[9px] tabular-nums shrink-0"
-                  style={{
-                    color:
-                      a.status === 'live'
-                        ? 'var(--baw-success-fg)'
-                        : a.status === 'beta'
-                          ? 'var(--baw-agent-fg)'
-                          : 'var(--baw-muted)',
-                  }}
+            {rosterSorted.map((a) => {
+              const al = autonomyBadge(a.autonomy_level)
+              return (
+                <Link
+                  key={a.id}
+                  href={`/agents/${a.id}/policies`}
+                  className="flex items-center justify-between gap-2 px-1.5 py-1 rounded text-[11px] hover:bg-black/5"
+                  style={{ color: 'var(--baw-text)' }}
                 >
-                  {a.status}
-                </span>
-              </Link>
-            ))}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="text-[9px] px-1 py-0.5 rounded shrink-0"
+                      style={{
+                        backgroundColor: 'var(--baw-neutral-bg-soft)',
+                        color: 'var(--baw-neutral-fg)',
+                      }}
+                    >
+                      {FAMILY_LABEL[a.family] || '?'}
+                    </span>
+                    <span className="truncate">{a.display_name}</span>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <span
+                      className="text-[9px] tabular-nums px-1 rounded"
+                      style={{ backgroundColor: al.bg, color: al.fg }}
+                      title={`Autonomy ${al.label}`}
+                    >
+                      {al.label}
+                    </span>
+                    <span
+                      className="text-[9px] tabular-nums"
+                      style={{
+                        color:
+                          a.status === 'live'
+                            ? 'var(--baw-success-fg)'
+                            : a.status === 'beta'
+                              ? 'var(--baw-agent-fg)'
+                              : 'var(--baw-muted)',
+                      }}
+                    >
+                      {a.status}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </aside>
 
@@ -329,26 +386,26 @@ export default function AgentModeView({ agents, runs, orgId, viewMode }: Props) 
           }}
         >
           <div
-            className="text-[10px] uppercase tracking-wider mb-2 pb-1"
+            className="text-[10px] uppercase tracking-wider mb-2 pb-1 flex justify-between"
             style={{
               color: 'var(--baw-muted)',
               borderBottom: '1px solid var(--baw-border)',
             }}
           >
-            APPROVAL QUEUE
-          </div>
-          <div
-            className="text-[11px] py-6 text-center"
-            style={{ color: 'var(--baw-muted)' }}
-          >
-            <p>Sin items pendientes.</p>
-            <p
-              className="mt-2 text-[10px]"
-              style={{ color: 'var(--baw-faint)' }}
+            <span>APPROVAL QUEUE</span>
+            <span
+              className="tabular-nums"
+              style={{
+                color:
+                  approvals.length > 0
+                    ? 'var(--baw-warning-fg)'
+                    : 'var(--baw-faint)',
+              }}
             >
-              Disponible cuando Fase 4 (autonomy slider) entre.
-            </p>
+              {approvals.length}
+            </span>
           </div>
+          <ApprovalQueueClient approvals={approvals} />
         </aside>
       </div>
 

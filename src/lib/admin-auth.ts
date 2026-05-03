@@ -1,0 +1,66 @@
+// BaW OS — Helper compartido de auth para rutas /api/admin/*
+// Verifica que el caller sea owner/admin de la org activa o platform_admin.
+// Reusa supabase-server (cookies) — los humanos NO usan API key de agente.
+
+import { createServiceClient } from '@/lib/supabase'
+import { createSupabaseServer } from '@/lib/supabase-server'
+import { resolveOrgId, OrgContextError } from '@/lib/org-context'
+
+export interface AdminCallerOk {
+  ok: true
+  userId: string
+  orgId: string
+  isPlatformAdmin: boolean
+}
+
+export interface AdminCallerErr {
+  ok: false
+  status: number
+  message: string
+}
+
+export async function requireAdminCaller(): Promise<AdminCallerOk | AdminCallerErr> {
+  const supabase = createSupabaseServer()
+  const {
+    data: { user },
+    error: userErr,
+  } = await supabase.auth.getUser()
+  if (userErr || !user) {
+    return { ok: false, status: 401, message: 'No authenticated user' }
+  }
+
+  const service = createServiceClient()
+  const { data: pa } = await service
+    .from('platform_admins')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  const isPlatformAdmin = !!pa
+
+  let orgId: string
+  try {
+    orgId = await resolveOrgId()
+  } catch (e) {
+    if (e instanceof OrgContextError) {
+      return { ok: false, status: 401, message: e.message }
+    }
+    throw e
+  }
+
+  if (!isPlatformAdmin) {
+    const { data: membership } = await service
+      .from('org_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('org_id', orgId)
+      .maybeSingle()
+    if (
+      !membership ||
+      !['owner', 'admin'].includes(membership.role as string)
+    ) {
+      return { ok: false, status: 403, message: 'Owner or admin role required' }
+    }
+  }
+
+  return { ok: true, userId: user.id, orgId, isPlatformAdmin }
+}

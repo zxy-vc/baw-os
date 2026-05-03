@@ -22,6 +22,7 @@ interface AgentRow {
   feedback_level: number
   status: string
   is_shared_zxy: boolean
+  autonomy_level?: number
 }
 
 interface AgentRunRow {
@@ -52,17 +53,47 @@ async function loadData() {
     .order('display_name')
 
   let runs: AgentRunRow[] = []
+  let approvals: import('./ApprovalQueueClient').ApprovalRow[] = []
+  let policies: { agent_id: string; autonomy_level: number; active: boolean }[] = []
+
   if (orgId) {
-    const { data: runsData } = await supabase
-      .from('agent_runs')
-      .select('id, agent_id, triggered_by, status, started_at, finished_at, duration_ms, metrics, error')
-      .eq('org_id', orgId)
-      .order('started_at', { ascending: false })
-      .limit(20)
-    runs = (runsData || []) as AgentRunRow[]
+    const [runsRes, approvalsRes, policiesRes] = await Promise.all([
+      supabase
+        .from('agent_runs')
+        .select(
+          'id, agent_id, triggered_by, status, started_at, finished_at, duration_ms, metrics, error'
+        )
+        .eq('org_id', orgId)
+        .order('started_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('agent_approvals')
+        .select(
+          'id, agent_id, action_type, resource_type, reason, status, requested_at, expires_at, payload'
+        )
+        .eq('org_id', orgId)
+        .eq('status', 'pending')
+        .order('requested_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('agent_policies')
+        .select('agent_id, autonomy_level, active')
+        .eq('org_id', orgId),
+    ])
+    runs = (runsRes.data || []) as AgentRunRow[]
+    approvals = (approvalsRes.data ||
+      []) as import('./ApprovalQueueClient').ApprovalRow[]
+    policies = (policiesRes.data || []) as typeof policies
   }
 
-  return { agents: (agentsData || []) as AgentRow[], runs, orgId }
+  // Merge autonomy_level efectivo en cada agent
+  const policyMap = new Map(policies.map((p) => [p.agent_id, p]))
+  const agents = ((agentsData || []) as AgentRow[]).map((a) => ({
+    ...a,
+    autonomy_level: policyMap.get(a.id)?.autonomy_level ?? 1,
+  }))
+
+  return { agents, runs, approvals, orgId }
 }
 
 // Modelo de agentes según Roster v0.2 (Notion canónico):
@@ -133,7 +164,9 @@ function RunStatusBadge({ status }: { status: string }) {
 }
 
 export default async function AgentsPage() {
-  const { agents, runs, orgId } = await loadData()
+  const { agents, runs, approvals, orgId } = await loadData()
+  // approvals usado solo en Modo Agent; lo declaramos aquí para tipado.
+  void approvals
   const implemented = new Set<string>(listImplementedAgents())
   const viewMode = await getViewMode()
 
@@ -142,6 +175,7 @@ export default async function AgentsPage() {
       <AgentModeView
         agents={agents}
         runs={runs}
+        approvals={approvals}
         orgId={orgId}
         viewMode={viewMode}
       />

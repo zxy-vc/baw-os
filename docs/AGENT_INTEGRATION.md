@@ -241,3 +241,134 @@ Este doc es **v1** del contrato de integración. Breaking changes requieren bump
 ### Changelog
 
 - **2026-05-03 — v1.0** — Documento inicial. Define lifecycle, scopes, clasificación, patrones.
+- **2026-05-03 — v1.1** — API v1 endpoints + autonomy slider + approval queue (Fase 2-4 cerradas). Ver Apéndice A para curl examples.
+
+---
+
+## Apéndice A — Curl examples (v1.1)
+
+Reemplaza `$BAW_API_KEY` con la credencial del agente y `$BASE_URL` con `https://baw-os.vercel.app` (o tu deploy).
+
+### Reads
+
+```bash
+# Units (filtros: status, building_id, occupancy_status)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/units?status=active&limit=25"
+
+# Reservations (filtros: status, unit_id, check_in_from/to)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/reservations?status=confirmed"
+
+# Payments (filtros: status, contract_id, due_from/to)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/payments?status=pending&due_from=2026-05-01"
+
+# Contracts (filtros: status, unit_id, occupant_id)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/contracts?status=active"
+
+# Incidents
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/incidents?status=open"
+
+# Tasks
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/tasks?status=pending"
+
+# Runs (historial del agente)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/runs?limit=20"
+
+# Agents (con autonomy_level efectivo)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/agents"
+
+# Insights / summary (KPIs agregados)
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/insights/summary"
+```
+
+### Writes (con idempotency)
+
+Todos los POST requieren header `Idempotency-Key` (UUID v4 recomendado). Mismo key + mismo body = misma respuesta cacheada. Mismo key + body distinto = 409 Conflict.
+
+```bash
+# Crear incidente (AUTO si autonomy ≥ L2 para incident.create)
+curl -X POST -H "Authorization: Bearer $BAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"unit_id":"u_123","category":"plumbing","severity":"medium","description":"Fuga lavabo"}' \
+  "$BASE_URL/api/v1/incidents"
+
+# Crear tarea
+curl -X POST -H "Authorization: Bearer $BAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"title":"Inspeccionar unidad 12B","assigned_to":"alicia-ops","due_at":"2026-05-10"}' \
+  "$BASE_URL/api/v1/tasks"
+
+# Mensaje a inquilino (REQUIRE_APPROVAL — devuelve 202 + approval_id)
+curl -X POST -H "Authorization: Bearer $BAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"contract_id":"c_456","channel":"whatsapp","body":"Recordatorio: pago vence el 15."}' \
+  "$BASE_URL/api/v1/messages"
+
+# Disparar run del agente (slug debe coincidir con el dueño de la API key)
+curl -X POST -H "Authorization: Bearer $BAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"input":{"trigger":"daily_summary"}}' \
+  "$BASE_URL/api/v1/agents/cobranza/run"
+```
+
+### Approvals lifecycle
+
+```bash
+# Listar pendientes
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/approvals?status=pending"
+
+# Detalle
+curl -H "Authorization: Bearer $BAW_API_KEY" \
+  "$BASE_URL/api/v1/approvals/ap_123"
+
+# Aprobar (requiere scope approvals:resolve) → dispara dispatcher que ejecuta la acción
+curl -X POST -H "Authorization: Bearer $BAW_API_KEY" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  "$BASE_URL/api/v1/approvals/ap_123/grant"
+
+# Denegar
+curl -X POST -H "Authorization: Bearer $BAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"reason":"Política tarifaria no autoriza descuento"}' \
+  "$BASE_URL/api/v1/approvals/ap_123/deny"
+```
+
+### Admin (humano autenticado por sesión, no API key)
+
+```bash
+# Editar policies de un agente (autonomy_level 0-4 + per-action overrides + rate caps)
+curl -X PUT -b "sb-access-token=$SUPABASE_SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{"autonomy_level":2,"active":true,"per_action":{"message.send_to_tenant":"AUTO"},"rate_caps":{"per_hour":50}}' \
+  "$BASE_URL/api/admin/agents/cobranza/policies"
+
+# Aprobar como humano (UI lo hace por dentro)
+curl -X POST -b "sb-access-token=$SUPABASE_SESSION" \
+  "$BASE_URL/api/admin/approvals/ap_123/grant"
+```
+
+### Niveles de autonomía (Fase 4)
+
+| Nivel | Nombre        | Comportamiento por defecto                                  |
+|-------|---------------|-------------------------------------------------------------|
+| L0    | Disabled      | Todas las acciones bloqueadas                               |
+| L1    | Suggest only  | Toda acción → REQUIRE_APPROVAL                              |
+| L2    | Approve each  | AUTO para reads y writes seguros; REQUIRE_APPROVAL para resto |
+| L3    | Approve batch | AUTO para la mayoría; REQUIRE_APPROVAL para irreversibles externos |
+| L4    | Read-only     | Solo lectura; ningún write permitido                        |
+
+Irreversibles externos (siempre REQUIRE_APPROVAL independientemente del nivel): `payment.charge`, `payment.refund`, `cfdi.emit`, `contract.sign`, `contract.terminate`, `policy.modify`.
