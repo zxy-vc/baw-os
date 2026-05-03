@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
 import BawMark from '@/components/BawMark'
+import ViewModeSwitch from '@/components/ViewModeSwitch'
 import {
   SIDEBAR_SECTIONS,
   isSectionActive,
@@ -256,6 +257,16 @@ export default function Sidebar() {
         <div className="shrink-0 py-2" style={{ borderTop: '1px solid var(--baw-sidebar-border)' }}>
           {footerSections.map((s) => renderEntry(s))}
         </div>
+
+        {/* View mode switch (Human / Agent) — global */}
+        {expanded && (
+          <div
+            className="shrink-0 px-3 py-2"
+            style={{ borderTop: '1px solid var(--baw-sidebar-border)' }}
+          >
+            <ViewModeSwitch size="sm" />
+          </div>
+        )}
 
         {/* Workspace switcher */}
         <div className="shrink-0 py-2" style={{ borderTop: '1px solid var(--baw-sidebar-border)' }}>
