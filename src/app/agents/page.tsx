@@ -4,7 +4,10 @@ import Link from 'next/link'
 import { createServiceClient } from '@/lib/api-auth'
 import { resolveOrgId } from '@/lib/org-context'
 import { listImplementedAgents } from '@/lib/agents/registry'
+import { getViewMode } from '@/lib/agents/view-mode'
 import AgentRunButton from './AgentRunButton'
+import ViewModeSwitch from '@/components/ViewModeSwitch'
+import AgentModeView from './AgentModeView'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,6 +135,18 @@ function RunStatusBadge({ status }: { status: string }) {
 export default async function AgentsPage() {
   const { agents, runs, orgId } = await loadData()
   const implemented = new Set<string>(listImplementedAgents())
+  const viewMode = await getViewMode()
+
+  if (viewMode === 'agent') {
+    return (
+      <AgentModeView
+        agents={agents}
+        runs={runs}
+        orgId={orgId}
+        viewMode={viewMode}
+      />
+    )
+  }
 
   const grouped = agents.reduce<Record<string, AgentRow[]>>((acc, a) => {
     acc[a.family] = acc[a.family] || []
@@ -154,6 +169,9 @@ export default async function AgentsPage() {
         >
           BaW + 10 especialistas en 3 escuadrones · Operaciones Core · Experiencia · Inteligencia · Third Party · Roster v0.2 · v1: Cobranza dunning
         </p>
+        <div className="mt-3">
+          <ViewModeSwitch initialMode={viewMode} />
+        </div>
       </div>
 
       {Object.entries(grouped)

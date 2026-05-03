@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getMoraLevel, type MoraStatus } from '@/lib/mora-engine'
+import {
+  authenticateAgentRequest,
+  agentAuthErrorResponse,
+  validateLegacyApiKey,
+} from '@/lib/agents/auth'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -13,10 +18,15 @@ function createMoraClient() {
 }
 
 export async function GET(request: NextRequest) {
-  const apiKey = request.headers.get('x-api-key')
-  const expected = process.env.BAWOS_API_KEY
-  if (!expected || apiKey !== expected) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  // Fase 1 transition: aceptamos credenciales sk_live_/sk_test_ (nueva) o
+  // BAWOS_API_KEY global (legacy). El legacy se elimina en Fase 2.
+  const auth = await authenticateAgentRequest(request, ['mora:read'])
+  if (!auth.ok) {
+    if (validateLegacyApiKey(request)) {
+      // Legacy path: aceptado pero sin identidad de agente.
+    } else {
+      return agentAuthErrorResponse(auth)
+    }
   }
 
   try {
