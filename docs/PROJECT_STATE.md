@@ -1,11 +1,33 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-05-02 (Sprint 6 cerrado, post PR #51 mergeado)
+> **Última actualización:** 2026-05-03 (Sprint 5A iniciado: Conversational Agent Runtime, Alicia third-party).
 
 ---
 
 ## 1 · Sprint en curso
+
+**Sprint 5A — Conversational Agent Runtime · EN CURSO desde 2026-05-03.**
+
+**Goal:** conectar Alicia (único agente third party de Sprint 5A) vía OpenClaw skill + Discord para que opere BaW OS en lenguaje natural en producción.
+
+Docs canon:
+- [ADR-016 Third-Party Agent Integration](./adr/ADR-016-third-party-agent-integration.md)
+- [Sprint 5A Plan](./sprints/SPRINT_5A_PLAN.md)
+- Runbooks: `docs/runbooks/setup-discord-channel.md`, `setup-cloudflare-tunnel.md`, `alicia-skill-install.md`
+
+Decisiones canonizadas hoy:
+- **Solo Alicia conectada** (no los 7 ZXY agents). Andrés NO conectar (tech lead, no operador).
+- **Webhooks-first + polling safety net** (Cloudflare Tunnel `alicia.zxy.vc` + long-poll 30s).
+- **Repo separado** `openclaw-skill-baw-os` (no monorepo).
+- **Fase 5 original (CFDI/Stripe writes) movida a Fase 6**.
+- **Discord-first, in-app chat en Sprint 5B**.
+
+WS-1 (BaW OS server-side) arranca primero. WS-2 (skill OpenClaw) en paralelo. WS-3 runbooks listos para Fran ejecutar.
+
+---
+
+## 1.bis · Sprint anterior
 
 **Sprint 6 — Visual Rollout & Bug Bash · CERRADO el 2026-05-02.**
 

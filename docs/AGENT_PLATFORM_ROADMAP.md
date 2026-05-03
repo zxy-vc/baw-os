@@ -2,13 +2,20 @@
 
 > Plan canónico para convertir BaW OS en una plataforma operada por humanos **y** agentes (internos + third-party). Basado en los principios condensados en [`docs/AGENTIC_PRINCIPLES.md`](./AGENTIC_PRINCIPLES.md), el roster definido en [`docs/AGENT_ROSTER.md`](./AGENT_ROSTER.md), y el protocolo de integración de [`docs/AGENT_INTEGRATION.md`](./AGENT_INTEGRATION.md).
 >
-> Última actualización: 2026-05-03 — **Fases 0-4 cerradas (~80% delivery, pendiente Fase 5: irreversibles externos)**
+> Última actualización: 2026-05-03 — **Fases 0-4 cerradas. Fase 5 reformulada: Conversational Agent Runtime (Sprint 5A: Alicia third-party). Fase 5 original (irreversibles externos CFDI/Stripe) movida a Fase 6.**
+>
+> Ver [ADR-016](./adr/ADR-016-third-party-agent-integration.md) para el cambio de plan y [Sprint 5A Plan](./sprints/SPRINT_5A_PLAN.md) para la ejecución.
 
 ---
 
 ## TL;DR
 
-BaW OS evoluciona de **app multi-tenant para humanos** → **plataforma multi-actor** donde los actores son tanto **personas** como **agentes** (10 internos + 6 ZXY third-party). El roadmap tiene **5 fases** que se implementan en este orden, cada una con criterios de éxito y reversibilidad explícitos.
+BaW OS evoluciona de **app multi-tenant para humanos** → **plataforma multi-actor** donde los actores son tanto **el humano** (Fran, único) como **agentes**. Los agentes se dividen en dos clases distintas que NO se mezclan:
+
+- **Agentes Nativos BaW OS** (10 slim + 1 fat coordinator) — parte del producto, shipped a todo PM Company Owner. **Status: 0% built**, planeado para Sprint 7+.
+- **Agentes Third Party** — capa de integración personalizable por cada PM Company Owner. Para nosotros (BaW Operations) son los 7 ZXY Agent OS sobre OpenClaw en el M1 de Fran. NO son parte del producto.
+
+El roadmap tiene **6 fases** ahora (Fase 5 original dividida en Fase 5 — runtime conversacional — y Fase 6 — irreversibles externos), cada una con criterios de éxito y reversibilidad explícitos.
 
 | Fase | Objetivo | Duración | Bloquea | Reversible |
 |---|---|---|---|---|
@@ -17,6 +24,9 @@ BaW OS evoluciona de **app multi-tenant para humanos** → **plataforma multi-ac
 | **2** ✅ | API pública v1 (REST → MCP adapter) | 2 sprints | Fase 4 | Parcial (versionada) |
 | **3** ✅ | Modo Human/Agent en UI | 1 sprint | — | Sí (toggle por user) |
 | **4** ✅ | Autonomy slider + policies engine | 1 sprint | — | Sí (defaults conservadores) |
+| **5A** | Third-party agent runtime (Alicia vía OpenClaw + Discord) | 4 días | Fase 6 | Sí (revoke token) |
+| **5B** | In-app chat per-agent (`/agents/[id]/chat`) | 1 sprint | Fase 6 | Sí (feature flag) |
+| **6** | Irreversibles externos (CFDI, Stripe writes) | 2 sprints | — | No (irreversibles por definición) |
 
 ---
 
@@ -255,6 +265,83 @@ CREATE TABLE public.agent_policies (
 - Cambiar autonomía de un agente toma <30s sin SQL.
 - Agente respeta su policy en runtime (test: subir Beto a L4 y ver que requiere approval no se gatilla).
 - Audit trail completo de cambios de policy.
+
+---
+
+## Fase 5A — Third-Party Agent Runtime (Alicia vía OpenClaw + Discord)
+
+**Objetivo:** primer agente third party operando BaW OS en producción. Demuestra el modelo de integración PM Company Owner → sus agentes → BaW OS.
+
+### Scope
+
+- Conectar **solo Alicia** (AliOps, ZXY Agent OS) al PM Company Owner BaW Operations.
+- Skill `baw-os-skill` instalada en su runtime OpenClaw en el M1 de Fran.
+- Canal Discord `#baw-os-operations` como interfaz primaria.
+- Cloudflare Tunnel `alicia.zxy.vc` con Zero Trust + mTLS para callbacks Vercel → M1.
+- Discord Interactions endpoint en Vercel para botones aprobación.
+- Long-poll cada 30s como safety net si los pushes fallan.
+
+### Decisiones canonizadas
+
+- **Webhooks-first + polling safety net** (no sólo polling, no sólo webhooks). Ver ADR-016 D4.
+- **Repo separado** `openclaw-skill-baw-os`, no monorepo. Ver ADR-016 D5.
+- **Andrés NO se conecta** — es tech lead, no operador. Ver ADR-016 D2.
+- **Hugo, Beto, Maribel, Luis, Rafa diferidos** a Sprint 5B+. Menos es más.
+
+### Criterios de éxito
+
+- Fran escribe en Discord `alicia, agrega incidencia X en D104` y aparece en BaW OS prod con badge `via Alicia` y link a Discord.
+- Approvals con botón inline funcionan (Ed25519 verify, idempotency, replay protection).
+- 5 happy paths + 3 failure modes pasan en E2E.
+- `agent_runs` audit log completo bidireccional.
+
+### Documentación
+
+- [ADR-016](./adr/ADR-016-third-party-agent-integration.md)
+- [Sprint 5A Plan](./sprints/SPRINT_5A_PLAN.md)
+- [Runbook Discord](./runbooks/setup-discord-channel.md)
+- [Runbook Cloudflare Tunnel](./runbooks/setup-cloudflare-tunnel.md)
+- [Runbook Skill Install](./runbooks/alicia-skill-install.md)
+
+---
+
+## Fase 5B — In-app Chat per-Agent
+
+**Objetivo:** segunda puerta para Alicia (y futuros third party): chat conversacional dentro de BaW OS, sin reemplazar Discord.
+
+### Scope
+
+- Ruta `/agents/[slug]/chat` con UI conversacional persistente.
+- Backend pasarela: `POST /api/v1/agents/:slug/chat` → reenvía vía Cloudflare Tunnel a Alicia en M1 (mismo runtime, dos puertas).
+- Tablas `agent_conversations`, `agent_messages` (scoped por org + user + agent).
+- Memoria compartida: cada conversación alimenta el contexto del agente; lo que se habla en Discord es accesible desde el chat in-app y viceversa (mismo `agent_id`).
+- Conectar Maribel (contracts) y Beto (payments read) como segundos agentes piloto.
+
+### Criterios de éxito
+
+- Conversación iniciada en Discord puede continuarse en BaW OS chat sin perder contexto.
+- Maribel registra contrato D202 vía chat in-app.
+- Beto entrega reporte de cobranza mensual en chat.
+
+---
+
+## Fase 6 — Irreversibles externos (CFDI, Stripe writes)
+
+**Objetivo:** habilitar acciones que cruzan a sistemas externos sin retorno (factura SAT emitida, pago Stripe ejecutado, mensaje WhatsApp enviado a cliente).
+
+### Scope
+
+- Endpoints `POST /api/v1/cfdi/issue`, `POST /api/v1/payments/charge`, `POST /api/v1/messages/send` con triple-check obligatorio antes de ejecutar.
+- UI de approval con preview del payload exacto que se enviará al sistema externo (CFDI XML preview, Stripe charge confirmation, WhatsApp message body).
+- `irreversibility_class` en cada endpoint para que el classifier nunca los marque AUTO.
+- Por defecto: ningún agente tiene scope para estos endpoints. Activación manual por PM Company Owner via UI con confirmación adicional (CAPTCHA o contraseña).
+
+### Criterios de éxito
+
+- Cero CFDI emitidos sin approval explícito.
+- Cero charges Stripe sin approval explícito.
+- Audit log inmutable de cada irreversible (append-only, no delete).
+- 30 días en producción con Sprint 5A/5B sin incidentes antes de habilitar Fase 6.
 
 ---
 
