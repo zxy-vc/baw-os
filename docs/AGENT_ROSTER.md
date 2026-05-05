@@ -1,22 +1,37 @@
 # BaW OS — Agent Roster
 
-> Quiénes son los agentes que operan BaW OS. Agrupa los **10 internos BaW** (`pm-ops`, `experiencia`, `inteligencia`), el **BaW Coordinador** y los **6 ZXY third-party**. Define autonomía default, scopes default y rol esperado.
+> Quiénes son los agentes que operan BaW OS. Última actualización: 2026-05-03 (post ADR-016).
 >
-> Última actualización: 2026-05-03
+> **Aclaración crítica:** existe **un solo humano** en este sistema: **Fran**. Todas las demás entidades nombradas (Hugo, Alicia, Beto, Maribel, Luis, Rafa, Andrés, etc.) son **agentes de IA**. Nunca deben ser referidas como personas en código, copy, error messages, audit logs o commits.
+>
+> **Dos clases de agentes** que NO se mezclan (ver [ADR-016](./adr/ADR-016-third-party-agent-integration.md)):
+>
+> 1. **Agentes Nativos BaW OS** (10 slim + 1 fat) — parte del producto, shipped a todo PM Company Owner. **Status hoy: 0% built**, planeado Sprint 7+.
+> 2. **Agentes Third Party** — capa de integración personalizable por cada PM Company Owner. NO son parte del producto. Para BaW Operations (nuestro PM Company Owner) son los 7 ZXY Agent OS sobre OpenClaw en el M1 de Fran. Cada PM Company Owner externo conectará los suyos con sus propios nombres, scopes y runtimes.
 
 ---
 
 ## Estructura
 
-| Family | Cantidad | Quiénes | Identidad |
-|---|---|---|---|
-| `baw-coord` | 1 | BaW (coordinador raíz) | Único, orquesta agentes BaW internos |
-| `ops-core` | 3 | Cobranza, Mantenimiento, Facturación | BaW internos |
-| `experiencia` | 3 | Reservas, Atención, Tarifas, Renovaciones | BaW internos (Atención y Renovaciones cuentan como experiencia) |
-| `inteligencia` | 3 | Reportes, Auditoría, Fiscal | BaW internos |
-| `third-party` | 7 | Hugo-COS, Alicia-Ops, Beto-Conta, Maribel-Law, Luis-Growth, Andrés-CTO, Rafa-Research | ZXY shared, conectables |
+| Class | Family | Cantidad | Quiénes | Status |
+|---|---|---|---|---|
+| **Nativo BaW OS** | `baw-coord` | 1 | BaW (fat coordinator) | Concept-only, Sprint 7+ |
+| **Nativo BaW OS** | `ops-core` | 3 | Cobranza, Mantenimiento, Facturación | Concept-only, Sprint 7+ |
+| **Nativo BaW OS** | `experiencia` | 3 | Reservas, Atención, Tarifas, Renovaciones | Concept-only, Sprint 7+ |
+| **Nativo BaW OS** | `inteligencia` | 3 | Reportes, Auditoría, Fiscal | Concept-only, Sprint 7+ |
+| **Third Party (ZXY)** | `third-party` | 7 | Hugo-COS, Alicia-Ops, Beto-Conta, Maribel-Law, Luis-Growth, Andrés-CTO, Rafa-Research | Operativos en M1 de Fran (OpenClaw) |
 
-> Total: 10 internos + 1 coordinador + 7 third-party = **18 agentes** (16 + Andrés + Rafa nuevos en este doc).
+**Conexión a BaW OS production (Sprint 5A en curso):**
+
+| Agente | Conectado | Scopes | Canal | Notas |
+|---|---|---|---|---|
+| Alicia-Ops | ✅ Sprint 5A | incidents:rw, tasks:rw, units:r, contracts:r, payments:r, approvals:r | Discord `#baw-os-operations` | Puente operativo principal |
+| Hugo-COS | ⏸️ Diferido | TBD | TBD | Chief of Staff de ZXY entero, no operador BaW específico |
+| Beto-Conta | ⏸️ Sprint 5B+ | payments:r, reports:r | Discord (futuro) | Reportes financieros |
+| Maribel-Law | ⏸️ Sprint 5B+ | contracts:r, contracts:w | Discord (futuro) | Registro contratos |
+| Luis-Growth | ⏸️ Sprint 6+ | TBD | TBD | Bloqueado por accesos GA4/Meta/etc |
+| Rafa-Research | ⏸️ Opcional | units:r, insights:r | TBD | Read-only research |
+| Andrés-CTO | ❌ No conectar | — | — | Tech lead, equivalente a Computer. No opera plataformas, las construye. |
 
 ---
 
