@@ -1,0 +1,77 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Mateos 809 — Brand Theme · Typography Tokens
+   ────────────────────────────────────────────────────────────────────────
+   Stack:
+   • EB Garamond — display, editorial, headlines, italic accents
+   • Inter       — body, UI, forms, navigation
+   • JetBrains Mono — micro labels, dates, prices (technical voice)
+
+   Cargado vía next/font/google en el layout del grupo (public-booking).
+   ──────────────────────────────────────────────────────────────────────── */
+
+html[data-brand='809'] {
+  /* ── Family ───────────────────────────────────────────────────────── */
+  --font-display: var(--font-eb-garamond), 'EB Garamond', Georgia, serif;
+  --font-body:    var(--font-inter), 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  /* ── Size ─────────────────────────────────────────────────────────── */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-28: 28px;
+  --fs-32: 32px;
+  --fs-40: 40px;
+  --fs-48: 48px;
+  --fs-56: 56px;
+  --fs-72: 72px;
+  --fs-display: clamp(48px, 8vw, 96px);
+
+  /* ── Weight ───────────────────────────────────────────────────────── */
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+
+  /* ── Line height ──────────────────────────────────────────────────── */
+  --lh-tight:   1.05;
+  --lh-snug:    1.2;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.65;
+
+  /* ── Letter spacing ───────────────────────────────────────────────── */
+  --ls-display: -0.025em;
+  --ls-tight:   -0.015em;
+  --ls-normal:  0;
+  --ls-wide:    0.02em;
+  --ls-mono:    0.08em;
+}
+
+/* ── Utility classes ──────────────────────────────────────────────── */
+html[data-brand='809'] .t-display {
+  font-family: var(--font-display);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--ls-display);
+  line-height: var(--lh-tight);
+}
+
+html[data-brand='809'] .t-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-snug);
+}
+
+html[data-brand='809'] .t-mono {
+  font-family: var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-11);
+}

@@ -23,7 +23,9 @@ import { findSection } from '@/lib/navigation'
 // `/conserje` (legacy redirect) y rutas multi-tenant `/<orgSlug>/conserje` viven
 // fuera del AppShell. La detección de `/<orgSlug>/conserje` se hace por sufijo
 // `/conserje` en el segundo segmento, abajo en el match de isPublic.
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', '/admin']
+// Sprint 5B / WS-2: /mateos-809 es la cara pública de booking (grupo
+// `(public-booking)`) y debe renderizar fuera del AppShell del tenant.
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', '/admin', '/mateos-809']
 
 function isMultiTenantConserje(pathname: string): boolean {
   // Match `/baw-operations/conserje` y subrutas, sin colisionar con rutas internas.
