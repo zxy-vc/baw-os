@@ -315,9 +315,38 @@ node tests/agents/attribution.test.mjs     # 18 tests (badges de atribución)
 | `src/lib/agents/discord-verify.ts` | Verificación firma Ed25519 |
 | `src/lib/agents/auth.ts` | verifyAgentBearer + requireAgentAuth HOF |
 | `src/lib/agents/attribution.ts` | Badge "via Alicia" en mensajes y DB |
+| `src/lib/agents/resolved-by-channel.ts` | Builders para `resolved_by_channel` (Discord, Slack, etc.) |
 | `supabase/migrations/20260523_agents_discord_interactions.sql` | agent_interactions + attribution columns |
+| `supabase/migrations/20260524_agent_approvals_resolved_by_channel.sql` | Columna `resolved_by_channel jsonb` en agent_approvals |
 | `docs/adr/ADR-021-third-party-agents-discord.md` | Decisiones arquitecturales |
+
+### Patrón JSONB para resolución multi-canal
+
+La columna `agent_approvals.resolved_by_channel` captura la identidad del aprobador humano cuando la resolución llega desde un canal externo (Discord, Slack, WhatsApp, etc.).
+
+**Forma esperada**:
+```json
+// Discord:
+{ "channel": "discord", "external_id": "123456789012345678", "username": "fran#0001" }
+
+// Slack (futuro):
+{ "channel": "slack", "external_id": "U02ABCDEF", "username": "fran" }
+
+// Web (logueado): NULL — usar resolved_by (UUID Supabase)
+```
+
+**Reglas**:
+- Si viene de **web logueado**: `resolved_by` = UUID Supabase, `resolved_by_channel` = NULL
+- Si viene de **Discord con link Supabase**: ambos campos poblados
+- Si viene de **Discord sin link Supabase**: `resolved_by` = NULL, `resolved_by_channel` con info Discord
+- El index GIN permite `WHERE resolved_by_channel @> '{"channel":"discord"}'`
+
+**Para agregar un canal nuevo** (ej. Slack):
+1. Agrega `buildSlackResolvedBy()` en `src/lib/agents/resolved-by-channel.ts` (ya existe)
+2. Crea el endpoint `/api/agents/slack-interactions/route.ts`
+3. Usa `buildSlackResolvedBy()` en el update de `agent_approvals`
+4. No se necesita migración — el schema JSONB ya es genérico
 
 ---
 
-**Última actualización:** 2026-05-23 · Sprint 5A WS-1 — Discord Interactions + Alicia bearer auth
+**Última actualización:** 2026-05-24 · Sprint 5A fix — channel-agnostic resolved_by_channel (Opción C)

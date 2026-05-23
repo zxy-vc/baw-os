@@ -23,6 +23,7 @@ cd "$(dirname "$0")/../.."
 run_test tests/agents/discord-verify.test.mjs
 run_test tests/agents/auth.test.mjs
 run_test tests/agents/attribution.test.mjs
+run_test tests/agents/resolved-by-channel.test.mjs
 
 echo ""
 echo "══════════════════════════════════════"

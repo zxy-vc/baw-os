@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { verifyDiscordRequest } from '@/lib/agents/discord-verify'
 import { getAgentDisplayName } from '@/lib/agents/attribution'
+import { buildDiscordResolvedBy } from '@/lib/agents/resolved-by-channel'
 
 export const runtime = 'nodejs'
 
@@ -244,15 +245,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         const supabase = createServiceClient()
         const newStatus = action === 'grant' ? 'approved' : 'denied'
-        const discordUserId =
-          interaction.member?.user?.id ?? interaction.user?.id ?? 'unknown'
+
+        const discordUser = interaction.member?.user ?? interaction.user
+        const discordUserId = discordUser?.id ?? 'unknown'
+
+        // Lookup Supabase user vinculado al ID de Discord (si existe)
+        let supabaseUserId: string | null = null
+        if (discordUserId !== 'unknown') {
+          const { data: externalAccount } = await supabase
+            .from('user_external_accounts')
+            .select('user_id')
+            .eq('provider', 'discord')
+            .eq('external_id', discordUserId)
+            .maybeSingle()
+          supabaseUserId = externalAccount?.user_id ?? null
+        }
+
+        const resolvedByChannel = buildDiscordResolvedBy({
+          id: discordUserId,
+          username: discordUser?.username ?? 'unknown',
+          discriminator: (discordUser as { id: string; username: string; discriminator?: string } | undefined)?.discriminator,
+        })
 
         const { error } = await supabase
           .from('agent_approvals')
           .update({
             status: newStatus,
             resolved_at: new Date().toISOString(),
-            resolved_by_discord_user: discordUserId,
+            resolved_by: supabaseUserId,
+            resolved_by_channel: resolvedByChannel,
           })
           .eq('id', approvalId)
           .eq('status', 'pending') // Solo pendientes — previene doble-click

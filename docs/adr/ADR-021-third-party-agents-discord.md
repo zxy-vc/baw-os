@@ -95,11 +95,36 @@ Ejemplos:
 - Con unique constraint en DB, un segundo request con el mismo key falla a nivel DB antes de ejecutar la acción.
 - Complementa el middleware de idempotency que ya existe (`idempotency_keys` table) con tracking en el run level.
 
-### D8 — `resolved_by_discord_user` en agent_approvals (campo nuevo sin migración separada)
+### D8 — `resolved_by_channel jsonb` en agent_approvals (Opción C — canal-agnóstico)
 
-**Decisión**: Usar `UPDATE agent_approvals SET status='approved', resolved_at=now(), resolved_by_discord_user=:discord_user_id` al procesar botones.
+**Decisión** (revisada en Sprint 5A fix PR): Usar una columna `resolved_by_channel jsonb` en lugar de `resolved_by_discord_user text`. La columna captura la identidad del aprobador humano desde cualquier canal externo de forma uniforme.
 
-**Nota**: Si `resolved_by_discord_user` no existe en `agent_approvals`, el UPDATE ignorará el campo silenciosamente en Supabase. En la migración `20260523_agents_discord_interactions.sql` NO se agrega este campo porque no tenemos el schema exacto de `agent_approvals`. **Acción pendiente**: verificar schema de `agent_approvals` y agregar el campo si falta en la próxima migración.
+**Forma JSONB**:
+```json
+{ "channel": "discord", "external_id": "123456789012345678", "username": "fran#0001" }
+{ "channel": "slack",   "external_id": "U02ABCDEF",           "username": "fran" }
+```
+
+**Reglas semánticas**:
+- Web (logueado): `resolved_by` = UUID Supabase, `resolved_by_channel` = NULL
+- Discord con link Supabase: `resolved_by` = UUID Supabase (vía `user_external_accounts`), `resolved_by_channel` = objeto discord
+- Discord sin link Supabase: `resolved_by` = NULL (trazabilidad parcial), `resolved_by_channel` = objeto discord
+
+**Migración**: `supabase/migrations/20260524_agent_approvals_resolved_by_channel.sql`
+
+**Helper compartido**: `src/lib/agents/resolved-by-channel.ts` exporta `ResolvedByChannel` tipo + `buildDiscordResolvedBy` + `buildSlackResolvedBy`.
+
+**Nota histórica**: PR #65 (Sprint 5A WS-1) introdujo una referencia a `resolved_by_discord_user` que no existía en producción. Esta migración resuelve ese bug con una solución escalable (Opción C).
+
+### Identity attribution across channels
+
+El patrón `resolved_by_channel jsonb` permite registrar la identidad del aprobador humano independientemente del canal desde el que operó:
+
+- **Auditoría**: El campo nunca se sobreescribe — es parte del registro histórico de la aprobación.
+- **Multi-canal futuro**: Para agregar WhatsApp, Telegram u otro canal, solo se necesita un nuevo builder en `src/lib/agents/resolved-by-channel.ts` y actualizar el endpoint correspondiente. No hay cambio de schema.
+- **Trazabilidad parcial**: Si el usuario Discord no tiene cuenta Supabase vinculada, `resolved_by` queda NULL pero `resolved_by_channel` preserva la identidad Discord para auditoría.
+- **Index GIN**: Permite queries eficientes como `WHERE resolved_by_channel @> '{"channel":"discord"}'` para filtrar por canal.
+- **Separación de responsabilidades**: `resolved_by` (UUID Supabase) y `resolved_by_channel` (identidad externa) son ortogonales — ninguno reemplaza al otro.
 
 ---
 
