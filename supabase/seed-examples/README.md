@@ -9,7 +9,7 @@ local o testing, pero el flujo canónico de creación de datos en producción es
 
 ## Archivos
 
-- `mateos-809.sql` — Seed original del MVP Mateos (Sprint 2, Org `ed4308c7-2bdb-46f2-be69-7c59674838e2`).
+- `mateos-809.sql` — Seed original del MVP Mateos (Sprint 2, Org `81a011c4-4ea6-4b79-924d-73dbe6d35e14` / building `0d05c6d8-a9cd-437c-8b26-bd637bed7d49`).
   Estructura pre-Sprint 3: usa `units.org_id` directo (sin `building_id`),
   enum `member_role` con `owner/admin/operator/viewer/agent`. **NO se puede correr
   tal cual en BaW OS post-Sprint 3** porque el schema cambió (units ahora requiere

@@ -1,6 +1,7 @@
 // BaW OS — useOrgContext hook (Sprint 4 / S4-1)
 // Hook para client components que necesitan el org_id activo del usuario logueado.
-// Reemplaza el patrón legacy: const ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'
+// Reemplaza el patrón legacy: const ORG_ID = '<hardcoded>' (e.g. org pre-Sprint3 wipe)
+// UUID canónico prod actual: org=81a011c4-4ea6-4b79-924d-73dbe6d35e14 building=0d05c6d8-a9cd-437c-8b26-bd637bed7d49
 
 'use client'
 

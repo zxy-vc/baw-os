@@ -2,7 +2,9 @@
 -- Idempotente: usa funciones helper que UPDATE si existe, INSERT si no.
 -- No depende de UNIQUE constraints específicos.
 -- Datos vivos del Notion "BaW Mateos 809P — Estado Operativo Vivo".
--- Org Mateos: ed4308c7-2bdb-46f2-be69-7c59674838e2 (preexistente).
+-- Org Mateos: 81a011c4-4ea6-4b79-924d-73dbe6d35e14 (canonical prod UUID).
+-- Building Mateos 809P: 0d05c6d8-a9cd-437c-8b26-bd637bed7d49 (canonical prod UUID).
+-- NOTE: ed4308c7-2bdb-46f2-be69-7c59674838e2 was the legacy UUID from Sprint 1 wipe — no longer valid.
 
 -- ============================================================
 -- HELPER FUNCTIONS (idempotentes, scope: este seed)
@@ -90,7 +92,7 @@ END $fn$;
 
 DO $$
 DECLARE
-  v_org uuid := 'ed4308c7-2bdb-46f2-be69-7c59674838e2';
+  v_org uuid := '81a011c4-4ea6-4b79-924d-73dbe6d35e14';
   u_d102 uuid; u_d202 uuid; u_d203 uuid; u_d204 uuid;
   u_d301 uuid; u_d302 uuid; u_d401 uuid; u_d402 uuid; u_d404 uuid;
   o_erik uuid; o_pat uuid; o_let uuid; o_jose uuid; o_humb uuid;
