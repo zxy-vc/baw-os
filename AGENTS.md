@@ -224,4 +224,100 @@ Mejor un PR pausado 1 hora que un PR mergeado con regresión.
 
 ---
 
-**Última actualización:** 2026-04-30 · Hardening post-PR #26
+## 9 · Third-party agents — Discord Interactions (Sprint 5A WS-1)
+
+> Agente conectado actualmente: **Alicia** (`id = alicia-ops`, `family = third-party`).
+> Único humano en el sistema: Fran. Los agentes NUNCA son referenciados como personas.
+
+### Arquitectura del flujo Discord → BaW OS
+
+```
+Fran (Discord) → Discord API → POST /api/agents/discord-interactions
+                                    │
+                              Ed25519 verify (Web Crypto)
+                                    │
+                         DEFERRED_CHANNEL_MESSAGE (<3s)
+                                    │
+                         log → agent_interactions table
+                                    │
+                         dispatch async → /api/agents/discord-interactions/process
+                                    │
+                         Alicia ejecuta → /api/v1/* endpoints
+                                    │
+                         Discord followup webhook → respuesta con badge
+```
+
+### Bearer tokens de agentes
+
+Los agentes usan su **propio plano de autenticación** (`agent_credentials`), completamente separado de la autenticación de usuarios humanos (`auth.users`). Nunca mezclar.
+
+```ts
+// Forma correcta en endpoints que Alicia llama:
+import { requireAgentAuth } from '@/lib/agents/auth'
+export const POST = requireAgentAuth(['incidents:write'])(async (req, identity) => {
+  // identity.agent_id === 'alicia-ops'
+  // identity.scopes contiene los scopes concedidos
+})
+
+// Verificar un token directamente:
+import { verifyAgentBearer } from '@/lib/agents/auth'
+const identity = await verifyAgentBearer(token) // null si inválido
+```
+
+### Atribución de agentes
+
+Todo registro creado por un agente debe incluir:
+1. `created_by_agent_id` en la fila de DB (reservations, incidents, tasks).
+2. `agent_attribution` en el JSONB de metadata (si existe).
+3. Footer “via Alicia · BaW OS Agent · Discord” en respuestas Discord.
+
+```ts
+import { withAgentAttribution, withAgentDiscordEmbed } from '@/lib/agents/attribution'
+
+// En texto:
+const response = withAgentAttribution('Incidencia creada ✔', {
+  agentId: 'alicia-ops',
+  agentDisplayName: 'Alicia',
+  channel: 'discord',
+  discordMessageUrl: interaction.message?.jump_url,
+})
+
+// En embed Discord:
+const embed = withAgentDiscordEmbed({ title: 'Nueva incidencia', ... }, attr)
+```
+
+### Env vars requeridas para Discord Interactions
+
+| Variable | Descripción |
+|---|---|
+| `DISCORD_PUBLIC_KEY` | Clave pública Ed25519 del bot Discord (hex). Del portal de Discord. |
+| `INTERNAL_WEBHOOK_SECRET` | Bearer secret para dispatch async entre funciones Vercel. |
+| `NEXT_PUBLIC_BASE_URL` | URL base de Vercel (ej. `https://baw-os.vercel.app`). |
+
+### Tests de agentes
+
+```bash
+bash tests/agents/run-all.sh   # 3 suites, 39 tests
+```
+
+O individualmente:
+```bash
+node tests/agents/discord-verify.test.mjs  # 8 tests (firma Ed25519)
+node tests/agents/auth.test.mjs            # 13 tests (bearer tokens + scopes)
+node tests/agents/attribution.test.mjs     # 18 tests (badges de atribución)
+```
+
+### Archivos clave de la integración Discord
+
+| Archivo | Propósito |
+|---|---|
+| `src/app/api/agents/discord-interactions/route.ts` | Endpoint principal Discord |
+| `src/lib/agents/discord-verify.ts` | Verificación firma Ed25519 |
+| `src/lib/agents/auth.ts` | verifyAgentBearer + requireAgentAuth HOF |
+| `src/lib/agents/attribution.ts` | Badge "via Alicia" en mensajes y DB |
+| `supabase/migrations/20260523_agents_discord_interactions.sql` | agent_interactions + attribution columns |
+| `docs/adr/ADR-021-third-party-agents-discord.md` | Decisiones arquitecturales |
+
+---
+
+**Última actualización:** 2026-05-23 · Sprint 5A WS-1 — Discord Interactions + Alicia bearer auth

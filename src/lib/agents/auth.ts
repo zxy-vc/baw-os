@@ -2,6 +2,10 @@
 // Una identidad por agente, por org. Reemplaza el patrón BAWOS_API_KEY global.
 // Contrato: ver docs/AGENT_INTEGRATION.md
 //
+// Sprint 5A WS-1 additions:
+//   - verifyAgentBearer(token) → { agent_id, scopes } | null
+//   - requireAgentAuth(scopes[]) HOF para endpoints
+//
 // Nota de seguridad: usamos SHA-256 (Web Crypto, sin deps nuevas) con timing-safe
 // compare. Suficiente para API keys de agente (no son passwords humanos, y se
 // almacenan + transmiten siempre por canales TLS). Para Fase 2 evaluaremos bcrypt
@@ -226,4 +230,122 @@ export function validateLegacyApiKey(req: NextRequest): boolean {
   const expected = process.env.BAWOS_API_KEY
   if (!expected) return false
   return apiKey === expected
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sprint 5A WS-1 — verifyAgentBearer + requireAgentAuth HOF
+// ─────────────────────────────────────────────────────────────
+
+export interface AgentBearerIdentity {
+  agent_id: AgentId
+  org_id: string
+  credential_id: string
+  scopes: string[]
+  rate_limit_tier: 'standard' | 'elevated' | 'unlimited'
+}
+
+/**
+ * verifyAgentBearer — valida un Bearer token de agente (no usuario humano).
+ * Retorna la identidad del agente o null si el token es inválido/expirado.
+ *
+ * Diseñado para ser llamado desde dentro de endpoints de agent-facing API
+ * donde se quiere la identidad sin HOF (ej. dentro de otras middlewares).
+ *
+ * @param token - El valor raw del Bearer token (sin el prefix 'Bearer ')
+ */
+export async function verifyAgentBearer(
+  token: string
+): Promise<AgentBearerIdentity | null> {
+  // Reutiliza la lógica de authenticateAgentRequest sin un NextRequest completo
+  if (
+    !token.startsWith(KEY_PREFIX_LIVE) &&
+    !token.startsWith(KEY_PREFIX_TEST)
+  ) {
+    return null
+  }
+
+  const prefix = token.slice(0, PREFIX_LOOKUP_LEN)
+  const hash = await hashApiKey(token)
+  const supabase = createServiceClient()
+
+  const { data: rows, error } = await supabase
+    .from('agent_credentials')
+    .select('id, org_id, agent_id, api_key_hash, scopes, status, expires_at, rate_limit_tier')
+    .eq('api_key_prefix', prefix)
+    .eq('status', 'active')
+
+  if (error || !rows) return null
+
+  const matched = rows.find((row) =>
+    timingSafeEqual(row.api_key_hash as string, hash)
+  )
+
+  if (!matched) return null
+
+  if (matched.expires_at) {
+    const expiresAt = new Date(matched.expires_at as string).getTime()
+    if (Date.now() > expiresAt) {
+      void supabase
+        .from('agent_credentials')
+        .update({ status: 'expired' })
+        .eq('id', matched.id as string)
+      return null
+    }
+  }
+
+  void supabase.rpc('touch_agent_credential', { p_credential_id: matched.id as string })
+
+  return {
+    agent_id: matched.agent_id as AgentId,
+    org_id: matched.org_id as string,
+    credential_id: matched.id as string,
+    scopes: (matched.scopes as string[]) || [],
+    rate_limit_tier:
+      (matched.rate_limit_tier as 'standard' | 'elevated' | 'unlimited') ||
+      'standard',
+  }
+}
+
+/**
+ * requireAgentAuth — Higher-Order Function para proteger endpoints de agentes.
+ *
+ * Uso:
+ * ```ts
+ * export const GET = requireAgentAuth(['units:read'])(async (req, identity) => {
+ *   // identity.agent_id, identity.scopes disponibles
+ *   return NextResponse.json({ ... })
+ * })
+ * ```
+ *
+ * Los agentes usan su propia tabla (agent_credentials), NO la autenticación
+ * de usuarios humanos (auth.users + org_members). Son dos planos separados.
+ */
+export function requireAgentAuth(
+  requiredScopes: string[] = []
+) {
+  return function <T extends unknown[]>(
+    handler: (
+      req: NextRequest,
+      identity: AgentBearerIdentity,
+      ...args: T
+    ) => Promise<NextResponse>
+  ) {
+    return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
+      const auth = await authenticateAgentRequest(req, requiredScopes)
+
+      if (!auth.ok) {
+        return agentAuthErrorResponse(auth)
+      }
+
+      const identity: AgentBearerIdentity = {
+        agent_id: auth.agentId,
+        org_id: auth.orgId,
+        credential_id: auth.credentialId,
+        scopes: auth.scopes,
+        rate_limit_tier: auth.rateLimitTier,
+      }
+
+      return handler(req, identity, ...args)
+    }
+  }
 }
