@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  lint-and-typecheck:
+    name: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: |
+          if npm run typecheck --if-present 2>/dev/null; then
+            echo "Typecheck passed via npm run typecheck"
+          else
+            npx tsc --noEmit
+          fi
+
+      - name: Lint
+        run: npm run lint --if-present
+
+  build:
+    name: build
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          SUPABASE_SERVICE_ROLE_KEY: placeholder
+          PUBLIC_BOOKING_ENABLED: 'false'
+          NEXT_PUBLIC_PUBLIC_BOOKING_ENABLED: 'false'
+          PUBLIC_BOOKING_ALLOWED_ORIGINS: 'https://placeholder.example.com'
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET_PUBLIC: whsec_placeholder
+          PUBLIC_BOOKING_SUCCESS_URL: 'https://placeholder.example.com/confirmacion/{HOLD_ID}'
+          PUBLIC_BOOKING_CANCEL_URL: 'https://placeholder.example.com/reservar'
+          NEXT_PUBLIC_APP_URL: 'https://placeholder.example.com'
+          BAWOS_API_KEY: 'placeholder'
+          CRON_SECRET: 'placeholder'
+        run: npm run build
+
+  tests:
+    name: tests
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests (public-booking)
+        run: bash tests/public-booking/run-all.sh
+
+      - name: Run tests (v1)
+        run: bash tests/v1/run-all.sh
+
+  smoke-supabase:
+    name: smoke-supabase
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SUPABASE_STAGING_URL != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Supabase health check
+        run: |
+          echo "Running Supabase smoke test against staging..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_STAGING_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_STAGING_ANON_KEY }}")
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "Supabase health check passed."
+          else
+            echo "Supabase health check failed with status $STATUS"
+            exit 1
+          fi
+
+  all-checks-pass:
+    name: all-checks-pass
+    needs: [lint-and-typecheck, build, tests, smoke-supabase]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify all required jobs passed
+        run: |
+          if [ "${{ needs.lint-and-typecheck.result }}" != "success" ]; then
+            echo "lint-and-typecheck failed"
+            exit 1
+          fi
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "build failed"
+            exit 1
+          fi
+          if [ "${{ needs.tests.result }}" != "success" ]; then
+            echo "tests failed"
+            exit 1
+          fi
+          # smoke-supabase is optional — passes if skipped (secret not set) or succeeded
+          if [ "${{ needs.smoke-supabase.result }}" != "success" ] && [ "${{ needs.smoke-supabase.result }}" != "skipped" ]; then
+            echo "smoke-supabase failed"
+            exit 1
+          fi
+          echo "All checks passed"
