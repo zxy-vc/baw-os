@@ -1,6 +1,6 @@
 # Sprint 5A — Conversational Agent Runtime (Alicia third-party)
 
-**Status**: Planned, ready to start
+**Status**: WS-1 In Progress — WS-2/3/4 Planned
 **Start**: 2026-05-03
 **Target end**: 2026-05-07 (4 days)
 **Owner**: Computer (this AI), supervised by Fran
@@ -31,6 +31,31 @@ Connect Alicia (ZXY Agent OS, OpenClaw, on Fran's M1) to BaW OS production so th
 5. All Alicia actions logged in `agent_runs` table with idempotency keys, request hashes, response statuses.
 6. Smoke tests E2E pass: 5 happy-path flows + 3 failure modes (token revoked, M1 offline, approval denied).
 7. No production data corruption, no double-writes (idempotency verified by replay test).
+
+---
+
+## WS-1 Progress (2026-05-23)
+
+### Entregables completados
+
+| Item | Estado | Archivo |
+|---|---|---|
+| `src/lib/agents/discord-verify.ts` | ✅ Done | Ed25519 verification vía Web Crypto |
+| `src/lib/agents/attribution.ts` | ✅ Done | withAgentAttribution + Discord embeds |
+| `src/lib/agents/auth.ts` | ✅ Extended | verifyAgentBearer + requireAgentAuth HOF |
+| `src/app/api/agents/discord-interactions/route.ts` | ✅ Done | Endpoint Discord Interactions |
+| `supabase/migrations/20260523_agents_discord_interactions.sql` | ✅ Applied to prod | agent_interactions table + attribution columns |
+| `tests/agents/discord-verify.test.mjs` | ✅ 8/8 pass | |
+| `tests/agents/auth.test.mjs` | ✅ 13/13 pass | |
+| `tests/agents/attribution.test.mjs` | ✅ 18/18 pass | |
+| `docs/adr/ADR-021-third-party-agents-discord.md` | ✅ Done | |
+| Repo `openclaw-skill-baw-os` | ✅ Done | github.com/zxy-vc/openclaw-skill-baw-os |
+
+### Reconocimiento completado
+- Alicia confirmada en tabla `agents`: `id='alicia-ops'`, `family='third-party'`, `status='planned'`
+- No existen repos `openclaw-skill-*` previos en `zxy-vc` — se crea desde cero
+- La tabla `agent_credentials` ya existe con el schema correcto (de migración 20260503)
+- La tabla llamada `bookings` no existe — es `reservations`; la atribución se aplicó a `reservations`, `incidents`, `tasks`
 
 ---
 
