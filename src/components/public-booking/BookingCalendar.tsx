@@ -1,7 +1,7 @@
 'use client'
 
 import 'react-day-picker/dist/style.css'
-import { DayPicker } from 'react-day-picker'
+import { DayPicker, type Matcher } from 'react-day-picker'
 import { es } from 'date-fns/locale'
 import { useMemo } from 'react'
 import { parseISODate, toISODate } from '@/lib/public-booking-client/format'
@@ -31,10 +31,10 @@ export default function BookingCalendar({
     to: to ? parseISODate(to) ?? undefined : undefined,
   }), [from, to])
 
-  const disabledRanges = useMemo(() => {
+  const disabledRanges = useMemo<Matcher[]>(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const arr: Array<{ from?: Date; to?: Date; before?: Date; after?: Date }> = [
+    const arr: Matcher[] = [
       { before: minDate ?? today },
     ]
     if (maxDate) arr.push({ after: maxDate })

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import type { PublicUnit, Quote } from '@/lib/public-booking/schemas'
 import {
   postQuote,
@@ -26,7 +25,6 @@ export default function BookingWizard({
   initialTo: string
   initialGuests: number
 }) {
-  const router = useRouter()
   const [step, setStep] = useState<Step>(1)
   const [from, setFrom] = useState(initialFrom)
   const [to, setTo] = useState(initialTo)

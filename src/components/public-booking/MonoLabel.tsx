@@ -4,23 +4,28 @@ import * as React from 'react'
  * Label tipográfico — JetBrains Mono, mayúsculas, letter-spacing amplio.
  * Para overlines, etiquetas de sección y micro-metadatos.
  */
+type MonoLabelProps = {
+  children: React.ReactNode
+  as?: keyof JSX.IntrinsicElements
+  size?: number
+  color?: string
+  htmlFor?: string
+} & React.HTMLAttributes<HTMLElement>
+
 export default function MonoLabel({
   children,
   as: As = 'span',
   size = 11,
   color,
   style,
+  htmlFor,
   ...rest
-}: {
-  children: React.ReactNode
-  as?: keyof JSX.IntrinsicElements
-  size?: number
-  color?: string
-} & React.HTMLAttributes<HTMLElement>) {
+}: MonoLabelProps) {
   return React.createElement(
     As,
     {
-      ...rest,
+      ...(rest as Record<string, unknown>),
+      htmlFor,
       style: {
         fontFamily: 'var(--font-mono)',
         fontSize: size,
