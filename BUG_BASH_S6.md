@@ -17,7 +17,7 @@
 
 ### Bug #1 (BLOCKER, parche temporal aplicado)
 
-**Síntoma:** tras el wipe operativo de S1, todas las APIs legacy (~73 archivos: `/api/units`, `/api/contracts`, `/api/payments`, `/api/tasks`, `/api/notifications`, `/api/whatsapp/*`, etc.) seguían apuntando a `ORG_ID = 'ed4308c7-2bdb-46f2-be69-7c59674838e2'` (la UUID Mateos eliminada en S1). Resultado esperado: cualquier query legacy retorna 0 filas o error de FK contra una org inexistente.
+**Síntoma:** tras el wipe operativo de S1, todas las APIs legacy (~73 archivos: `/api/units`, `/api/contracts`, `/api/payments`, `/api/tasks`, `/api/notifications`, `/api/whatsapp/*`, etc.) seguían apuntando a `ORG_ID` hardcoded con la UUID legacy pre-wipe (ya no válida en prod). UUID canónico actual: `org_id=81a011c4-4ea6-4b79-924d-73dbe6d35e14` / `building_id=0d05c6d8-a9cd-437c-8b26-bd637bed7d49`. Resultado esperado: cualquier query legacy retorna 0 filas o error de FK contra una org inexistente.
 
 **Causa raíz:** `src/lib/api-auth.ts` definía `ORG_ID` como constante hardcoded.
 
