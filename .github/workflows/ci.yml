@@ -106,21 +106,36 @@ jobs:
     name: smoke-supabase
     needs: lint-and-typecheck
     runs-on: ubuntu-latest
-    if: ${{ secrets.SUPABASE_STAGING_URL != '' }}
     steps:
+      - name: Check if secret is configured
+        id: check_secret
+        env:
+          SUPABASE_STAGING_URL: ${{ secrets.SUPABASE_STAGING_URL }}
+        run: |
+          if [ -z "$SUPABASE_STAGING_URL" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "SUPABASE_STAGING_URL not configured — skipping smoke test"
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout
+        if: steps.check_secret.outputs.configured == 'true'
         uses: actions/checkout@v4
         with:
           submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Supabase health check
+        if: steps.check_secret.outputs.configured == 'true'
+        env:
+          SUPABASE_STAGING_URL: ${{ secrets.SUPABASE_STAGING_URL }}
+          SUPABASE_STAGING_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
         run: |
-          echo "Running Supabase smoke test against staging..."
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_STAGING_URL }}/rest/v1/" \
-            -H "apikey: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_STAGING_ANON_KEY }}")
+            "$SUPABASE_STAGING_URL/rest/v1/" \
+            -H "apikey: $SUPABASE_STAGING_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_STAGING_ANON_KEY")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
             echo "Supabase health check passed."
@@ -137,21 +152,8 @@ jobs:
     steps:
       - name: Verify all required jobs passed
         run: |
-          if [ "${{ needs.lint-and-typecheck.result }}" != "success" ]; then
-            echo "lint-and-typecheck failed"
-            exit 1
-          fi
-          if [ "${{ needs.build.result }}" != "success" ]; then
-            echo "build failed"
-            exit 1
-          fi
-          if [ "${{ needs.tests.result }}" != "success" ]; then
-            echo "tests failed"
-            exit 1
-          fi
-          # smoke-supabase is optional — passes if skipped (secret not set) or succeeded
-          if [ "${{ needs.smoke-supabase.result }}" != "success" ] && [ "${{ needs.smoke-supabase.result }}" != "skipped" ]; then
-            echo "smoke-supabase failed"
-            exit 1
-          fi
+          if [ "${{ needs.lint-and-typecheck.result }}" != "success" ]; then echo "lint-and-typecheck failed"; exit 1; fi
+          if [ "${{ needs.build.result }}" != "success" ]; then echo "build failed"; exit 1; fi
+          if [ "${{ needs.tests.result }}" != "success" ]; then echo "tests failed"; exit 1; fi
+          if [ "${{ needs.smoke-supabase.result }}" != "success" ]; then echo "smoke-supabase failed"; exit 1; fi
           echo "All checks passed"
