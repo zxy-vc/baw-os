@@ -139,6 +139,8 @@ Enum legacy `member_role` está en proceso de eliminación (issue [#23](https://
 
 Definido en tabla `agents` (S4-3, PR #18). Framework: capability `L0-L4` (autonomy) + feedback `F0-F5` (maturity).
 
+**Presentación UI (Sprint 5A MVP):** la página `/agents` muestra **solo la familia third-party**. El catálogo completo permanece intacto en la tabla `agents` — los nativos están ocultos de la UI, no eliminados. El runner de cobranza sigue operando como automatización interna vía `/api/cron/cobranza` (diario), sin presentarse como agente. Los únicos third-party activos del MVP son **Alicia** (operadora Mateos 809P) y **Hugo** (supervisor read-only de Alicia); el resto se muestra "Diferido".
+
 ### 2.8 — Features mergeadas y funcionales
 **No eliminar** features que ya están en main funcionando, sin issue previo que justifique la eliminación. Ejemplos vigentes:
 
@@ -224,10 +226,10 @@ Mejor un PR pausado 1 hora que un PR mergeado con regresión.
 
 ---
 
-## 9 · Third-party agents — Discord Interactions (Sprint 5A WS-1)
+## 9 · Third-party agents — Discord Interactions (Sprint 5A MVP)
 
-> Agente conectado actualmente: **Alicia** (`id = alicia-ops`, `family = third-party`).
-> Único humano en el sistema: Fran. Los agentes NUNCA son referenciados como personas.
+> Agentes del MVP: **Alicia** (`id = alicia-ops`, operadora Mateos 809P) y **Hugo** (`id = hugo-cos`, supervisor de Alicia, **solo lectura**: `runs:read`, `approvals:read`, `insights:read` — nunca writes ni `approvals:resolve`; ver `docs/runbooks/hugo-cos-connect.md`).
+> Único humano en el sistema: Fran. Los agentes NUNCA son referenciados como personas. Las aprobaciones las resuelve solo Fran.
 
 ### Arquitectura del flujo Discord → BaW OS
 
@@ -242,10 +244,24 @@ Fran (Discord) → Discord API → POST /api/agents/discord-interactions
                                     │
                          dispatch async → /api/agents/discord-interactions/process
                                     │
-                         Alicia ejecuta → /api/v1/* endpoints
-                                    │
-                         Discord followup webhook → respuesta con badge
+                    push a ALICIA_WEBHOOK_URL (timeout 5s)
+                         │                        │
+                    push OK                  push falla
+                         │                        │
+              Alicia procesa            status='deferred' + aviso Discord
+                         │                        │
+                         │              skill long-poll GET /v1/interactions
+                         │                        │
+                         └────────┬───────────────┘
+                                  │
+                    Alicia ejecuta → /api/v1/* endpoints
+                                  │
+                    Discord followup webhook (skill) → respuesta con badge
+                                  │
+                    PATCH /v1/interactions/:id → completed|failed
 ```
+
+**custom_id canónico** (botones/selects): `baw:<agent_id>:<action>:<entity_id>`. Aprobaciones: `baw:<agent_id>:approval:<grant|deny>:<approval_id>` (el server acepta el legacy `baw:approval:<grant|deny>:<id>`). El botón "Aprobar" ejecuta la acción vía `dispatchApprovedAction()` — mismo contrato que `POST /v1/approvals/:id/grant`.
 
 ### Bearer tokens de agentes
 
@@ -293,31 +309,38 @@ const embed = withAgentDiscordEmbed({ title: 'Nueva incidencia', ... }, attr)
 | `DISCORD_PUBLIC_KEY` | Clave pública Ed25519 del bot Discord (hex). Del portal de Discord. |
 | `INTERNAL_WEBHOOK_SECRET` | Bearer secret para dispatch async entre funciones Vercel. |
 | `NEXT_PUBLIC_BASE_URL` | URL base de Vercel (ej. `https://baw-os.vercel.app`). |
+| `ALICIA_WEBHOOK_URL` | URL push al runtime de Alicia (tunnel Cloudflare, ej. `https://alicia.zxy.vc/incoming/baw-os`). Si falta o el push falla, la interacción queda `deferred` y la recoge el long-poll del skill. |
+| `DISCORD_DEFAULT_ORG_ID` | Org UUID al que se atribuyen interacciones Discord (MVP: org `BaW Operations`). Mapeo guild→org multi-tenant es follow-up. |
 
 ### Tests de agentes
 
 ```bash
-bash tests/agents/run-all.sh   # 3 suites, 39 tests
+bash tests/agents/run-all.sh   # 4 suites
 ```
 
 O individualmente:
 ```bash
-node tests/agents/discord-verify.test.mjs  # 8 tests (firma Ed25519)
-node tests/agents/auth.test.mjs            # 13 tests (bearer tokens + scopes)
-node tests/agents/attribution.test.mjs     # 18 tests (badges de atribución)
+node tests/agents/discord-verify.test.mjs    # firma Ed25519
+node tests/agents/auth.test.mjs              # bearer tokens + scopes
+node tests/agents/attribution.test.mjs       # badges de atribución
+node tests/agents/discord-custom-id.test.mjs # parser custom_id aprobaciones
 ```
 
 ### Archivos clave de la integración Discord
 
 | Archivo | Propósito |
 |---|---|
-| `src/app/api/agents/discord-interactions/route.ts` | Endpoint principal Discord |
+| `src/app/api/agents/discord-interactions/route.ts` | Endpoint principal Discord (PING, deferred, botones de aprobación) |
+| `src/app/api/agents/discord-interactions/process/route.ts` | Procesamiento async: push al runtime o deferred |
+| `src/app/api/v1/interactions/route.ts` + `[id]/route.ts` | Long-poll safety net del skill (GET + PATCH) |
 | `src/lib/agents/discord-verify.ts` | Verificación firma Ed25519 |
 | `src/lib/agents/auth.ts` | verifyAgentBearer + requireAgentAuth HOF |
-| `src/lib/agents/attribution.ts` | Badge "via Alicia" en mensajes y DB |
+| `src/lib/agents/attribution.ts` | Badge "via Alicia" / "via Hugo" en mensajes y DB |
 | `supabase/migrations/20260523_agents_discord_interactions.sql` | agent_interactions + attribution columns |
+| `supabase/migrations/20260611_agent_approvals_discord_resolver.sql` | resolved_by_discord_user (ADR-021 D8) |
 | `docs/adr/ADR-021-third-party-agents-discord.md` | Decisiones arquitecturales |
+| `docs/runbooks/hugo-cos-connect.md` | Conexión de Hugo (supervisor read-only) |
 
 ---
 
-**Última actualización:** 2026-05-23 · Sprint 5A WS-1 — Discord Interactions + Alicia bearer auth
+**Última actualización:** 2026-06-11 · Sprint 5A MVP — Alicia + Hugo third-party, nativos ocultos de UI, pipeline async completo

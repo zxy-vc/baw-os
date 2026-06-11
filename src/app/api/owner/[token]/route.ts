@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getOrgIdAsync } from '@/lib/api-auth'
+import { resolveOrgIdForWebhook } from '@/lib/org-context'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -25,7 +25,7 @@ function createPortalClient() {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { token: string } }
 ) {
   if (!LEGACY_ENABLED) {
@@ -46,7 +46,15 @@ export async function GET(
   }
 
   const supabase = createPortalClient()
-  const ORG_ID = await getOrgIdAsync()
+  // issue #22: org explícita vía header/`?org=<slug>`, no el shim "primera org".
+  // Endpoint legacy flag-gated; quien reactive el flag debe pasar la org.
+  const ORG_ID = await resolveOrgIdForWebhook(request)
+  if (!ORG_ID) {
+    return NextResponse.json(
+      { error: 'org requerida', message: 'Agrega ?org=<slug> a la URL.' },
+      { status: 400 },
+    )
+  }
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]

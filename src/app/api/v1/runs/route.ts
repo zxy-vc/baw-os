@@ -14,15 +14,17 @@ export const GET = v1Read({
 
     let q = supabase
       .from('agent_runs')
-      .select('id, org_id, agent_id, status, input, output, started_at, completed_at, created_at')
+      .select(
+        'id, org_id, agent_id, status, triggered_by, input, output, started_at, finished_at, duration_ms, metrics, error'
+      )
       .eq('org_id', auth.orgId)
-      .order('created_at', { ascending: false })
+      .order('started_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(limit + 1)
 
     if (agentId) q = q.eq('agent_id', agentId)
     if (status) q = q.eq('status', status)
-    if (afterTs) q = q.lt('created_at', afterTs)
+    if (afterTs) q = q.lt('started_at', afterTs)
 
     const { data, error } = await q
     if (error) return v1Error('query_error', error.message, 500)
@@ -31,7 +33,10 @@ export const GET = v1Read({
     const hasMore = rows.length > limit
     const trimmed = hasMore ? rows.slice(0, limit) : rows
     const last = trimmed[trimmed.length - 1]
-    const next_cursor = hasMore && last ? makeCursor(last) : null
+    const next_cursor =
+      hasMore && last
+        ? makeCursor({ id: last.id as string, created_at: last.started_at as string })
+        : null
 
     return v1Ok(trimmed, { next_cursor, limit })
   },

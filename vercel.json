@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/payments",
       "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/cobranza",
+      "schedule": "0 13 * * *"
     }
   ],
   "installCommand": "git submodule update --init --recursive && npm install"

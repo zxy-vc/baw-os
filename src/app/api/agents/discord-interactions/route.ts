@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { verifyDiscordRequest } from '@/lib/agents/discord-verify'
 import { getAgentDisplayName } from '@/lib/agents/attribution'
+import { dispatchApprovedAction } from '@/lib/agents/v1/dispatcher'
 
 export const runtime = 'nodejs'
 
@@ -71,14 +72,53 @@ interface DiscordInteraction {
 function resolveAgentId(interaction: DiscordInteraction): string {
   const customId = interaction.data?.custom_id ?? ''
 
-  // Formato custom_id: "baw:<agent_id>:<action>:<payload...>"
+  // Formato canónico: "baw:<agent_id>:<action>:<payload...>" (ADR-021 D4)
+  // Formato legacy: "baw:approval:<grant|deny>:<id>" — sin agent_id, no confundir
   if (customId.startsWith('baw:')) {
     const parts = customId.split(':')
-    if (parts[1]) return parts[1]
+    if (parts[1] && parts[1] !== 'approval') return parts[1]
   }
 
   // Default: alicia-ops (única agente third-party conectada en Sprint 5A)
   return 'alicia-ops'
+}
+
+interface ApprovalCustomId {
+  action: 'grant' | 'deny'
+  approvalId: string
+}
+
+/**
+ * Parsea el custom_id de botones de aprobación.
+ * Canónico: baw:<agent_id>:approval:<grant|deny>:<approval_id>
+ * Legacy:   baw:approval:<grant|deny>:<approval_id>
+ */
+function parseApprovalCustomId(customId: string): ApprovalCustomId | null {
+  if (!customId.startsWith('baw:')) return null
+  const parts = customId.split(':')
+
+  let action: string | undefined
+  let approvalId: string | undefined
+  if (parts[1] === 'approval') {
+    action = parts[2]
+    approvalId = parts[3]
+  } else if (parts[2] === 'approval') {
+    action = parts[3]
+    approvalId = parts[4]
+  } else {
+    return null
+  }
+
+  if (!approvalId || (action !== 'grant' && action !== 'deny')) return null
+  return { action, approvalId }
+}
+
+/** Respuesta efímera (solo visible para quien hizo click). */
+function ephemeralMessage(content: string): NextResponse {
+  return NextResponse.json({
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { content, flags: 64 },
+  })
 }
 
 /**
@@ -221,63 +261,144 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       JSON.parse(rawBody) as Record<string, unknown>
     )
 
-    // Procesamos aprobaciones inline (grant/deny son idempotentes y rápidos)
-    if (customId.startsWith('baw:approval:')) {
-      // Formato: baw:approval:grant:<approval_id> | baw:approval:deny:<approval_id>
-      const parts = customId.split(':')
-      const action = parts[2] as 'grant' | 'deny'
-      const approvalId = parts[3]
-
-      if (!approvalId || !['grant', 'deny'].includes(action)) {
-        return NextResponse.json(
-          {
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-              content: '⚠️ ID de aprobación inválido.',
-              flags: 64, // ephemeral
-            },
-          }
-        )
+    // Procesamos aprobaciones inline (mismo contrato que /v1/approvals/:id/grant|deny)
+    const isApprovalComponent =
+      customId.startsWith('baw:approval:') || customId.split(':')[2] === 'approval'
+    if (isApprovalComponent) {
+      const parsed = parseApprovalCustomId(customId)
+      if (!parsed) {
+        return ephemeralMessage('⚠️ ID de aprobación inválido.')
       }
+      const { action, approvalId } = parsed
 
-      // Ejecutar grant/deny en agent_approvals
       try {
         const supabase = createServiceClient()
-        const newStatus = action === 'grant' ? 'approved' : 'denied'
         const discordUserId =
           interaction.member?.user?.id ?? interaction.user?.id ?? 'unknown'
+        const nowIso = new Date().toISOString()
 
-        const { error } = await supabase
+        const { data: approval, error: loadError } = await supabase
+          .from('agent_approvals')
+          .select('id, org_id, agent_id, action_type, payload, status, expires_at')
+          .eq('id', approvalId)
+          .maybeSingle()
+
+        if (loadError) throw loadError
+        if (!approval) {
+          return ephemeralMessage('⚠️ Aprobación no encontrada.')
+        }
+        if (approval.status !== 'pending') {
+          return ephemeralMessage(
+            `⚠️ Esta solicitud ya fue resuelta (estado: ${approval.status}).`
+          )
+        }
+        if (new Date(approval.expires_at as string).getTime() < Date.now()) {
+          await supabase
+            .from('agent_approvals')
+            .update({ status: 'expired', resolved_at: nowIso })
+            .eq('id', approvalId)
+            .eq('status', 'pending')
+          return ephemeralMessage('⚠️ La solicitud expiró antes de resolverse.')
+        }
+
+        if (action === 'deny') {
+          const { error } = await supabase
+            .from('agent_approvals')
+            .update({
+              status: 'denied',
+              resolved_at: nowIso,
+              resolved_by_discord_user: discordUserId,
+            })
+            .eq('id', approvalId)
+            .eq('status', 'pending') // Solo pendientes — previene doble-click
+          if (error) throw error
+
+          return NextResponse.json({
+            type: InteractionResponseType.UPDATE_MESSAGE,
+            data: {
+              content: '❌ Solicitud **denegada**.',
+              components: [], // Elimina los botones del mensaje original
+            },
+          })
+        }
+
+        // grant: ejecutar la acción aprobada vía dispatcher
+        const dispatch = await dispatchApprovedAction({
+          approvalId,
+          orgId: approval.org_id as string,
+          agentId: approval.agent_id as string,
+          actionType: approval.action_type as string,
+          payload: (approval.payload as Record<string, unknown>) || {},
+          resolvedBy: `discord:${discordUserId}`,
+        })
+
+        // Persistir resolución (si dispatch falla, mantenemos pending para retry)
+        await supabase
           .from('agent_approvals')
           .update({
-            status: newStatus,
-            resolved_at: new Date().toISOString(),
-            resolved_by_discord_user: discordUserId,
+            status: dispatch.ok ? 'granted' : 'pending',
+            resolved_at: dispatch.ok ? nowIso : null,
+            resolved_by_discord_user: dispatch.ok ? discordUserId : null,
+            result: dispatch.ok
+              ? (dispatch.result as object)
+              : ({ error: dispatch.error } as object),
           })
           .eq('id', approvalId)
-          .eq('status', 'pending') // Solo pendientes — previene doble-click
+          .eq('status', 'pending')
 
-        if (error) throw error
+        // Audit como agent_run + agent_action (mismo patrón que /v1 grant)
+        const { data: run } = await supabase
+          .from('agent_runs')
+          .insert({
+            org_id: approval.org_id,
+            agent_id: approval.agent_id,
+            triggered_by: 'agent',
+            status: dispatch.ok ? 'succeeded' : 'failed',
+            input: {
+              approval_id: approvalId,
+              action_type: approval.action_type,
+              resolved_via: 'discord',
+            } as object,
+            output: dispatch.ok
+              ? ((dispatch.result || {}) as object)
+              : ({ error: dispatch.error } as object),
+            finished_at: nowIso,
+            error: dispatch.ok ? null : dispatch.error,
+          })
+          .select('id')
+          .single()
 
-        const emoji = action === 'grant' ? '✅' : '❌'
-        const label = action === 'grant' ? 'aprobado' : 'denegado'
+        if (run) {
+          await supabase.from('agent_actions').insert({
+            run_id: run.id as string,
+            org_id: approval.org_id,
+            agent_id: approval.agent_id,
+            action_type: approval.action_type,
+            entity_type: dispatch.entityType ?? null,
+            entity_id: dispatch.entityId ?? null,
+            status: dispatch.ok ? 'ok' : 'failed',
+            payload: (approval.payload || {}) as object,
+            result: (dispatch.result || {}) as object,
+            error: dispatch.error ?? null,
+          })
+        }
+
+        if (!dispatch.ok) {
+          return ephemeralMessage(
+            `⚠️ Aprobación recibida pero la ejecución falló: ${dispatch.error}. La solicitud sigue pendiente.`
+          )
+        }
 
         return NextResponse.json({
           type: InteractionResponseType.UPDATE_MESSAGE,
           data: {
-            content: `${emoji} Solicitud **${label}**.`,
+            content: '✅ Solicitud **aprobada** y ejecutada.',
             components: [], // Elimina los botones del mensaje original
           },
         })
       } catch (err) {
         console.error('approval resolution failed:', err)
-        return NextResponse.json({
-          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-          data: {
-            content: '⚠️ Error al procesar la aprobación. Intenta de nuevo.',
-            flags: 64,
-          },
-        })
+        return ephemeralMessage('⚠️ Error al procesar la aprobación. Intenta de nuevo.')
       }
     }
 

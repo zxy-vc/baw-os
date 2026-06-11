@@ -1,29 +1,35 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-05-03 (Sprint 5A iniciado: Conversational Agent Runtime, Alicia third-party).
+> **Última actualización:** 2026-06-11 (Sprint 5A simplificado a MVP: Alicia + Hugo third-party, nativos fuera de UI).
 
 ---
 
 ## 1 · Sprint en curso
 
-**Sprint 5A — Conversational Agent Runtime · EN CURSO desde 2026-05-03.**
+**Sprint 5A MVP — Producto mínimo utilizable con agentes third-party · simplificado el 2026-06-11.**
 
-**Goal:** conectar Alicia (único agente third party de Sprint 5A) vía OpenClaw skill + Discord para que opere BaW OS en lenguaje natural en producción.
+**Goal:** Fran + Alicia + Hugo operando Mateos 809P vía Discord sobre las features que ya existen. Producto mínimo, no plataforma completa.
+
+**Decisiones de simplificación (2026-06-11, Fran):**
+- **Agentes nativos fuera del alcance**: la UI `/agents` muestra solo la familia third-party. Nada se borra de DB. El runner de cobranza sigue vivo como cron interno (`/api/cron/cobranza`, diario, dry-run default) sin presentarse como agente.
+- **Alicia** (`alicia-ops`) = operadora de Mateos 809P. Scopes: `incidents:rw, tasks:rw, units:r, contracts:r, payments:r, approvals:r, interactions:rw`.
+- **Hugo** (`hugo-cos`) = supervisor de Alicia, **solo lectura + reportes** (`runs:read, approvals:read, insights:read`). NO aprueba acciones (solo Fran), NO dispara a Alicia. Runbook: `docs/runbooks/hugo-cos-connect.md`.
+- **División de trabajo**: Claude (Fable 5) → repo `baw-os`; Codex → repo `openclaw-skill-baw-os` (skill con persona dual Alicia+Hugo). El contrato de interfaz está en AGENTS.md §9.
+- Siguen vigentes de ADR-016: webhooks-first + long-poll safety net, repo separado para el skill, CFDI/Stripe writes en Fase 6, in-app chat en 5B.
+
+**Estado server-side (2026-06-11):** pipeline Discord completo (endpoint principal + `/process` + `/v1/interactions` GET/PATCH), botones de aprobación reparados y ejecutando vía dispatcher, `GET /v1/runs` reparado, UI `/agents` solo third-party con badges de conexión, cron cobranza, webhooks issue #22 migrados, guard de submodule en prebuild. Pendiente: Codex (skill), migraciones SQL en Supabase prod, env vars en Vercel, credenciales de Alicia/Hugo (Fran).
+
+**Bugs encontrados y corregidos en main (patrón "columnas fantasma en selects"):**
+- `GET /v1/runs` seleccionaba `completed_at, created_at` — columnas inexistentes en `agent_runs` (son `started_at, finished_at`). Todo GET devolvía 500.
+- Botones Discord de aprobación: status `'approved'` (el CHECK admite `'granted'`), columna `resolved_by_discord_user` inexistente (migración `20260611` la agrega), y el grant nunca ejecutaba la acción.
+- Lección: al escribir selects/updates de Supabase, verificar columnas contra `supabase/migrations/`, no contra memoria.
 
 Docs canon:
 - [ADR-016 Third-Party Agent Integration](./adr/ADR-016-third-party-agent-integration.md)
-- [Sprint 5A Plan](./sprints/SPRINT_5A_PLAN.md)
-- Runbooks: `docs/runbooks/setup-discord-channel.md`, `setup-cloudflare-tunnel.md`, `alicia-skill-install.md`
-
-Decisiones canonizadas hoy:
-- **Solo Alicia conectada** (no los 7 ZXY agents). Andrés NO conectar (tech lead, no operador).
-- **Webhooks-first + polling safety net** (Cloudflare Tunnel `alicia.zxy.vc` + long-poll 30s).
-- **Repo separado** `openclaw-skill-baw-os` (no monorepo).
-- **Fase 5 original (CFDI/Stripe writes) movida a Fase 6**.
-- **Discord-first, in-app chat en Sprint 5B**.
-
-WS-1 (BaW OS server-side) arranca primero. WS-2 (skill OpenClaw) en paralelo. WS-3 runbooks listos para Fran ejecutar.
+- [ADR-021 Third-Party Agents Discord](./adr/ADR-021-third-party-agents-discord.md) (D8 cerrado)
+- [Sprint 5A Plan](./sprints/SPRINT_5A_PLAN.md) (alcance recortado a MVP — ver nota al inicio)
+- Runbooks: `setup-discord-channel.md`, `setup-cloudflare-tunnel.md`, `alicia-skill-install.md`, `hugo-cos-connect.md`
 
 ---
 

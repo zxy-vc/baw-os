@@ -1,8 +1,10 @@
 # Sprint 5A — Conversational Agent Runtime (Alicia third-party)
 
-**Status**: WS-1 In Progress — WS-2/3/4 Planned
+> **⚠️ ALCANCE ACTUALIZADO (2026-06-11) — Sprint 5A MVP.** Fran simplificó el plan: el MVP conecta **Alicia (operadora Mateos 809P) + Hugo (supervisor solo-lectura de Alicia)** y la UI `/agents` muestra únicamente third-party (los nativos quedan en DB, ocultos; cobranza pasa a cron interno). El non-goal "no Hugo" de abajo queda superado — Hugo SÍ se conecta, pero solo con `runs:read, approvals:read, insights:read` (ver `docs/runbooks/hugo-cos-connect.md`). División: Claude Fable 5 → repo `baw-os` (server-side completado 2026-06-11); Codex → `openclaw-skill-baw-os`. Estado vivo en `docs/PROJECT_STATE.md` §1.
+
+**Status**: WS-1 ✅ Complete (servidor, 2026-06-11) — WS-2 (Codex) In Progress — WS-3/4 Pending Fran
 **Start**: 2026-05-03
-**Target end**: 2026-05-07 (4 days)
+**Target end**: 2026-05-07 (4 days) → re-planificado 2026-06-11
 **Owner**: Computer (this AI), supervised by Fran
 **Related ADR**: [ADR-016](../adr/ADR-016-third-party-agent-integration.md)
 

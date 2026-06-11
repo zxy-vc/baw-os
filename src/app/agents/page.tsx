@@ -46,17 +46,31 @@ async function loadData() {
     orgId = null
   }
 
+  // MVP Sprint 5A: la UI muestra solo agentes third-party. Los agentes
+  // nativos (baw-coord, ops-core, experiencia, inteligencia) permanecen en
+  // DB y el runner de cobranza sigue corriendo como automatización interna,
+  // pero no se presentan como agentes en el catálogo. 'zxy-shared' es alias
+  // legacy de third-party.
   const { data: agentsData } = await supabase
     .from('agents')
     .select('*')
+    .in('family', ['third-party', 'zxy-shared'])
     .order('family')
     .order('display_name')
 
   let runs: AgentRunRow[] = []
   let approvals: import('./ApprovalQueueClient').ApprovalRow[] = []
   let policies: { agent_id: string; autonomy_level: number; active: boolean }[] = []
+  let connectedIds = new Set<string>()
 
   if (orgId) {
+    const { data: credsData } = await supabase
+      .from('agent_credentials')
+      .select('agent_id')
+      .eq('org_id', orgId)
+      .eq('status', 'active')
+    connectedIds = new Set((credsData || []).map((c) => c.agent_id as string))
+
     const [runsRes, approvalsRes, policiesRes] = await Promise.all([
       supabase
         .from('agent_runs')
@@ -93,7 +107,7 @@ async function loadData() {
     autonomy_level: policyMap.get(a.id)?.autonomy_level ?? 1,
   }))
 
-  return { agents, runs, approvals, orgId }
+  return { agents, runs, approvals, orgId, connectedIds }
 }
 
 // Modelo de agentes según Roster v0.2 (Notion canónico):
@@ -124,6 +138,59 @@ const FAMILY_DESC: Record<string, string> = {
 }
 
 const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 'third-party', 'pm-ops', 'zxy-shared']
+
+// MVP Sprint 5A: agentes third-party activos y su rol operativo.
+// Los demás third-party quedan diferidos (Sprint 5B+).
+const MVP_AGENT_ROLES: Record<string, string> = {
+  'alicia-ops': 'Operadora · Mateos 809P',
+  'hugo-cos': 'Supervisor de Alicia · solo lectura',
+}
+
+function ConnectionBadge({
+  connected,
+  isMvpAgent,
+}: {
+  connected: boolean
+  isMvpAgent: boolean
+}) {
+  if (connected) {
+    return (
+      <span
+        className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full"
+        style={{
+          backgroundColor: 'var(--baw-success-bg-soft)',
+          color: 'var(--baw-success-fg)',
+        }}
+      >
+        Conectado
+      </span>
+    )
+  }
+  if (isMvpAgent) {
+    return (
+      <span
+        className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full"
+        style={{
+          backgroundColor: 'var(--baw-warning-bg-soft)',
+          color: 'var(--baw-warning-fg)',
+        }}
+      >
+        Por conectar
+      </span>
+    )
+  }
+  return (
+    <span
+      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full"
+      style={{
+        backgroundColor: 'var(--baw-neutral-bg-soft)',
+        color: 'var(--baw-neutral-fg)',
+      }}
+    >
+      Diferido
+    </span>
+  )
+}
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, { bg: string; fg: string }> = {
@@ -164,7 +231,7 @@ function RunStatusBadge({ status }: { status: string }) {
 }
 
 export default async function AgentsPage() {
-  const { agents, runs, approvals, orgId } = await loadData()
+  const { agents, runs, approvals, orgId, connectedIds } = await loadData()
   // approvals usado solo en Modo Agent; lo declaramos aquí para tipado.
   void approvals
   const implemented = new Set<string>(listImplementedAgents())
@@ -201,7 +268,7 @@ export default async function AgentsPage() {
           className="text-[11px] uppercase tracking-wider"
           style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
         >
-          BaW + 10 especialistas en 3 escuadrones · Operaciones Core · Experiencia · Inteligencia · Third Party · Roster v0.2 · v1: Cobranza dunning
+          Agentes third-party conectados a BaW OS · Alicia opera Mateos 809P · Hugo supervisa · Sprint 5A MVP
         </p>
         <div className="mt-3">
           <ViewModeSwitch initialMode={viewMode} />
@@ -228,13 +295,17 @@ export default async function AgentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {list.map((a) => {
               const isImpl = implemented.has(a.id)
+              const isMvpAgent = a.id in MVP_AGENT_ROLES
+              const connected = connectedIds.has(a.id)
               return (
                 <div
                   key={a.id}
                   className="rounded-lg p-4 flex flex-col gap-3"
                   style={{
                     backgroundColor: 'var(--baw-surface)',
-                    border: '1px solid var(--baw-border)',
+                    border: isMvpAgent
+                      ? '1px solid var(--baw-accent)'
+                      : '1px solid var(--baw-border)',
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -249,10 +320,13 @@ export default async function AgentsPage() {
                         className="text-[11px] mt-0.5"
                         style={{ color: 'var(--baw-muted)' }}
                       >
-                        {a.domain} · L{a.capability_level} · F{a.feedback_level}
+                        {MVP_AGENT_ROLES[a.id] ?? a.domain} · L{a.capability_level} · F{a.feedback_level}
                       </div>
                     </div>
-                    <StatusBadge status={a.status} />
+                    <div className="flex flex-col items-end gap-1">
+                      <ConnectionBadge connected={connected} isMvpAgent={isMvpAgent} />
+                      <StatusBadge status={a.status} />
+                    </div>
                   </div>
                   {a.description && (
                     <p
@@ -264,12 +338,20 @@ export default async function AgentsPage() {
                   )}
                   {isImpl && orgId ? (
                     <AgentRunButton agentId={a.id} agentName={a.display_name} />
+                  ) : orgId && isMvpAgent ? (
+                    <Link
+                      href={`/agents/${a.id}/credentials`}
+                      className="text-[11px] underline"
+                      style={{ color: 'var(--baw-accent)' }}
+                    >
+                      {connected ? 'Gestionar credenciales →' : 'Conectar (emitir credencial) →'}
+                    </Link>
                   ) : (
                     <div
                       className="text-[11px] italic"
                       style={{ color: 'var(--baw-muted)' }}
                     >
-                      {!orgId ? 'requiere sesión activa' : 'pendiente de implementación'}
+                      {!orgId ? 'requiere sesión activa' : 'diferido · se conecta en un sprint posterior'}
                     </div>
                   )}
                 </div>
