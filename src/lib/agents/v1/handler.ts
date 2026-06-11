@@ -29,6 +29,7 @@ import {
 import {
   resolveActionClassification,
   type ResolvedClassification,
+  type TriggerSource,
 } from './classifier'
 import { createServiceClient } from '@/lib/supabase'
 import { hashApiKey } from '@/lib/agents/auth'
@@ -132,11 +133,18 @@ export function v1Write<TBody = Record<string, unknown>>(opts: {
       return NextResponse.json(idem.body, { status: idem.status })
     }
 
+    // Origen del disparo: el skill manda `x-baw-trigger: human` cuando la acción
+    // es una solicitud directa de Fran (p.ej. comando en Discord), o `auto`
+    // (default) cuando la detonó un trigger externo/autónomo. Ver classifier.
+    const triggerHeader = (req.headers.get('x-baw-trigger') || '').toLowerCase()
+    const triggerSource: TriggerSource = triggerHeader === 'human' ? 'human' : 'auto'
+
     // Classifier
     const classification = await resolveActionClassification(
       auth.orgId,
       auth.agentId,
-      opts.actionType
+      opts.actionType,
+      triggerSource
     )
 
     if (classification.classification === 'DISABLED') {

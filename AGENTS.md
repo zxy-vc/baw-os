@@ -280,6 +280,26 @@ import { verifyAgentBearer } from '@/lib/agents/auth'
 const identity = await verifyAgentBearer(token) // null si inválido
 ```
 
+### Capacidad de escritura de Alicia + modelo de autonomía por origen del disparo
+
+Alicia (`alicia-ops`) puede REGISTRAR estas entidades vía API v1 (además de incidencias/tareas/mensajes que ya existían):
+
+| Entidad | Endpoint | Scope | action_type |
+|---|---|---|---|
+| Pago recibido (efectivo/transferencia, NO cobro de tarjeta) | `POST /api/v1/payments` | `payments:write` | `payment.record` |
+| Inquilino / contacto | `GET/POST /api/v1/occupants` | `occupants:read` / `occupants:write` | `occupant.create` |
+| Contrato (registro en DB, NO firma e-firma) | `POST /api/v1/contracts` | `contracts:write` | `contract.create` |
+
+Pendiente de confirmación de schema antes de exponer: `POST /v1/reservations` (la tabla tiene dos esquemas en juego, `guest_id` vs `guest_name`; Channex ya escribe reservas OTA) y writes de `units`.
+
+**Modelo de autonomía (decisión de Fran, implementado en `classifier.ts`):** la clasificación de una acción de escritura depende del **origen del disparo**, que el skill indica con el header `x-baw-trigger`:
+
+- `x-baw-trigger: human` → la acción es una **solicitud directa de Fran** (p.ej. comando en Discord). Las acciones reversibles se ejecutan de inmediato (AUTO), con auditoría.
+- `x-baw-trigger: auto` (default si falta) → la acción la detonó un **trigger externo/autónomo** (cron, webhook, lógica del agente). Requiere **autorización breve** (REQUIRE_APPROVAL → botón en Discord), salvo que un `per_action` override en `agent_policies` la marque como "puede actuar siempre".
+- **Guardrail duro:** los irreversibles externos (`payment.charge`, `payment.refund`, `cfdi.emit`, `contract.sign`, `contract.terminate`, `policy.modify`) SIEMPRE requieren aprobación, sin importar el origen. Por eso `payment.record` (contabilidad reversible) ≠ `payment.charge` (Stripe).
+
+El skill DEBE mandar `x-baw-trigger: human` solo cuando relaye una instrucción explícita de Fran; nunca para acciones autónomas.
+
 ### Atribución de agentes
 
 Todo registro creado por un agente debe incluir:
