@@ -1,13 +1,13 @@
-# Runbook — Discord channel `#baw-os-operations`
+# Runbook — Discord channel `#BaW-OS`
 
 **Audience**: Fran (or delegated to Hugo)
 **Estimated time**: 15 min
-**Sprint**: 5A
+**Sprint**: 5A MVP
 **Prerequisite**: ZXY Ventures Discord server admin access
 
 ## Why
 
-Sprint 5A connects Alicia (the only ZXY agent connecting to BaW OS) via a dedicated Discord channel. This is the primary operational interface during Sprint 5A. Fran types natural-language instructions; Alicia executes against BaW OS API.
+Sprint 5A conecta a Alicia (operadora de Mateos 809P) vía un canal Discord dedicado: **`#BaW-OS`**. Es la interfaz operativa principal. Fran escribe instrucciones en lenguaje natural; Alicia las ejecuta contra la API de BaW OS. Hugo (supervisor, solo lectura) observa el mismo canal.
 
 ## Steps
 
@@ -16,7 +16,7 @@ Sprint 5A connects Alicia (the only ZXY agent connecting to BaW OS) via a dedica
 Inside the ZXY Ventures Discord server:
 
 - Create category: **`📦 BaW OS`** (if not present)
-- Inside it, create text channel: **`#baw-os-operations`**
+- Inside it, create text channel: **`#BaW-OS`**
 - Topic: `Operación BaW OS vía Alicia (ZXY Agent OS). Instrucciones en lenguaje natural.`
 - Slow mode: off
 - Permissions: only Fran (read/write), Alicia bot (read/write/embed/use-application-commands), Hugo bot (read-only — observe for cross-agent memory).
@@ -36,7 +36,7 @@ Inside the ZXY Ventures Discord server:
 ### 3. Get the channel ID
 
 - In Discord, enable Developer Mode (User Settings → Advanced → Developer Mode ON)
-- Right-click `#baw-os-operations` → "Copy Channel ID"
+- Right-click `#BaW-OS` → "Copy Channel ID"
 - Save it. We'll need it for the Alicia skill config:
   ```
   BAW_OS_DISCORD_CHANNEL_ID=<paste here>
@@ -62,7 +62,7 @@ Pin the following message in the channel for context (paste as Fran):
 
 ## Done when
 
-- [ ] Channel `#baw-os-operations` exists in ZXY Ventures Discord
+- [ ] Channel `#BaW-OS` exists in ZXY Ventures Discord
 - [ ] Alicia bot is in the channel with required permissions
 - [ ] Channel ID copied and shared with Computer (paste in next message)
 - [ ] Welcome message pinned
