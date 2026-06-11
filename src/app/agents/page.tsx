@@ -46,16 +46,16 @@ async function loadData() {
     orgId = null
   }
 
-  // MVP Sprint 5A: la UI muestra solo agentes third-party. Los agentes
-  // nativos (baw-coord, ops-core, experiencia, inteligencia) permanecen en
-  // DB y el runner de cobranza sigue corriendo como automatización interna,
-  // pero no se presentan como agentes en el catálogo. 'zxy-shared' es alias
-  // legacy de third-party.
+  // MVP Sprint 5A: la UI muestra SOLO los agentes third-party activos del MVP
+  // (Alicia operadora + Hugo supervisor). Los nativos y los demás third-party
+  // (Beto, Maribel, Luis, Andrés, Rafa) permanecen en la tabla `agents` pero
+  // no se presentan en el catálogo. El runner de cobranza sigue corriendo como
+  // automatización interna vía /api/cron/cobranza.
+  const MVP_AGENT_IDS = ['alicia-ops', 'hugo-cos']
   const { data: agentsData } = await supabase
     .from('agents')
     .select('*')
-    .in('family', ['third-party', 'zxy-shared'])
-    .order('family')
+    .in('id', MVP_AGENT_IDS)
     .order('display_name')
 
   let runs: AgentRunRow[] = []
