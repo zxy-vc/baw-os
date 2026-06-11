@@ -293,6 +293,8 @@ const embed = withAgentDiscordEmbed({ title: 'Nueva incidencia', ... }, attr)
 | `DISCORD_PUBLIC_KEY` | Clave pública Ed25519 del bot Discord (hex). Del portal de Discord. |
 | `INTERNAL_WEBHOOK_SECRET` | Bearer secret para dispatch async entre funciones Vercel. |
 | `NEXT_PUBLIC_BASE_URL` | URL base de Vercel (ej. `https://baw-os.vercel.app`). |
+| `ALICIA_WEBHOOK_URL` | URL push al runtime de Alicia (tunnel Cloudflare, ej. `https://alicia.zxy.vc/incoming/baw-os`). Si falta o el push falla, la interacción queda `deferred` y la recoge el long-poll del skill. |
+| `DISCORD_DEFAULT_ORG_ID` | Org UUID al que se atribuyen interacciones Discord (MVP: org `BaW Operations`). Mapeo guild→org multi-tenant es follow-up. |
 
 ### Tests de agentes
 

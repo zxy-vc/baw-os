@@ -45,6 +45,10 @@ const COMMON_SCOPES = [
   'insights:read',
   'messages:send',
   'messages:read',
+  'approvals:read',
+  'agents:read',
+  'interactions:read',
+  'interactions:write',
 ]
 
 export default function CredentialsManager({
