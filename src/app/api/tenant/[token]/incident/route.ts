@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient, getOrgId } from '@/lib/api-auth'
+import { createServiceClient } from '@/lib/api-auth'
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function POST(
   // Validate token and get contract
   const { data: contract, error: contractError } = await supabase
     .from('contracts')
-    .select('id, unit_id')
+    .select('id, unit_id, org_id')
     .eq('portal_token', token)
     .eq('portal_enabled', true)
     .single()
@@ -36,7 +36,9 @@ export async function POST(
   const { data, error } = await supabase
     .from('incidents')
     .insert({
-      org_id: getOrgId(),
+      // issue #22: el token ya identifica al contract → su org_id es la fuente
+      // correcta, no el shim legacy de "primera org"
+      org_id: contract.org_id,
       unit_id: contract.unit_id,
       title: category,
       description,

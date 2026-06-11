@@ -1,6 +1,7 @@
 // BaW OS — WhatsApp Webhook (Meta Cloud API)
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient, getOrgId } from '@/lib/api-auth'
+import { createServiceClient } from '@/lib/api-auth'
+import { resolveOrgIdForWebhook } from '@/lib/org-context'
 
 const FAQS: Record<string, string> = {
   FAQ: 'Hola 👋 Soy el asistente de BaW. Para pagos usa la referencia de tu contrato. Para reportar una incidencia responde INCIDENCIA. Para hablar con un asesor responde ASESOR.',
@@ -45,12 +46,21 @@ export async function POST(request: NextRequest) {
     const body: string = message.text?.body ?? ''
     const messageId: string = message.id
 
+    // issue #22: derivar org del request (header/slug/query `?org=`), no del
+    // shim legacy "primera org". La URL del webhook en Meta se configura con
+    // `?org=<slug>`. Sin org no procesamos, pero respondemos 200 para no
+    // romper el handshake de Meta (que reintenta en 4xx/5xx).
+    const orgId = await resolveOrgIdForWebhook(request, payload)
+    if (!orgId) {
+      console.error('[whatsapp] org no resuelta — configura ?org=<slug> en la URL del webhook')
+      return NextResponse.json({ status: 'ok' })
+    }
+
     // Classify with Groq LLM
     const classification = await classifyMessage(body)
 
     // Audit log
     const supabase = createServiceClient()
-    const orgId = getOrgId()
 
     await supabase.from('audit_log').insert({
       org_id: orgId,
