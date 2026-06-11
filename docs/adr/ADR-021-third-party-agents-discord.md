@@ -95,11 +95,13 @@ Ejemplos:
 - Con unique constraint en DB, un segundo request con el mismo key falla a nivel DB antes de ejecutar la acción.
 - Complementa el middleware de idempotency que ya existe (`idempotency_keys` table) con tracking en el run level.
 
-### D8 — `resolved_by_discord_user` en agent_approvals (campo nuevo sin migración separada)
+### D8 — `resolved_by_discord_user` en agent_approvals ✅ CERRADO (2026-06-11)
 
-**Decisión**: Usar `UPDATE agent_approvals SET status='approved', resolved_at=now(), resolved_by_discord_user=:discord_user_id` al procesar botones.
+**Decisión**: Usar `UPDATE agent_approvals SET status='granted', resolved_at=now(), resolved_by_discord_user=:discord_user_id` al procesar botones grant.
 
-**Nota**: Si `resolved_by_discord_user` no existe en `agent_approvals`, el UPDATE ignorará el campo silenciosamente en Supabase. En la migración `20260523_agents_discord_interactions.sql` NO se agrega este campo porque no tenemos el schema exacto de `agent_approvals`. **Acción pendiente**: verificar schema de `agent_approvals` y agregar el campo si falta en la próxima migración.
+**Resolución (Sprint 5A MVP)**: el schema de `agent_approvals` se verificó — el campo no existía y PostgREST falla (no ignora) columnas desconocidas, lo que rompía los botones. La migración `20260611_agent_approvals_discord_resolver.sql` agrega `resolved_by_discord_user TEXT`. Además se corrigió el status a `'granted'` (el CHECK de la tabla no admite `'approved'`) y el grant ahora ejecuta la acción vía `dispatchApprovedAction()` con el mismo contrato que `POST /v1/approvals/:id/grant`.
+
+**custom_id (actualiza D4)**: el formato canónico para botones de aprobación es `baw:<agent_id>:approval:<grant|deny>:<approval_id>`; el servidor acepta el formato legacy `baw:approval:<grant|deny>:<approval_id>` durante la transición.
 
 ---
 
@@ -113,7 +115,7 @@ Ejemplos:
 
 ### Negativas / Pendientes
 - El endpoint `/api/agents/discord-interactions/process` (procesamiento async para followup Discord) no se construye en WS-1 — requiere la integración con la skill OpenClaw de Alicia (WS-2).
-- El campo `resolved_by_discord_user` en `agent_approvals` requiere verificación de schema antes de aplicar.
+- ~~El campo `resolved_by_discord_user` en `agent_approvals` requiere verificación de schema antes de aplicar.~~ Resuelto: migración `20260611_agent_approvals_discord_resolver.sql`.
 
 ### Decisiones futuras que este ADR deja abiertas
 - Rate limiting por agente en el endpoint Discord (Sprint 5B).
