@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import type { MemberRole, OrgMember, Organization, UserProfile } from '@/types'
 
-const roleOptions: MemberRole[] = ['owner', 'admin', 'operator', 'viewer', 'agent']
+const roleOptions: MemberRole[] = ['pm_owner', 'pm_admin', 'pm_operator', 'pm_viewer']
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<'profile' | 'organization' | 'access'>('profile')
