@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Building2, Save, Settings2, Shield, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
+import { ORG_ADMIN_ROLES } from '@/lib/navigation'
 import type { MemberRole, OrgMember, Organization, UserProfile } from '@/types'
 
 const roleOptions: MemberRole[] = ['pm_owner', 'pm_admin', 'pm_operator', 'pm_viewer']
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<'profile' | 'organization' | 'access'>('profile')
@@ -16,10 +18,11 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<Partial<UserProfile>>({})
   const [organization, setOrganization] = useState<Partial<Organization>>({})
   const [members, setMembers] = useState<OrgMember[]>([])
-  const [newMember, setNewMember] = useState({ invited_email: '', role: 'operator' as MemberRole })
+  const [newMember, setNewMember] = useState({ invited_email: '', role: 'pm_operator' as MemberRole })
   const [message, setMessage] = useState<string | null>(null)
 
-  const { orgId, loading: orgLoading } = useOrgContext()
+  const { orgId, role, loading: orgLoading } = useOrgContext()
+  const isOrgAdmin = !!role && ORG_ADMIN_ROLES.includes(role)
 
   async function load(activeOrgId: string) {
     setLoading(true)
@@ -124,32 +127,47 @@ export default function SettingsPage() {
   }
 
   async function addMemberPlaceholder() {
-    if (!newMember.invited_email.trim() || !orgId) return
+    const email = newMember.invited_email.trim()
+    if (!orgId) return
+    if (!EMAIL_RE.test(email)) {
+      setMessage('Ingresa un email válido para invitar.')
+      return
+    }
     setSaving(true)
     setMessage(null)
     const payload = {
       org_id: orgId,
       user_id: crypto.randomUUID(),
-      invited_email: newMember.invited_email.trim(),
+      invited_email: email,
       role: newMember.role,
       is_active: true,
     }
     const { data, error } = await supabase.from('org_members').insert(payload).select('*').single()
     if (!error && data) {
       setMembers((current) => [...current, data as OrgMember])
-      setNewMember({ invited_email: '', role: 'operator' })
-      setMessage('Acceso agregado como placeholder. Falta ligar auth real después.')
+      setNewMember({ invited_email: '', role: 'pm_operator' })
+      setMessage('Acceso pre-registrado. El usuario quedará activo al iniciar sesión con ese email (invitación por correo: pendiente).')
     } else {
       setMessage(error ? `Error: ${error.message}` : 'No se pudo agregar miembro')
     }
     setSaving(false)
   }
 
-  const tabs = useMemo(() => ([
-    { key: 'profile', label: 'Perfil', icon: User },
-    { key: 'organization', label: 'Organización', icon: Building2 },
-    { key: 'access', label: 'Accesos', icon: Shield },
-  ] as const), [])
+  // Operadores/viewers solo ven su perfil; la config de organización y los
+  // accesos son de admins. (La RLS también lo bloquea a nivel de datos.)
+  const tabs = useMemo(() => {
+    const base = [{ key: 'profile', label: 'Perfil', icon: User }] as const
+    const adminTabs = [
+      { key: 'organization', label: 'Organización', icon: Building2 },
+      { key: 'access', label: 'Accesos', icon: Shield },
+    ] as const
+    return isOrgAdmin ? [...base, ...adminTabs] : base
+  }, [isOrgAdmin])
+
+  // Si un no-admin tenía seleccionada una pestaña restringida, regrésalo a Perfil.
+  useEffect(() => {
+    if (!isOrgAdmin && tab !== 'profile') setTab('profile')
+  }, [isOrgAdmin, tab])
 
   if (orgLoading || loading) return <div className="text-sm page-subtitle">Cargando configuración…</div>
   if (!orgId) {

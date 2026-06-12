@@ -20,9 +20,12 @@ import { cn } from '@/lib/utils'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
 import BawMark from '@/components/BawMark'
 import ViewModeSwitch from '@/components/ViewModeSwitch'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import {
   SIDEBAR_SECTIONS,
+  ORG_ADMIN_ROLES,
   isSectionActive,
+  filterSectionsByRole,
 } from '@/lib/navigation'
 
 const COLLAPSED_WIDTH = 56
@@ -41,10 +44,13 @@ const ICON_MAP = {
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const { role } = useOrgContext()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [pinned, setPinned] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+
+  const isOrgAdmin = !!role && ORG_ADMIN_ROLES.includes(role)
 
   const expanded = pinned || hovering || mobileOpen
 
@@ -94,8 +100,18 @@ export default function Sidebar() {
     root.style.setProperty('--sidebar-rendered-width', `${width}px`)
   }, [pinned, width])
 
-  const sections = useMemo(() => SIDEBAR_SECTIONS.filter((s) => s.placement === 'top'), [])
-  const footerSections = useMemo(() => SIDEBAR_SECTIONS.filter((s) => s.placement === 'footer'), [])
+  const visibleSections = useMemo(
+    () => filterSectionsByRole(SIDEBAR_SECTIONS, role),
+    [role],
+  )
+  const sections = useMemo(
+    () => visibleSections.filter((s) => s.placement === 'top'),
+    [visibleSections],
+  )
+  const footerSections = useMemo(
+    () => visibleSections.filter((s) => s.placement === 'footer'),
+    [visibleSections],
+  )
 
   function renderEntry(section: (typeof SIDEBAR_SECTIONS)[number]) {
     const Icon = ICON_MAP[section.icon as keyof typeof ICON_MAP]
@@ -258,8 +274,9 @@ export default function Sidebar() {
           {footerSections.map((s) => renderEntry(s))}
         </div>
 
-        {/* View mode switch (Human / Agent) — global */}
-        {expanded && (
+        {/* View mode switch (Human / Agent) — solo admins de la cuenta.
+            Operadores/viewers no gestionan agentes, así que no ven el toggle. */}
+        {expanded && isOrgAdmin && (
           <div
             className="shrink-0 px-3 py-2"
             style={{ borderTop: '1px solid var(--baw-sidebar-border)' }}
