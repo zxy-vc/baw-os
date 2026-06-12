@@ -46,16 +46,16 @@ async function loadData() {
     orgId = null
   }
 
-  // MVP Sprint 5A: la UI muestra solo agentes third-party. Los agentes
-  // nativos (baw-coord, ops-core, experiencia, inteligencia) permanecen en
-  // DB y el runner de cobranza sigue corriendo como automatización interna,
-  // pero no se presentan como agentes en el catálogo. 'zxy-shared' es alias
-  // legacy de third-party.
+  // MVP Sprint 5A: la UI muestra SOLO los agentes third-party activos del MVP
+  // (Alicia operadora + Hugo supervisor). Los nativos y los demás third-party
+  // (Beto, Maribel, Luis, Andrés, Rafa) permanecen en la tabla `agents` pero
+  // no se presentan en el catálogo. El runner de cobranza sigue corriendo como
+  // automatización interna vía /api/cron/cobranza.
+  const MVP_AGENT_IDS = ['alicia-ops', 'hugo-cos']
   const { data: agentsData } = await supabase
     .from('agents')
     .select('*')
-    .in('family', ['third-party', 'zxy-shared'])
-    .order('family')
+    .in('id', MVP_AGENT_IDS)
     .order('display_name')
 
   let runs: AgentRunRow[] = []
@@ -121,10 +121,10 @@ const FAMILY_LABEL: Record<string, string> = {
   'ops-core': 'Operaciones Core',
   'experiencia': 'Experiencia',
   'inteligencia': 'Inteligencia',
-  'third-party': 'Third Party Operations',
+  'third-party': 'Agentes externos',
   // Legacy alias durante migración
   'pm-ops': 'PM Operations (legacy)',
-  'zxy-shared': 'Third Party Operations',
+  'zxy-shared': 'Agentes externos',
 }
 
 const FAMILY_DESC: Record<string, string> = {
@@ -132,9 +132,9 @@ const FAMILY_DESC: Record<string, string> = {
   'ops-core': 'Tier Starter+ · Cobro, facturación y operación del edificio',
   'experiencia': 'Tier Professional+ · Comunicación, captación y ciclo de vida del residente',
   'inteligencia': 'Tier Enterprise/Max · Reporting, governance y compliance',
-  'third-party': 'Agentes externos conectables (ZXY Agent OS, otros proveedores). No son parte del producto BaW OS.',
+  'third-party': 'Agentes que operan BaW OS desde fuera (ZXY Agent OS, vía Discord).',
   'pm-ops': 'Familia legacy — migrada a escuadrones',
-  'zxy-shared': 'Agentes externos conectables (ZXY, otros proveedores)',
+  'zxy-shared': 'Agentes que operan BaW OS desde fuera (ZXY Agent OS, vía Discord).',
 }
 
 const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 'third-party', 'pm-ops', 'zxy-shared']

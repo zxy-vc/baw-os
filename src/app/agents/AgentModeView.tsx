@@ -50,9 +50,9 @@ const FAMILY_LABEL: Record<string, string> = {
   'ops-core': 'Ops',
   experiencia: 'Exp',
   inteligencia: 'Int',
-  'third-party': '3P',
+  'third-party': 'Ext',
   'pm-ops': 'Ops',
-  'zxy-shared': '3P',
+  'zxy-shared': 'Ext',
 }
 
 function fmtTime(iso: string): string {
