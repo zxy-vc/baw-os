@@ -3,7 +3,8 @@
 // en un único request. Usa service-role para bypass de RLS y se hace best-effort de rollback.
 
 import { NextRequest } from 'next/server'
-import { createServiceClient, apiOk, apiError, setActiveOrgId } from '@/lib/api-auth'
+import { createServiceClient, apiOk, apiError, setActiveOrgId, unauthorized } from '@/lib/api-auth'
+import { createSupabaseServer } from '@/lib/supabase-server'
 
 interface UnitInput {
   number: string
@@ -39,7 +40,18 @@ interface OnboardingV2Body {
 export async function POST(request: NextRequest) {
   let createdOrgId: string | null = null
   try {
+    // Audit 2026-06-12: este endpoint era público y aceptaba cualquier
+    // user_id en el body — cualquiera podía crear orgs a nombre de otro y
+    // envenenar el cache de org activa. Ahora exige sesión y fuerza que la
+    // org se cree para el usuario autenticado.
+    const authClient = createSupabaseServer()
+    const {
+      data: { user },
+    } = await authClient.auth.getUser()
+    if (!user) return unauthorized('Sesión requerida para onboarding')
+
     const body = (await request.json()) as OnboardingV2Body
+    body.user_id = user.id
 
     // Validaciones mínimas
     if (!body.user_id) return apiError('user_id es obligatorio', 400)

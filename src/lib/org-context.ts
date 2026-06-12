@@ -136,7 +136,29 @@ export async function resolveOrgIdFromRequest(
 ): Promise<string> {
   const headerOrgId = request.headers.get('x-org-id')
   if (headerOrgId) {
-    // Validar que la sesión efectivamente pertenece a esa org
+    // Audit 2026-06-12: el header NO se confía a ciegas — un usuario de la
+    // org A podía mandar `x-org-id: <org B>` y operar sobre datos ajenos.
+    // Validamos que la sesión actual sea miembro de esa org.
+    const supabase = createSupabaseServer()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      throw new OrgContextError('No authenticated user', 'NO_SESSION')
+    }
+    const service = createServiceClient()
+    const { data: membership } = await service
+      .from('org_members')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .eq('org_id', headerOrgId)
+      .maybeSingle()
+    if (!membership) {
+      throw new OrgContextError(
+        'User is not a member of the requested org',
+        'INVALID_ORG',
+      )
+    }
     return headerOrgId
   }
   return resolveOrgId()

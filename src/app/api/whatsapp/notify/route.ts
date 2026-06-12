@@ -1,6 +1,7 @@
 // BaW OS — WhatsApp Notification API
 import { NextRequest } from 'next/server'
 import { validateApiKey, unauthorized, apiError, apiOk, createServiceClient, getOrgId } from '@/lib/api-auth'
+import { createSupabaseServer } from '@/lib/supabase-server'
 
 type NotifyType = 'mora_day1' | 'mora_day5' | 'mora_day10' | 'checkin' | 'contract_expiring'
 
@@ -29,7 +30,16 @@ function buildMessage(body: NotifyBody): string {
 }
 
 export async function POST(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  // Audit 2026-06-12: la UI mandaba un API key hardcodeado en el JS del
+  // cliente (comprometido — rotar BAWOS_API_KEY). Ahora una sesión válida
+  // también autoriza, y la UI ya no embebe secretos.
+  if (!validateApiKey(request)) {
+    const supabase = createSupabaseServer()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return unauthorized()
+  }
 
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID

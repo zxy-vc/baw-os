@@ -103,7 +103,6 @@ export default function WhatsAppPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': 'baw-secret-2026',
         },
         body: JSON.stringify({
           type: notifyType,

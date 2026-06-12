@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getViewMode, setViewMode, type ViewMode } from '@/lib/agents/view-mode'
+import { createSupabaseServer } from '@/lib/supabase-server'
 
 export async function GET() {
   const mode = await getViewMode()
@@ -10,6 +11,17 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = createSupabaseServer()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    )
+  }
+
   let body: { mode?: ViewMode }
   try {
     body = await req.json()

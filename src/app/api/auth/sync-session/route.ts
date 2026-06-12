@@ -11,6 +11,23 @@ import { cookies } from 'next/headers'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
+  // Audit 2026-06-12: mitigación CSRF — solo aceptamos POSTs same-origin.
+  // (Los browsers mandan Origin en POSTs cross-site; si difiere del host,
+  // rechazamos. Requests sin Origin (curl, SSR interno) pasan.)
+  const origin = request.headers.get('origin')
+  if (origin) {
+    const host = request.headers.get('host')
+    let originHost: string | null = null
+    try {
+      originHost = new URL(origin).host
+    } catch {
+      originHost = null
+    }
+    if (!host || originHost !== host) {
+      return NextResponse.json({ error: 'Cross-origin not allowed' }, { status: 403 })
+    }
+  }
+
   const { access_token, refresh_token } = await request
     .json()
     .catch(() => ({}))

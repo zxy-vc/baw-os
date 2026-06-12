@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getMoraLevel } from '@/lib/mora-engine'
-import { resolveOrgIdForWebhook, listAllOrgIds } from '@/lib/org-context'
+import { resolveOrgId, resolveOrgIdForWebhook, listAllOrgIds } from '@/lib/org-context'
+import { createSupabaseServer } from '@/lib/supabase-server'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -73,13 +74,35 @@ async function notifyForOrg(
 
 export async function POST(request: NextRequest) {
   try {
+    // Audit 2026-06-12: era público — cualquiera podía iterar todos los
+    // tenants y envenenar el audit log. Ahora: cron (CRON_SECRET) puede
+    // procesar todas las orgs; un usuario con sesión solo SU org activa.
+    const authHeader = request.headers.get('authorization')
+    const isCron =
+      !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+
+    let sessionOrgId: string | null = null
+    if (!isCron) {
+      const supabase = createSupabaseServer()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          { status: 401 },
+        )
+      }
+      sessionOrgId = await resolveOrgId()
+    }
+
     const body = await request.json().catch(() => ({}))
     const { contractIds } = body as { contractIds?: string[] }
 
     const baseUrl = request.nextUrl.origin
 
-    // Resolver target orgs: explicit > all
-    const explicitOrg = await resolveOrgIdForWebhook(request, body)
+    // Resolver target orgs: sesión → su org; cron → explicit > all
+    const explicitOrg = sessionOrgId ?? (await resolveOrgIdForWebhook(request, body))
     const targetOrgs = explicitOrg ? [explicitOrg] : await listAllOrgIds()
 
     if (targetOrgs.length === 0) {
