@@ -1,12 +1,14 @@
-// BaW OS — GET /api/cron/cobranza · automatización interna de mora
-// Sprint 5A MVP: el runner de cobranza ya no se invoca desde la UI de agentes
-// (catálogo muestra solo third-party); este cron diario lo mantiene operando
-// como automatización del sistema. Dry-run por defecto (v1 del runner);
-// ejecutar con ?dry_run=false para escalar mora de verdad.
+// BaW OS — GET /api/cron/cobranza · automatización de cobranza (recordatorios + mora)
+// El cron diario manda recordatorios preventivos y avisos de mora por WhatsApp.
+// Modo real vs dry-run lo controla COBRANZA_WHATSAPP_ENABLED:
+//   - flag 'true'  → el cron envía WhatsApp real (a menos que se fuerce ?dry_run=true)
+//   - flag ausente → dry-run (solo registra en audit, no envía)
+// Override manual disponible con ?dry_run=true|false.
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { cobranzaRunner } from '@/lib/agents/cobranza'
 import { executeAgentRun } from '@/lib/agents/runner'
+import { cobranzaWhatsAppEnabled } from '@/lib/whatsapp'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +19,9 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url)
-  const dryRun = url.searchParams.get('dry_run') !== 'false'
+  const override = url.searchParams.get('dry_run')
+  // Default: real si el flag está encendido; dry-run si no. Override con query.
+  const dryRun = override !== null ? override !== 'false' : !cobranzaWhatsAppEnabled()
 
   const supabase = createServiceClient()
   const { data: orgs, error } = await supabase.from('organizations').select('id')
