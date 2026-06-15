@@ -23,18 +23,19 @@ export function getMoraLevel(daysPastDue: number): MoraLevel {
 }
 
 /**
- * Recargo por mora ESCALONADO por nivel (decisión de Fran 2026-06-15).
- * Tasa sobre el monto vencido. Ajusta estos valores si cambia la política.
- *   gracia (1-5d): 0% · warning (6-15d): 3% · crítico (16-30d): 10%
- *   legal (31-60d): 15% · abogado (60+d): 20%
+ * Recargo por mora ESCALONADO por días (política de Fran 2026-06-15).
+ * Tasa sobre el total mensual vencido. Solo dos escalones:
+ *   gracia (1-5d): 0% · 6-15 días: 5% · 16+ días: 10%
+ * Los niveles legal/abogado conservan el 10% (no suben el recargo, solo el tono
+ * del mensaje y el escalamiento operativo).
  */
 export function getMoraSurchargeRate(level: MoraLevel): number {
   switch (level) {
     case "grace": return 0
-    case "warning": return 0.03
+    case "warning": return 0.05
     case "critical": return 0.10
-    case "legal": return 0.15
-    case "abogado": return 0.20
+    case "legal": return 0.10
+    case "abogado": return 0.10
   }
 }
 
