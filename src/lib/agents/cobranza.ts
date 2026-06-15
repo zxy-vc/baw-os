@@ -37,6 +37,14 @@ interface ContractRow {
   unit_id: string | null
   occupant_id: string | null
   org_id: string
+  portal_token: string | null
+  portal_enabled: boolean | null
+}
+
+function portalUrlFor(contract: ContractRow): string | null {
+  if (!contract.portal_enabled || !contract.portal_token) return null
+  const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://baw-os.vercel.app'
+  return `${base}/tenant/${contract.portal_token}`
 }
 
 function paymentAmount(p: PaymentRow): number {
@@ -55,7 +63,6 @@ export const cobranzaRunner: AgentRunner = {
     const dryRun = ctx.input.dry_run !== false // por defecto dry-run
     const canSend = !dryRun && whatsAppConfigured()
     const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
     const horizon = new Date(today.getTime() + REMINDER_DAYS * 86_400_000)
       .toISOString()
       .slice(0, 10)
@@ -108,7 +115,7 @@ export const cobranzaRunner: AgentRunner = {
 
     const { data: cRows } = await supabase
       .from('contracts')
-      .select('id, unit_id, occupant_id, org_id')
+      .select('id, unit_id, occupant_id, org_id, portal_token, portal_enabled')
       .in('id', contractIds.length ? contractIds : ['00000000-0000-0000-0000-000000000000'])
     const contracts = (cRows || []) as ContractRow[]
 
@@ -145,6 +152,7 @@ export const cobranzaRunner: AgentRunner = {
       const unitNumber = contract.unit_id ? unitsMap.get(contract.unit_id) ?? '—' : '—'
       const name = occupant?.name ?? 'inquilino'
       const phone = occupant?.phone ?? null
+      const portalUrl = portalUrlFor(contract)
 
       const overdue = cps.filter((p) => new Date(p.due_date) <= today)
       const upcoming = cps.filter((p) => new Date(p.due_date) > today)
@@ -191,7 +199,7 @@ export const cobranzaRunner: AgentRunner = {
         }
 
         escalations[worstLevel] = (escalations[worstLevel] || 0) + 1
-        const message = buildDunningMessage({ name, unit: unitNumber, amount: totalDue, daysPastDue: maxDays, level: worstLevel })
+        const message = buildDunningMessage({ name, unit: unitNumber, amount: totalDue, daysPastDue: maxDays, level: worstLevel, portalUrl })
         await dispatch({
           ctx, supabase, kind: 'dunning', contract, name, unitNumber,
           phone, message, canSend, daysPastDue: maxDays, level: worstLevel, totalDue,
@@ -206,7 +214,7 @@ export const cobranzaRunner: AgentRunner = {
         const soonest = upcoming.reduce((acc, p) => (new Date(p.due_date) < new Date(acc.due_date) ? p : acc), upcoming[0])
         const daysUntil = -dayDiff(new Date(soonest.due_date), today)
         const amount = paymentAmount(soonest)
-        const message = buildReminderMessage({ name, unit: unitNumber, amount, daysUntil })
+        const message = buildReminderMessage({ name, unit: unitNumber, amount, daysUntil, portalUrl })
         escalations.reminder++
         await dispatch({
           ctx, supabase, kind: 'reminder', contract, name, unitNumber,

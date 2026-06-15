@@ -66,15 +66,20 @@ function fmtMoney(amount: number): string {
   return `$${Number(amount).toLocaleString('es-MX', { minimumFractionDigits: 0 })} MXN`
 }
 
+function portalLine(portalUrl?: string | null): string {
+  return portalUrl ? ` Revisa tu estado de cuenta y paga aquí: ${portalUrl}` : ' Revisa tu estado de cuenta en tu portal.'
+}
+
 /** Recordatorio preventivo: el pago vence en N días. */
 export function buildReminderMessage(o: {
   name: string
   unit: string
   amount: number
   daysUntil: number
+  portalUrl?: string | null
 }): string {
   const cuando = o.daysUntil <= 0 ? 'vence HOY' : `vence en ${o.daysUntil} día${o.daysUntil === 1 ? '' : 's'}`
-  return `Hola ${o.name} 👋 Te recordamos que la renta del depto ${o.unit} por ${fmtMoney(o.amount)} ${cuando}. Puedes pagar y revisar tu estado de cuenta desde tu portal. ¡Gracias! — BaW`
+  return `Hola ${o.name} 👋 Te recordamos que la renta del depto ${o.unit} por ${fmtMoney(o.amount)} ${cuando}.${portalLine(o.portalUrl)} ¡Gracias! — BaW`
 }
 
 /** Comprobante: confirmación de pago recibido. */
@@ -99,17 +104,19 @@ export function buildDunningMessage(o: {
   amount: number
   daysPastDue: number
   level: MoraLevel
+  portalUrl?: string | null
 }): string {
-  const base = `Hola ${o.name}, la renta del depto ${o.unit} por ${fmtMoney(o.amount)} tiene ${o.daysPastDue} día${o.daysPastDue === 1 ? '' : 's'} de atraso.`
+  const base = `Hola ${o.name}, la renta del depto ${o.unit} por ${fmtMoney(o.amount)} (incluye cargo por mora) tiene ${o.daysPastDue} día${o.daysPastDue === 1 ? '' : 's'} de atraso.`
+  const portal = portalLine(o.portalUrl)
   switch (o.level) {
     case 'warning':
-      return `${base} Te pedimos regularizar tu pago a la brevedad para evitar cargos por mora. Cualquier duda, contáctanos. — BaW Admin`
+      return `${base} Te pedimos regularizar tu pago a la brevedad.${portal} Cualquier duda, contáctanos. — BaW Admin`
     case 'critical':
-      return `${base} Se aplica un cargo por mora. Por favor regulariza con urgencia; revisa tu estado de cuenta en tu portal. — BaW Admin`
+      return `${base} Por favor regulariza con urgencia.${portal} — BaW Admin`
     case 'legal':
-      return `⚠️ ${base} Tu cuenta entró en proceso de aviso legal. Contáctanos hoy mismo para evitar acciones adicionales. — BaW Admin`
+      return `⚠️ ${base} Tu cuenta entró en proceso de aviso legal. Contáctanos hoy mismo para evitar acciones adicionales.${portal} — BaW Admin`
     case 'abogado':
-      return `🚨 ${base} Tu cuenta fue escalada a cobranza legal. Es indispensable que te comuniques de inmediato. — BaW Admin`
+      return `🚨 ${base} Tu cuenta fue escalada a cobranza legal. Es indispensable que te comuniques de inmediato.${portal} — BaW Admin`
     default:
       return base
   }
