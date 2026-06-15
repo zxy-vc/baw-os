@@ -86,6 +86,38 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
       return { ok: true, result: { id: data.id }, entityType: 'task', entityId: data.id as string }
     }
 
+    case 'unit.create': {
+      const p = ctx.payload as {
+        number: string
+        type?: string
+        floor?: number
+        status?: string
+        area_m2?: number
+        bedrooms?: number
+        bathrooms?: number
+        amenities?: string[]
+        notes?: string
+      }
+      const { data, error } = await supabase
+        .from('units')
+        .insert({
+          org_id: ctx.orgId,
+          number: p.number,
+          type: p.type ?? 'LTR',
+          floor: p.floor ?? null,
+          status: p.status ?? 'available',
+          area_m2: p.area_m2 ?? null,
+          bedrooms: p.bedrooms ?? null,
+          bathrooms: p.bathrooms ?? null,
+          amenities: p.amenities ?? null,
+          notes: p.notes ?? null,
+        })
+        .select('id')
+        .single()
+      if (error || !data) return { ok: false, error: error?.message || 'insert failed' }
+      return { ok: true, result: { id: data.id }, entityType: 'unit', entityId: data.id as string }
+    }
+
     case 'payment.record': {
       const p = ctx.payload as {
         contract_id: string
