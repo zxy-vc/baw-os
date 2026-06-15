@@ -2,7 +2,7 @@
 
 // BaW OS — Switch Human ↔ Agent
 // Drop-in: monta donde quieras (sidebar, navbar, header).
-// Persiste vía POST /api/me/view-mode → org_members.preferred_view_mode.
+// Persiste vía POST /api/me/view-mode → cookie baw_view_mode (preferencia de UI).
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -39,18 +39,23 @@ export default function ViewModeSwitch({
 
   const apply = async (next: ViewMode) => {
     if (next === mode) return
+    const prev = mode
     setSaving(true)
     setMode(next)
     try {
-      await fetch('/api/me/view-mode', {
+      const res = await fetch('/api/me/view-mode', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ mode: next }),
       })
+      // Si el guardado no persistió, revertimos para no mentir en el UI.
+      if (!res.ok) {
+        setMode(prev)
+        return
+      }
       router.refresh()
     } catch {
-      // revert si falla
-      setMode(mode)
+      setMode(prev)
     } finally {
       setSaving(false)
     }

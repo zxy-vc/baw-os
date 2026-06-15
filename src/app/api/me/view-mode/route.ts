@@ -1,9 +1,12 @@
 // BaW OS — GET/POST /api/me/view-mode
-// Lee y persiste la preferencia Human/Agent del usuario activo en su org activa.
+// Lee y persiste la preferencia Human/Agent en una cookie. Es una preferencia de
+// PRESENTACIÓN (qué layout ve el usuario), no un límite de seguridad: el acceso a
+// datos sigue protegido por RLS y el contexto de org aguas abajo. Por eso NO se
+// exige sesión aquí — exigirla rompía el toggle para platform admins sin usuario
+// estándar de Supabase Auth (getUser() → null → 401 → la cookie nunca se guardaba).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getViewMode, setViewMode, type ViewMode } from '@/lib/agents/view-mode'
-import { createSupabaseServer } from '@/lib/supabase-server'
 
 export async function GET() {
   const mode = await getViewMode()
@@ -11,17 +14,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createSupabaseServer()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    )
-  }
-
   let body: { mode?: ViewMode }
   try {
     body = await req.json()
