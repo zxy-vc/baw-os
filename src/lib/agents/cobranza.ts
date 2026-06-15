@@ -9,7 +9,7 @@
 // al inquilino y no podía notificar. Ahora resuelve vía occupants.
 
 import { createServiceClient } from '@/lib/api-auth'
-import { getMoraLevel } from '@/lib/mora-engine'
+import { calcMoraSurcharge, getMoraLevelOrder, type MoraLevel } from '@/lib/mora-engine'
 import {
   sendWhatsAppText,
   whatsAppConfigured,
@@ -146,48 +146,75 @@ export const cobranzaRunner: AgentRunner = {
       const name = occupant?.name ?? 'inquilino'
       const phone = occupant?.phone ?? null
 
-      const oldest = cps.reduce((acc, p) => (new Date(p.due_date) < new Date(acc.due_date) ? p : acc), cps[0])
-      const daysPastDue = dayDiff(new Date(oldest.due_date), today)
-      const totalDue = cps.reduce((sum, p) => sum + paymentAmount(p), 0)
+      const overdue = cps.filter((p) => new Date(p.due_date) <= today)
+      const upcoming = cps.filter((p) => new Date(p.due_date) > today)
 
-      // ── Caso A: aún no vence → recordatorio preventivo ────────────────
-      if (daysPastDue < 0) {
-        const daysUntil = -daysPastDue
-        const message = buildReminderMessage({ name, unit: unitNumber, amount: totalDue, daysUntil })
-        escalations.reminder++
+      // ── Caso A: hay pagos vencidos → aplicar mora + aviso escalado ─────
+      if (overdue.length > 0) {
+        let totalDue = 0
+        let worstLevel: MoraLevel = 'grace'
+        let maxDays = 0
+
+        for (const p of overdue) {
+          const days = dayDiff(new Date(p.due_date), today)
+          const base = paymentAmount(p)
+          const { level, amount: fee } = calcMoraSurcharge(base, days)
+          // Persistir el cargo (solo en modo real; dry-run no muta saldos).
+          // Idempotente: cada corrida fija el cargo del nivel ACTUAL del pago,
+          // no lo acumula día a día.
+          if (!dryRun) {
+            await supabase
+              .from('payments')
+              .update({
+                late_fee_amount: fee,
+                late_fee_level: level,
+                late_fee_updated_at: new Date().toISOString(),
+              })
+              .eq('id', p.id)
+          }
+          totalDue += base + fee
+          if (getMoraLevelOrder(level) < getMoraLevelOrder(worstLevel)) worstLevel = level
+          if (days > maxDays) maxDays = days
+        }
+
+        // En gracia (1-5 días): no se molesta al inquilino todavía.
+        if (worstLevel === 'grace') {
+          await ctx.recordAction({
+            action_type: 'cobranza.skip_grace',
+            entity_type: 'contract',
+            entity_id: contract.id,
+            status: 'skipped',
+            payload: { days_past_due: maxDays, level: worstLevel },
+          })
+          actionsSkipped++
+          continue
+        }
+
+        escalations[worstLevel] = (escalations[worstLevel] || 0) + 1
+        const message = buildDunningMessage({ name, unit: unitNumber, amount: totalDue, daysPastDue: maxDays, level: worstLevel })
         await dispatch({
-          ctx, supabase, kind: 'reminder', contract, name, unitNumber,
-          phone, message, canSend, daysPastDue, level: 'reminder', totalDue,
+          ctx, supabase, kind: 'dunning', contract, name, unitNumber,
+          phone, message, canSend, daysPastDue: maxDays, level: worstLevel, totalDue,
           onSent: () => sentCount++,
           onResult: (ok) => (ok ? actionsOk++ : actionsFailed++),
         })
         continue
       }
 
-      const level = getMoraLevel(daysPastDue)
-
-      // ── Caso B: en gracia (1-5 días) → no molestar todavía ────────────
-      if (level === 'grace') {
-        await ctx.recordAction({
-          action_type: 'cobranza.skip_grace',
-          entity_type: 'contract',
-          entity_id: contract.id,
-          status: 'skipped',
-          payload: { days_past_due: daysPastDue, level },
+      // ── Caso B: solo pagos próximos → recordatorio preventivo ─────────
+      if (upcoming.length > 0) {
+        const soonest = upcoming.reduce((acc, p) => (new Date(p.due_date) < new Date(acc.due_date) ? p : acc), upcoming[0])
+        const daysUntil = -dayDiff(new Date(soonest.due_date), today)
+        const amount = paymentAmount(soonest)
+        const message = buildReminderMessage({ name, unit: unitNumber, amount, daysUntil })
+        escalations.reminder++
+        await dispatch({
+          ctx, supabase, kind: 'reminder', contract, name, unitNumber,
+          phone, message, canSend, daysPastDue: -daysUntil, level: 'reminder', totalDue: amount,
+          onSent: () => sentCount++,
+          onResult: (ok) => (ok ? actionsOk++ : actionsFailed++),
         })
-        actionsSkipped++
-        continue
       }
-
-      // ── Caso C: mora (warning+) → aviso escalado ──────────────────────
-      escalations[level] = (escalations[level] || 0) + 1
-      const message = buildDunningMessage({ name, unit: unitNumber, amount: totalDue, daysPastDue, level })
-      await dispatch({
-        ctx, supabase, kind: 'dunning', contract, name, unitNumber,
-        phone, message, canSend, daysPastDue, level, totalDue,
-        onSent: () => sentCount++,
-        onResult: (ok) => (ok ? actionsOk++ : actionsFailed++),
-      })
     }
 
     return {

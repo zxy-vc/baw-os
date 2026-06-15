@@ -207,6 +207,11 @@ export default function CobrosPage() {
       payment_method: payForm.method.toLowerCase() === 'transferencia' ? 'transferencia' : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro',
     }).select().single()
 
+    // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza)
+    if (paymentData && !error) {
+      fetch(`/api/payments/${paymentData.id}/receipt`, { method: 'POST' }).catch(() => {})
+    }
+
     // Also create ledger entry
     if (paymentData && !error) {
       await supabase.from('payment_ledger').insert({

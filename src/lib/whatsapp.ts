@@ -77,6 +77,21 @@ export function buildReminderMessage(o: {
   return `Hola ${o.name} 👋 Te recordamos que la renta del depto ${o.unit} por ${fmtMoney(o.amount)} ${cuando}. Puedes pagar y revisar tu estado de cuenta desde tu portal. ¡Gracias! — BaW`
 }
 
+/** Comprobante: confirmación de pago recibido. */
+export function buildReceiptMessage(o: {
+  name: string
+  unit: string
+  amount: number
+  method?: string | null
+  reference?: string | null
+  date?: string | null
+}): string {
+  const metodo = o.method ? ` (${o.method})` : ''
+  const ref = o.reference ? ` Ref: ${o.reference}.` : ''
+  const fecha = o.date ? ` el ${o.date}` : ''
+  return `Hola ${o.name} ✅ Recibimos tu pago de ${fmtMoney(o.amount)} del depto ${o.unit}${metodo}${fecha}.${ref} ¡Gracias! Puedes ver tu estado de cuenta en tu portal. — BaW`
+}
+
 /** Aviso de mora según el nivel de escalamiento. */
 export function buildDunningMessage(o: {
   name: string
