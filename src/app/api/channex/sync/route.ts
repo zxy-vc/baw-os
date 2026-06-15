@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { channexFetch } from '@/lib/channex'
 import { createServiceClient } from '@/lib/api-auth'
 import { resolveOrgIdForWebhook, listAllOrgIds } from '@/lib/org-context'
+import { createSupabaseServer } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +52,23 @@ function mapStatus(status: string | undefined): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Audit 2026-06-12: era público. Ahora: cron (CRON_SECRET) o sesión.
+    const authHeader = request.headers.get('authorization')
+    const isCron =
+      !!process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`
+    if (!isCron) {
+      const supabase = createSupabaseServer()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized' },
+          { status: 401 },
+        )
+      }
+    }
+
     let orgId = await resolveOrgIdForWebhook(request, null)
     if (!orgId) {
       const allOrgs = await listAllOrgIds()

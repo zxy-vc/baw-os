@@ -20,6 +20,27 @@ function mapChannel(source: string | undefined): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Audit 2026-06-12: el webhook era público — cualquiera podía inyectar o
+    // cancelar reservas con ?org=<slug>. Channex no firma webhooks, así que
+    // exigimos un token compartido en la URL: configurar en Channex la URL
+    // `/api/channex/webhook?org=<slug>&token=<CHANNEX_WEBHOOK_SECRET>`.
+    const secret = process.env.CHANNEX_WEBHOOK_SECRET
+    if (!secret) {
+      return NextResponse.json(
+        { success: false, error: 'CHANNEX_WEBHOOK_SECRET not configured' },
+        { status: 503 },
+      )
+    }
+    const token =
+      request.nextUrl.searchParams.get('token') ??
+      request.headers.get('x-channex-token')
+    if (token !== secret) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 },
+      )
+    }
+
     const body = await request.json()
     const event = body.event || body.type
     const payload = body.payload || body.data || body

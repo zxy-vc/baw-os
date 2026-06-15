@@ -1,12 +1,12 @@
-// BaW OS — GET /api/cron/cobranza · automatización de cobranza (recordatorios + mora)
-// El cron diario manda recordatorios preventivos y avisos de mora por WhatsApp.
-// Modo real vs dry-run lo controla COBRANZA_WHATSAPP_ENABLED:
-//   - flag 'true'  → el cron envía WhatsApp real (a menos que se fuerce ?dry_run=true)
-//   - flag ausente → dry-run (solo registra en audit, no envía)
-// Override manual disponible con ?dry_run=true|false.
+// BaW OS — GET /api/cron/renovaciones · ciclo de vida del contrato.
+// El cron diario detecta contratos por vencer (≤30 días) o ya vencidos sin renovar
+// y los pasa a 'en_renovacion' sin cortar la facturación, avisando al inquilino.
+// Modo real vs dry-run lo controla COBRANZA_WHATSAPP_ENABLED (mismo gate que cobranza):
+//   - flag 'true'  → flip de estado + WhatsApp real (salvo ?dry_run=true)
+//   - flag ausente → dry-run (solo registra en audit, no muta ni envía)
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { cobranzaRunner } from '@/lib/agents/cobranza'
+import { renovacionesRunner } from '@/lib/agents/renovaciones'
 import { executeAgentRun } from '@/lib/agents/runner'
 import { cobranzaWhatsAppEnabled } from '@/lib/whatsapp'
 
@@ -20,7 +20,6 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const override = url.searchParams.get('dry_run')
-  // Default: real si el flag está encendido; dry-run si no. Override con query.
   const dryRun = override !== null ? override !== 'false' : !cobranzaWhatsAppEnabled()
 
   const supabase = createServiceClient()
@@ -36,19 +35,15 @@ export async function GET(request: Request) {
   for (const org of orgs) {
     const orgId = org.id as string
     try {
-      const result = await executeAgentRun(cobranzaRunner, {
+      const result = await executeAgentRun(renovacionesRunner, {
         orgId,
-        agentId: 'cobranza',
+        agentId: 'renovaciones',
         triggeredBy: 'cron',
         input: { dry_run: dryRun },
       })
       runs.push({ org_id: orgId, run_id: result.runId, status: result.status })
     } catch (e) {
-      runs.push({
-        org_id: orgId,
-        status: 'failed',
-        error: e instanceof Error ? e.message : 'run_failed',
-      })
+      runs.push({ org_id: orgId, status: 'failed', error: e instanceof Error ? e.message : 'run_failed' })
     }
   }
 

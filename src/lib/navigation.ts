@@ -47,7 +47,18 @@ export type SidebarSection = {
   routes: string[]
   /** Horizontal sub-nav shown above content (omit if section has 1 view) */
   subNav?: SubNavItem[]
+  /**
+   * Roles de org con permiso para VER esta sección en el menú. Si se omite, la
+   * sección es visible para cualquier miembro de la org. Gating de UX (esconder
+   * lo inaccesible); la autorización real vive en cada page/endpoint.
+   */
+  visibleToRoles?: string[]
 }
+
+// Roles con permisos de admin de tenant (L1). pm_* canónicos + owner/admin
+// legacy (issue #23). Duplicado aquí a propósito: navigation.ts lo importa el
+// Sidebar (client component) y no puede depender de admin-auth (server-only).
+export const ORG_ADMIN_ROLES = ['pm_owner', 'pm_admin', 'owner', 'admin']
 
 export const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
@@ -148,6 +159,8 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     icon: 'Bot',
     placement: 'footer',
     routes: ['/agents'],
+    // Conectar/configurar agentes y sus credenciales = admin de la cuenta.
+    visibleToRoles: ORG_ADMIN_ROLES,
   },
   {
     id: 'settings',
@@ -156,6 +169,9 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     icon: 'Settings2',
     placement: 'footer',
     routes: ['/settings', '/onboarding', '/api-docs'],
+    // Config de la organización y miembros = admin. El perfil personal de cada
+    // usuario vive en /me (accesible desde el menú de perfil), no aquí.
+    visibleToRoles: ORG_ADMIN_ROLES,
     subNav: [
       { href: '/settings', label: 'General' },
       { href: '/onboarding', label: 'Configurar cuenta' },
@@ -163,6 +179,22 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     ],
   },
 ]
+
+/**
+ * Filtra las secciones visibles según el rol de org del usuario.
+ * Si `role` es null/undefined (sesión aún cargando) devuelve todas para evitar
+ * parpadeo; el caller debe esperar a que el rol resuelva antes de confiar en
+ * el filtro para roles bajos.
+ */
+export function filterSectionsByRole(
+  sections: SidebarSection[],
+  role: string | null | undefined,
+): SidebarSection[] {
+  if (!role) return sections
+  return sections.filter(
+    (s) => !s.visibleToRoles || s.visibleToRoles.includes(role),
+  )
+}
 
 /** Returns the section the given pathname belongs to, or null. */
 export function findSection(pathname: string): SidebarSection | null {

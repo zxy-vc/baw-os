@@ -3,6 +3,7 @@ import { v1Read, v1Write } from '@/lib/agents/v1/handler'
 import { v1Ok, v1Error } from '@/lib/agents/v1/responses'
 import { parsePagination, makeCursor } from '@/lib/agents/v1/pagination'
 import { createServiceClient } from '@/lib/supabase'
+import { sendPaymentReceipt } from '@/lib/payment-receipt'
 
 export const GET = v1Read({
   scopes: ['payments:read'],
@@ -110,6 +111,9 @@ export const POST = v1Write<PaymentRecordBody>({
       result: { id: data.id },
       status: 'ok',
     })
+
+    // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza)
+    void sendPaymentReceipt(data.id as string)
 
     return v1Ok(data)
   },

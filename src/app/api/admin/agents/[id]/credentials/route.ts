@@ -12,6 +12,7 @@ import { resolveOrgId, OrgContextError } from '@/lib/org-context'
 import { createSupabaseServer } from '@/lib/supabase-server'
 import { generateApiKey, hashApiKey } from '@/lib/agents/auth'
 import type { AgentId } from '@/lib/agents/types'
+import { ORG_ADMIN_ROLES } from '@/lib/admin-auth'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -55,7 +56,7 @@ async function requireAdminCaller(): Promise<
       .eq('user_id', user.id)
       .eq('org_id', orgId)
       .maybeSingle()
-    if (!membership || !['owner', 'admin'].includes(membership.role as string)) {
+    if (!membership || !ORG_ADMIN_ROLES.includes(membership.role as string)) {
       return { ok: false, status: 403, message: 'Owner or admin role required' }
     }
   }

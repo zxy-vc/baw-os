@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { resolveOrgId, OrgContextError } from '@/lib/org-context'
 import { createSupabaseServer } from '@/lib/supabase-server'
 import CredentialsManager from './CredentialsManager'
+import { ORG_ADMIN_ROLES } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,7 +75,7 @@ async function requireAdminOfActiveOrg(): Promise<{
       .eq('user_id', user.id)
       .eq('org_id', orgId)
       .maybeSingle()
-    if (!membership || !['owner', 'admin'].includes(membership.role as string)) {
+    if (!membership || !ORG_ADMIN_ROLES.includes(membership.role as string)) {
       return null
     }
   }

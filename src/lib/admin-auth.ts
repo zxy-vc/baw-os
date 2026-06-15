@@ -19,6 +19,10 @@ export interface AdminCallerErr {
   message: string
 }
 
+// Roles con permisos de admin de tenant (L1). Los valores canónicos son pm_*;
+// owner/admin son legacy tolerados durante la migración del enum (issue #23).
+export const ORG_ADMIN_ROLES = ['pm_owner', 'pm_admin', 'owner', 'admin']
+
 export async function requireAdminCaller(): Promise<AdminCallerOk | AdminCallerErr> {
   const supabase = createSupabaseServer()
   const {
@@ -56,7 +60,7 @@ export async function requireAdminCaller(): Promise<AdminCallerOk | AdminCallerE
       .maybeSingle()
     if (
       !membership ||
-      !['owner', 'admin'].includes(membership.role as string)
+      !ORG_ADMIN_ROLES.includes(membership.role as string)
     ) {
       return { ok: false, status: 403, message: 'Owner or admin role required' }
     }

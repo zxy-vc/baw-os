@@ -21,12 +21,23 @@ export async function GET(request: NextRequest) {
   // Fase 1 transition: aceptamos credenciales sk_live_/sk_test_ (nueva) o
   // BAWOS_API_KEY global (legacy). El legacy se elimina en Fase 2.
   const auth = await authenticateAgentRequest(request, ['mora:read'])
+  let legacyCaller = false
   if (!auth.ok) {
     if (validateLegacyApiKey(request)) {
       // Legacy path: aceptado pero sin identidad de agente.
+      legacyCaller = true
     } else {
       return agentAuthErrorResponse(auth)
     }
+  }
+
+  // Audit 2026-06-12: el caller legacy (key global, sin identidad ni org)
+  // debe declarar org_id explícito — sin esto devolvía mora cross-tenant.
+  if (legacyCaller && !request.nextUrl.searchParams.get('org_id')) {
+    return NextResponse.json(
+      { success: false, error: 'org_id query param is required with legacy API key' },
+      { status: 400 },
+    )
   }
 
   try {

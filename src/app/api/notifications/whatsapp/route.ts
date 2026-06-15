@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     .from('occupants')
     .select('name, phone')
     .eq('id', occupant_id)
+    .eq('org_id', orgId) // audit 2026-06-12: sin esto, cross-tenant lookup
     .single()
 
   if (occErr || !occupant) return apiError('Occupant not found', 404)

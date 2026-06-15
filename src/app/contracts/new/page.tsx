@@ -24,6 +24,7 @@ export default function NewContractPage() {
     deposit_amount: '',
     deposit_paid: false,
     payment_day: '1',
+    rent_type: 'LTR' as 'LTR' | 'MTR' | 'STR',
     notes: '',
     drive_folder_url: '',
   })
@@ -79,6 +80,7 @@ export default function NewContractPage() {
       deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
       deposit_paid: form.deposit_paid,
       payment_day: Number(form.payment_day),
+      rent_type: form.rent_type,
       status: 'active',
       notes: form.notes || null,
       drive_folder_url: form.drive_folder_url || null,
@@ -117,7 +119,11 @@ export default function NewContractPage() {
           <select
             required
             value={form.unit_id}
-            onChange={(e) => setForm({ ...form, unit_id: e.target.value })}
+            onChange={(e) => {
+              const unit = units.find((u) => u.id === e.target.value)
+              const inferred = unit && ['LTR', 'MTR', 'STR'].includes(unit.type) ? (unit.type as 'LTR' | 'MTR' | 'STR') : form.rent_type
+              setForm({ ...form, unit_id: e.target.value, rent_type: inferred })
+            }}
             className="input-field"
           >
             <option value="">Seleccionar unidad...</option>
@@ -127,6 +133,22 @@ export default function NewContractPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Tipo de renta</label>
+          <select
+            value={form.rent_type}
+            onChange={(e) => setForm({ ...form, rent_type: e.target.value as 'LTR' | 'MTR' | 'STR' })}
+            className="input-field"
+          >
+            <option value="LTR">Larga (LTR) — renta mensual</option>
+            <option value="MTR">Media (MTR) — renta mensual</option>
+            <option value="STR">Corta (STR) — se cobra por reserva</option>
+          </select>
+          {form.rent_type === 'STR' && (
+            <p className="text-xs text-amber-500 mt-1">La renta corta no genera cobro mensual automático; se factura por reserva.</p>
+          )}
         </div>
 
         <div>
