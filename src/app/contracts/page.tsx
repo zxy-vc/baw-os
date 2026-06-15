@@ -21,6 +21,7 @@ export default function ContractsPage() {
     monthly_amount: 0,
     payment_day: 1,
     status: 'active' as ContractStatus,
+    rent_type: 'LTR' as 'LTR' | 'MTR' | 'STR',
     notes: '',
     end_date: '',
     drive_link: '',
@@ -72,6 +73,7 @@ export default function ContractsPage() {
       monthly_amount: contract.monthly_amount,
       payment_day: contract.payment_day,
       status: contract.status,
+      rent_type: (contract.rent_type as 'LTR' | 'MTR' | 'STR') || 'LTR',
       notes: contract.notes?.replace(/\n?📎 https?:\/\/\S+/, '').trim() || '',
       end_date: contract.end_date || '',
       drive_link: existingLink,
@@ -94,6 +96,7 @@ export default function ContractsPage() {
         monthly_amount: editForm.monthly_amount,
         payment_day: editForm.payment_day,
         status: editForm.status,
+        rent_type: editForm.rent_type,
         notes: notesValue || null,
         end_date: editForm.end_date || null,
         aval: editForm.aval || null,
@@ -472,6 +475,18 @@ export default function ContractsPage() {
                   {Object.entries(statusLabels).map(([key, label]) => (
                     <option key={key} value={key}>{label}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Tipo de renta</label>
+                <select
+                  value={editForm.rent_type}
+                  onChange={(e) => setEditForm({ ...editForm, rent_type: e.target.value as 'LTR' | 'MTR' | 'STR' })}
+                  className="input-field w-full"
+                >
+                  <option value="LTR">Larga (LTR)</option>
+                  <option value="MTR">Media (MTR)</option>
+                  <option value="STR">Corta (STR) — sin cobro mensual</option>
                 </select>
               </div>
               <div>

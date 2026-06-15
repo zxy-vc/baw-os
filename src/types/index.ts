@@ -4,6 +4,7 @@
 export type UnitType = 'STR' | 'MTR' | 'LTR' | 'OFFICE' | 'COMMON'
 export type UnitStatus = 'available' | 'occupied' | 'maintenance' | 'reserved' | 'inactive'
 export type ContractStatus = 'active' | 'expired' | 'terminated' | 'pending' | 'renewed' | 'en_renovacion'
+export type RentType = 'LTR' | 'MTR' | 'STR' // larga / media / corta
 export type PaymentStatus = 'pending' | 'paid' | 'late' | 'partial' | 'waived'
 export type IncidentStatus = 'open' | 'in_progress' | 'waiting_parts' | 'resolved' | 'cancelled'
 export type IncidentPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -191,6 +192,7 @@ export interface Contract {
   deposit_paid: boolean
   payment_day: number
   status: ContractStatus
+  rent_type?: RentType
   contract_url?: string
   drive_folder_url?: string
   notes?: string

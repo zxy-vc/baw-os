@@ -3,6 +3,7 @@
 export type AgentId =
   | 'baw'
   | 'cobranza'
+  | 'renovaciones'
   | 'reservas'
   | 'mantenimiento'
   | 'huesped'

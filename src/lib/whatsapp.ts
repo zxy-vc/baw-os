@@ -97,6 +97,20 @@ export function buildReceiptMessage(o: {
   return `Hola ${o.name} ✅ Recibimos tu pago de ${fmtMoney(o.amount)} del depto ${o.unit}${metodo}${fecha}.${ref} ¡Gracias! Puedes ver tu estado de cuenta en tu portal. — BaW`
 }
 
+/** Aviso de renovación: el contrato vence pronto o ya venció (sigue vigente). */
+export function buildRenewalMessage(o: {
+  name: string
+  unit: string
+  endDate: string
+  daysUntil: number
+}): string {
+  if (o.daysUntil < 0) {
+    return `Hola ${o.name} 👋 Tu contrato del depto ${o.unit} venció el ${o.endDate}, pero sigue vigente mientras lo renovamos. Para no dejar pendientes, contáctanos y armamos tu renovación. — BaW Admin`
+  }
+  const cuando = o.daysUntil === 0 ? 'vence HOY' : `vence en ${o.daysUntil} día${o.daysUntil === 1 ? '' : 's'} (${o.endDate})`
+  return `Hola ${o.name} 👋 Te avisamos que tu contrato del depto ${o.unit} ${cuando}. Si deseas renovar, contáctanos y lo dejamos listo a tiempo. ¡Gracias por seguir con nosotros! — BaW Admin`
+}
+
 /** Aviso de mora según el nivel de escalamiento. */
 export function buildDunningMessage(o: {
   name: string

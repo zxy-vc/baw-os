@@ -31,11 +31,13 @@ export async function GET(request: Request) {
 
   const supabase = getSupabase()
 
-  // Get all active and en_renovacion contracts
+  // Get all active and en_renovacion contracts.
+  // STR (renta corta) se cobra por reserva, no por mes → se excluye de la renta mensual.
   const { data: contracts } = await supabase
     .from('contracts')
-    .select('id, monthly_amount, payment_day, org_id')
+    .select('id, monthly_amount, payment_day, org_id, rent_type')
     .in('status', ['active', 'en_renovacion'])
+    .neq('rent_type', 'STR')
 
   if (!contracts || contracts.length === 0) {
     return NextResponse.json({ message: 'No active contracts', generated: 0 })
