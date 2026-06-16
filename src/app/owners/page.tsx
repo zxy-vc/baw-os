@@ -391,8 +391,14 @@ export default function OwnersPage() {
                                 </div>
                                 {(s.starts_on || s.ends_on) && (
                                   <div className="text-[11px] text-gray-500 mt-0.5">
-                                    {s.starts_on || '—'}
+                                    Propiedad: {s.starts_on || '—'}
                                     {s.ends_on ? ` → ${s.ends_on}` : ''}
+                                  </div>
+                                )}
+                                {(s.mgmt_starts_on || s.mgmt_ends_on) && (
+                                  <div className="text-[11px] text-gray-500">
+                                    Administración: {s.mgmt_starts_on || '—'}
+                                    {s.mgmt_ends_on ? ` → ${s.mgmt_ends_on}` : ''}
                                   </div>
                                 )}
                               </div>
