@@ -272,7 +272,7 @@ export default async function AgentsPage() {
             Agentes third-party conectados a BaW OS · Alicia opera Mateos 809P · Hugo supervisa · Sprint 5A MVP
           </p>
         </div>
-        <ViewModeSwitch initialMode={viewMode} />
+        <ViewModeSwitch initialMode={viewMode} size="sm" />
       </div>
 
       {Object.entries(grouped)
