@@ -28,6 +28,7 @@ const typeLabels: Record<UnitType, string> = {
   STR: 'Corta estancia',
   MTR: 'Media estancia',
   LTR: 'Larga estancia',
+  RETAIL: 'Local comercial',
   OFFICE: 'Oficina',
   COMMON: 'Área común',
 }

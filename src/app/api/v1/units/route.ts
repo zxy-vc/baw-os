@@ -4,7 +4,7 @@ import { v1Ok, v1Error } from '@/lib/agents/v1/responses'
 import { parsePagination, makeCursor } from '@/lib/agents/v1/pagination'
 import { createServiceClient } from '@/lib/supabase'
 
-const UNIT_TYPES = ['STR', 'MTR', 'LTR', 'OFFICE', 'COMMON']
+const UNIT_TYPES = ['STR', 'MTR', 'LTR', 'RETAIL', 'OFFICE', 'COMMON']
 const UNIT_STATUSES = ['available', 'occupied', 'maintenance', 'reserved', 'inactive']
 
 export const GET = v1Read({

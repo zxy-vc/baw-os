@@ -1,7 +1,7 @@
 // BaW OS — Core TypeScript Types
 // BaW Design Lab · ZXY Ventures
 
-export type UnitType = 'STR' | 'MTR' | 'LTR' | 'OFFICE' | 'COMMON'
+export type UnitType = 'STR' | 'MTR' | 'LTR' | 'RETAIL' | 'OFFICE' | 'COMMON'
 export type UnitStatus = 'available' | 'occupied' | 'maintenance' | 'reserved' | 'inactive'
 export type ContractStatus = 'active' | 'expired' | 'terminated' | 'pending' | 'renewed' | 'en_renovacion'
 export type RentType = 'LTR' | 'MTR' | 'STR' // larga / media / corta
