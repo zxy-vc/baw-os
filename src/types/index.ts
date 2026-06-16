@@ -234,6 +234,7 @@ export interface Payment {
   status: PaymentStatus
   method?: string
   reference?: string
+  ancillary_charge_id?: string | null // origen accesorio; null = renta normal
   notes?: string
   created_at: string
   updated_at: string

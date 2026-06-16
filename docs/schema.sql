@@ -124,6 +124,7 @@ CREATE TABLE payments (
   status          payment_status NOT NULL DEFAULT 'pending',
   method          payment_method,
   reference       TEXT,                 -- número de transferencia, ID de Stripe, etc.
+  -- ancillary_charge_id: ver sección ANCILLARY (FK agregada por ALTER para evitar referencia hacia adelante)
   notes           TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
@@ -189,6 +190,10 @@ CREATE POLICY "ancillary_assets_org_isolation" ON ancillary_assets
 ALTER TABLE ancillary_charges ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "ancillary_charges_org_isolation" ON ancillary_charges
   USING (org_id IN (SELECT org_id FROM org_members WHERE user_id = auth.uid()));
+
+-- Enlace pago ↔ cargo accesorio (ver migración 20260616_03). NULL = renta normal.
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS ancillary_charge_id UUID REFERENCES ancillary_charges(id) ON DELETE SET NULL;
 
 -- ============================================
 -- INCIDENTS (Incidencias y mantenimiento)
