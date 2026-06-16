@@ -126,6 +126,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       '/reportes',
       '/quotes',
       '/pricing',
+      '/ancillary-charges',
     ],
     subNav: [
       { href: '/cobros', label: 'Cobros' },
@@ -136,6 +137,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       { href: '/reportes', label: 'Reportes' },
       { href: '/pricing', label: 'Precios' },
       { href: '/quotes', label: 'Cotizador' },
+      { href: '/ancillary-charges', label: 'Cargos adicionales' },
     ],
   },
   {
