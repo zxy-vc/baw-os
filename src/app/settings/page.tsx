@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Building2, Save, Settings2, Shield, User } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
+import { useActiveContext } from '@/lib/useActiveContext'
 import { ORG_ADMIN_ROLES } from '@/lib/navigation'
 import type { MemberRole, OrgMember, Organization, UserProfile } from '@/types'
 
@@ -22,7 +23,15 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   const { orgId, role, loading: orgLoading } = useOrgContext()
-  const isOrgAdmin = !!role && ORG_ADMIN_ROLES.includes(role)
+  // Fallback de org: si el contexto de SERVIDOR no resuelve la org (p. ej. la
+  // sesión no llega al server en prod, o falta la fila en org_members vista por
+  // el server), usamos el contexto del NAVEGADOR — el mismo que /onboarding usa
+  // con éxito. Así /settings nunca queda sin org si el browser sí la tiene.
+  const { activeOrgId, loading: actLoading } = useActiveContext()
+  const effectiveOrgId = orgId ?? activeOrgId
+  // El rol puede venir del server o, si falta, de la membresía ya cargada.
+  const effectiveRole = role ?? members.find((m) => m.user_id === userId)?.role ?? null
+  const isOrgAdmin = !!effectiveRole && ORG_ADMIN_ROLES.includes(effectiveRole as MemberRole)
 
   async function load(activeOrgId: string) {
     setLoading(true)
@@ -79,13 +88,14 @@ export default function SettingsPage() {
   //   - no hay orgId → setLoading(false) para que renderice el mensaje
   //     vacío de la línea ~135 en lugar del spinner.
   useEffect(() => {
-    if (orgLoading) return
-    if (orgId) {
-      load(orgId)
+    if (orgLoading || actLoading) return
+    const eff = orgId ?? activeOrgId
+    if (eff) {
+      load(eff)
     } else {
       setLoading(false)
     }
-  }, [orgLoading, orgId])
+  }, [orgLoading, actLoading, orgId, activeOrgId])
 
   async function saveProfile() {
     if (!userId) return
@@ -104,7 +114,7 @@ export default function SettingsPage() {
   }
 
   async function saveOrganization() {
-    if (!orgId) return
+    if (!effectiveOrgId) return
     setSaving(true)
     setMessage(null)
     const payload = {
@@ -116,7 +126,7 @@ export default function SettingsPage() {
       address: organization.address || null,
       city: organization.city || null,
     }
-    const { error } = await supabase.from('organizations').update(payload).eq('id', orgId)
+    const { error } = await supabase.from('organizations').update(payload).eq('id', effectiveOrgId)
     setSaving(false)
     setMessage(error ? `Error: ${error.message}` : 'Organización guardada')
   }
@@ -128,7 +138,7 @@ export default function SettingsPage() {
 
   async function addMemberPlaceholder() {
     const email = newMember.invited_email.trim()
-    if (!orgId) return
+    if (!effectiveOrgId) return
     if (!EMAIL_RE.test(email)) {
       setMessage('Ingresa un email válido para invitar.')
       return
@@ -136,7 +146,7 @@ export default function SettingsPage() {
     setSaving(true)
     setMessage(null)
     const payload = {
-      org_id: orgId,
+      org_id: effectiveOrgId,
       user_id: crypto.randomUUID(),
       invited_email: email,
       role: newMember.role,
@@ -169,8 +179,8 @@ export default function SettingsPage() {
     if (!isOrgAdmin && tab !== 'profile') setTab('profile')
   }, [isOrgAdmin, tab])
 
-  if (orgLoading || loading) return <div className="text-sm page-subtitle">Cargando configuración…</div>
-  if (!orgId) {
+  if (orgLoading || actLoading || loading) return <div className="text-sm page-subtitle">Cargando configuración…</div>
+  if (!effectiveOrgId) {
     return (
       <div className="max-w-2xl space-y-3">
         <h1 className="text-2xl font-bold page-title">Configuración</h1>
