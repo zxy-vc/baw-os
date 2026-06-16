@@ -257,22 +257,22 @@ export default async function AgentsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1
-          className="text-[28px] mb-1 tracking-tight"
-          style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-display)' }}
-        >
-          Agentes
-        </h1>
-        <p
-          className="text-[11px] uppercase tracking-wider"
-          style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
-        >
-          Agentes third-party conectados a BaW OS · Alicia opera Mateos 809P · Hugo supervisa · Sprint 5A MVP
-        </p>
-        <div className="mt-3">
-          <ViewModeSwitch initialMode={viewMode} />
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1
+            className="text-[28px] mb-1 tracking-tight"
+            style={{ color: 'var(--baw-text)', fontFamily: 'var(--font-display)' }}
+          >
+            Agentes
+          </h1>
+          <p
+            className="text-[11px] uppercase tracking-wider"
+            style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
+          >
+            Agentes third-party conectados a BaW OS · Alicia opera Mateos 809P · Hugo supervisa · Sprint 5A MVP
+          </p>
         </div>
+        <ViewModeSwitch initialMode={viewMode} />
       </div>
 
       {Object.entries(grouped)
