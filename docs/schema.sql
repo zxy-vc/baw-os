@@ -86,7 +86,7 @@ CREATE TYPE contract_status AS ENUM ('active', 'expired', 'terminated', 'pending
 CREATE TABLE contracts (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  unit_id         UUID NOT NULL REFERENCES units(id),
+  unit_id         UUID REFERENCES units(id),            -- NULL = contrato independiente (standalone), ej. anunciante
   occupant_id     UUID NOT NULL REFERENCES occupants(id),
   start_date      DATE NOT NULL,
   end_date        DATE,
@@ -134,6 +134,61 @@ CREATE POLICY "payments_org_isolation" ON payments
   USING (org_id IN (
     SELECT org_id FROM org_members WHERE user_id = auth.uid()
   ));
+
+-- ============================================
+-- ANCILLARY (Estacionamiento + Espectaculares) — ver migración 20260616_02
+-- ============================================
+-- Pool de estacionamiento (informativo): buildings.parking_total y
+-- units.parking_included. El cobro de cajones extra y espectaculares vive en
+-- ancillary_charges, SIEMPRE ligado a un contrato (que puede ser independiente).
+CREATE TYPE ancillary_kind AS ENUM ('parking', 'billboard', 'storage', 'antenna', 'other');
+CREATE TYPE ancillary_cadence AS ENUM ('monthly', 'annual');
+CREATE TYPE ancillary_ownership AS ENUM ('ours', 'third_party');
+CREATE TYPE ancillary_status AS ENUM ('active', 'inactive', 'ended');
+
+CREATE TABLE ancillary_assets (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  org_id      UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  building_id UUID REFERENCES buildings(id) ON DELETE SET NULL,
+  kind        ancillary_kind NOT NULL DEFAULT 'billboard',
+  label       TEXT NOT NULL,
+  ownership   ancillary_ownership NOT NULL DEFAULT 'ours',
+  status      ancillary_status NOT NULL DEFAULT 'active',
+  notes       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE ancillary_charges (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  org_id         UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  contract_id    UUID NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  asset_id       UUID REFERENCES ancillary_assets(id) ON DELETE SET NULL,
+  building_id    UUID REFERENCES buildings(id) ON DELETE SET NULL,
+  unit_id        UUID REFERENCES units(id) ON DELETE SET NULL,
+  kind           ancillary_kind NOT NULL,
+  description    TEXT,
+  amount         DECIMAL(10,2) NOT NULL,
+  cadence        ancillary_cadence NOT NULL DEFAULT 'monthly',
+  billing_day    INTEGER NOT NULL DEFAULT 1,
+  quantity       INTEGER NOT NULL DEFAULT 1,
+  effective_from DATE NOT NULL DEFAULT CURRENT_DATE,
+  effective_to   DATE,
+  status         ancillary_status NOT NULL DEFAULT 'active',
+  notes          TEXT,
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT ancillary_charges_billing_day_chk CHECK (billing_day BETWEEN 1 AND 28),
+  CONSTRAINT ancillary_charges_amount_chk CHECK (amount >= 0),
+  CONSTRAINT ancillary_charges_quantity_chk CHECK (quantity >= 1)
+);
+
+ALTER TABLE ancillary_assets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ancillary_assets_org_isolation" ON ancillary_assets
+  USING (org_id IN (SELECT org_id FROM org_members WHERE user_id = auth.uid()));
+ALTER TABLE ancillary_charges ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ancillary_charges_org_isolation" ON ancillary_charges
+  USING (org_id IN (SELECT org_id FROM org_members WHERE user_id = auth.uid()));
 
 -- ============================================
 -- INCIDENTS (Incidencias y mantenimiento)

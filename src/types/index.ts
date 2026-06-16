@@ -12,6 +12,10 @@ export type ReservationStatus = 'tentative' | 'confirmed' | 'cancelled' | 'check
 export type ReservationPaymentStatus = 'pending' | 'partial' | 'paid'
 export type BookingMode = 'full' | 'room' | 'bed'
 export type OccupantType = 'tenant' | 'guest' | 'owner' | 'staff'
+export type AncillaryKind = 'parking' | 'billboard' | 'storage' | 'antenna' | 'other'
+export type AncillaryCadence = 'monthly' | 'annual'
+export type AncillaryOwnership = 'ours' | 'third_party'
+export type AncillaryStatus = 'active' | 'inactive' | 'ended'
 export type ContactType = 'ltr' | 'str' | 'both'
 export type MemberRole = 'owner' | 'admin' | 'operator' | 'viewer' | 'agent' | 'pm_owner' | 'pm_admin' | 'pm_operator' | 'pm_viewer' | 'client'
 
@@ -24,6 +28,7 @@ export interface Building {
   state?: string | null
   country: string
   postal_code?: string | null
+  parking_total?: number // pool de cajones del edificio
   notes?: string | null
   created_at: string
   updated_at: string
@@ -104,6 +109,7 @@ export interface Unit {
   area_m2?: number
   bedrooms?: number
   bathrooms?: number
+  parking_included?: number // cajones incluidos sin cobro extra
   title?: string
   slug?: string
   description_short?: string
@@ -185,7 +191,7 @@ export interface Occupant {
 export interface Contract {
   id: string
   org_id: string
-  unit_id: string
+  unit_id?: string | null // NULL = contrato independiente (standalone)
   occupant_id: string
   start_date: string
   end_date?: string
@@ -233,6 +239,45 @@ export interface Payment {
   updated_at: string
   // Relations
   contract?: Contract
+}
+
+export interface AncillaryAsset {
+  id: string
+  org_id: string
+  building_id?: string | null
+  kind: AncillaryKind
+  label: string
+  ownership: AncillaryOwnership
+  status: AncillaryStatus
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Relations
+  building?: Building
+}
+
+export interface AncillaryCharge {
+  id: string
+  org_id: string
+  contract_id: string // invariante: siempre ligado a un contrato
+  asset_id?: string | null
+  building_id?: string | null
+  unit_id?: string | null // NULL si el contrato es independiente
+  kind: AncillaryKind
+  description?: string
+  amount: number // monto por periodo (según cadence)
+  cadence: AncillaryCadence
+  billing_day: number // 1..28
+  quantity: number
+  effective_from: string
+  effective_to?: string | null
+  status: AncillaryStatus
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Relations (joined)
+  contract?: Contract
+  asset?: AncillaryAsset
 }
 
 export interface Incident {
