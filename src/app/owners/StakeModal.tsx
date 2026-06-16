@@ -29,6 +29,8 @@ export default function StakeModal({
     percentage: stake?.percentage?.toString() || '100',
     starts_on: stake?.starts_on || '',
     ends_on: stake?.ends_on || '',
+    mgmt_starts_on: stake?.mgmt_starts_on || '',
+    mgmt_ends_on: stake?.mgmt_ends_on || '',
     notes: stake?.notes || '',
   })
 
@@ -44,6 +46,8 @@ export default function StakeModal({
       percentage: pctNum,
       starts_on: form.starts_on || null,
       ends_on: form.ends_on || null,
+      mgmt_starts_on: form.mgmt_starts_on || null,
+      mgmt_ends_on: form.mgmt_ends_on || null,
       notes: form.notes.trim() || null,
     })
   }
@@ -145,28 +149,68 @@ export default function StakeModal({
               </p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
-                Inicio
-              </label>
-              <input
-                type="date"
-                value={form.starts_on}
-                onChange={(e) => setForm({ ...form, starts_on: e.target.value })}
-                className="input-field"
-              />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              Vigencia de propiedad
+            </p>
+            <p className="text-xs text-gray-400">
+              Desde / hasta cuándo el propietario tiene este % del edificio (titularidad). Deja el fin vacío si sigue vigente.
+            </p>
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Inicio
+                </label>
+                <input
+                  type="date"
+                  value={form.starts_on}
+                  onChange={(e) => setForm({ ...form, starts_on: e.target.value })}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Fin (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={form.ends_on}
+                  onChange={(e) => setForm({ ...form, ends_on: e.target.value })}
+                  className="input-field"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
-                Fin (opcional)
-              </label>
-              <input
-                type="date"
-                value={form.ends_on}
-                onChange={(e) => setForm({ ...form, ends_on: e.target.value })}
-                className="input-field"
-              />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              Vigencia de administración
+            </p>
+            <p className="text-xs text-gray-400">
+              Desde / hasta cuándo BaW administra este edificio por encargo del dueño (mandato de gestión). Deja el fin vacío si sigue vigente.
+            </p>
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Inicio
+                </label>
+                <input
+                  type="date"
+                  value={form.mgmt_starts_on}
+                  onChange={(e) => setForm({ ...form, mgmt_starts_on: e.target.value })}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                  Fin (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={form.mgmt_ends_on}
+                  onChange={(e) => setForm({ ...form, mgmt_ends_on: e.target.value })}
+                  className="input-field"
+                />
+              </div>
             </div>
           </div>
           <div>

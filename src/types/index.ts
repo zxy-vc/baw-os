@@ -49,8 +49,10 @@ export interface OwnershipStake {
   building_id: string
   property_owner_id: string
   percentage: number
-  starts_on?: string | null
-  ends_on?: string | null
+  starts_on?: string | null // vigencia de propiedad: inicio
+  ends_on?: string | null // vigencia de propiedad: fin (null = indefinido)
+  mgmt_starts_on?: string | null // vigencia de administración (mandato BaW): inicio
+  mgmt_ends_on?: string | null // vigencia de administración: fin (null = indefinido)
   notes?: string | null
   created_at: string
   updated_at: string
