@@ -12,6 +12,10 @@ import { supabase } from '@/lib/supabase'
 const STORAGE_KEY_ORG = 'baw:active_org_id'
 const STORAGE_KEY_BUILDING = 'baw:active_building_id'
 
+// Valor centinela para "Todos los edificios" (vista consolidada).
+// activeBuildingId === ALL_BUILDINGS → las pantallas muestran toda la org.
+export const ALL_BUILDINGS = 'all'
+
 export interface OrgOption {
   id: string
   name: string
@@ -152,7 +156,9 @@ export function useActiveContext(): ActiveContext {
         let nextActiveBld: string | null = null
         try {
           const stored = localStorage.getItem(STORAGE_KEY_BUILDING)
-          if (
+          if (stored === ALL_BUILDINGS) {
+            nextActiveBld = ALL_BUILDINGS
+          } else if (
             stored &&
             bldList.some(
               (b) => b.id === stored && b.org_id === nextActiveOrg,
@@ -188,6 +194,7 @@ export function useActiveContext(): ActiveContext {
   // Si cambia la org activa, ajustar el building activo si pertenece a otra org
   useEffect(() => {
     if (!activeOrgId) return
+    if (activeBuildingId === ALL_BUILDINGS) return // consolidado: válido en cualquier org
     if (activeBuildingId) {
       const current = buildings.find((b) => b.id === activeBuildingId)
       if (current && current.org_id === activeOrgId) return

@@ -11,7 +11,7 @@ import {
   type StatusKind,
 } from '@/components/ui/status'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
-import { useActiveContext } from '@/lib/useActiveContext'
+import { useActiveContext, ALL_BUILDINGS } from '@/lib/useActiveContext'
 
 // S9 hotfix: Mission Control ahora espera el contexto activo y filtra todas
 // las queries por activeOrgId. Antes confiaba 100% en RLS y, cuando una sola
@@ -54,7 +54,7 @@ function fmtMoney(n: number) {
 }
 
 export default function MissionControl() {
-  const { activeOrgId, loading: ctxLoading, orgs } = useActiveContext()
+  const { activeOrgId, activeBuildingId, loading: ctxLoading, orgs } = useActiveContext()
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalUnits: 0,
     occupiedUnits: 0,
@@ -91,35 +91,62 @@ export default function MissionControl() {
           return
         }
 
+        // Edificio activo: si hay uno específico (no "Todos" ni vacío) filtramos.
+        // Contratos/pagos/incidencias cuelgan de la unidad, así que filtramos por
+        // el edificio de la unidad usando joins !inner de PostgREST.
+        const bId =
+          activeBuildingId && activeBuildingId !== ALL_BUILDINGS
+            ? activeBuildingId
+            : null
+
+        // Selects: con filtro de edificio usamos !inner para poder filtrar por
+        // la columna anidada; sin filtro, embeds normales (no excluir filas).
+        const contractsSel = bId
+          ? 'id, unit_id, monthly_amount, end_date, status, unit:units!inner(number, building_id), occupant:occupants(name)'
+          : 'id, unit_id, monthly_amount, end_date, status, unit:units(number), occupant:occupants(name)'
+        const paymentsSel = bId
+          ? 'id, amount, due_date, status, contract:contracts!inner(unit:units!inner(number, building_id), occupant:occupants(name))'
+          : 'id, amount, due_date, status, contract:contracts(unit:units(number), occupant:occupants(name))'
+        const incidentsSel = bId
+          ? 'id, status, created_at, description, unit:units!inner(number, building_id)'
+          : 'id, status, created_at, description, unit:units(number)'
+
+        // Nota: los filtros .eq() van ANTES de .order()/.limit() (el builder de
+        // Supabase deja de exponer .eq() una vez transformado).
+        let unitsQ = supabase.from('units').select('*').eq('org_id', activeOrgId)
+        if (bId) unitsQ = unitsQ.eq('building_id', bId)
+        const unitsFinal = unitsQ.order('floor').order('number')
+
+        let contractsQ = supabase
+          .from('contracts')
+          .select(contractsSel)
+          .eq('org_id', activeOrgId)
+          .in('status', ['active', 'en_renovacion'])
+        if (bId) contractsQ = contractsQ.eq('unit.building_id', bId)
+
+        let paymentsQ = supabase
+          .from('payments')
+          .select(paymentsSel)
+          .eq('org_id', activeOrgId)
+          .in('status', ['pending', 'late'])
+        if (bId) paymentsQ = paymentsQ.eq('contract.unit.building_id', bId)
+        const paymentsFinal = paymentsQ.order('due_date', { ascending: true })
+
+        let incidentsQ = supabase
+          .from('incidents')
+          .select(incidentsSel)
+          .eq('org_id', activeOrgId)
+          .in('status', ['open', 'in_progress', 'pending'])
+        if (bId) incidentsQ = incidentsQ.eq('unit.building_id', bId)
+        const incidentsFinal = incidentsQ
+          .order('created_at', { ascending: false })
+          .limit(5)
+
         const [unitsRes, contractsRes, paymentsRes, maintRes] = await Promise.all([
-          supabase
-            .from('units')
-            .select('*')
-            .eq('org_id', activeOrgId)
-            .order('floor')
-            .order('number'),
-          supabase
-            .from('contracts')
-            .select(
-              'id, unit_id, monthly_amount, end_date, status, unit:units(number), occupant:occupants(name)'
-            )
-            .eq('org_id', activeOrgId)
-            .in('status', ['active', 'en_renovacion']),
-          supabase
-            .from('payments')
-            .select(
-              'id, amount, due_date, status, contract:contracts(unit:units(number), occupant:occupants(name))'
-            )
-            .eq('org_id', activeOrgId)
-            .in('status', ['pending', 'late'])
-            .order('due_date', { ascending: true }),
-          supabase
-            .from('incidents')
-            .select('id, status, created_at, description, unit:units(number)')
-            .eq('org_id', activeOrgId)
-            .in('status', ['open', 'in_progress', 'pending'])
-            .order('created_at', { ascending: false })
-            .limit(5),
+          unitsFinal,
+          contractsQ,
+          paymentsFinal,
+          incidentsFinal,
         ])
 
         const units = unitsRes.data || []
@@ -208,7 +235,7 @@ export default function MissionControl() {
     }
 
     fetchDashboard()
-  }, [ctxLoading, activeOrgId, orgs.length])
+  }, [ctxLoading, activeOrgId, activeBuildingId, orgs.length])
 
   const occupancyPct =
     metrics.totalUnits > 0
