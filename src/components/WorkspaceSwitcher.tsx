@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Building2, ChevronRight, Check, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { useActiveContext } from '@/lib/useActiveContext'
+import { useActiveContext, ALL_BUILDINGS } from '@/lib/useActiveContext'
 
 interface Props {
   expanded: boolean
@@ -50,6 +50,8 @@ export default function WorkspaceSwitcher({ expanded }: Props) {
     : activeOrg?.name ?? '—'
   const subText = isEmpty
     ? 'Empezar onboarding'
+    : activeBuildingId === ALL_BUILDINGS
+    ? 'Todos los edificios'
     : activeBuilding
     ? `${activeBuilding.name}${activeBuilding.city ? `, ${activeBuilding.city}` : ''}`
     : 'Sin edificio'
@@ -152,6 +154,22 @@ export default function WorkspaceSwitcher({ expanded }: Props) {
             </div>
           ) : (
             <ul>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveBuildingId(ALL_BUILDINGS)
+                    setOpen(false)
+                  }}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-[12px] hover:bg-white/5"
+                  style={{ color: 'var(--baw-text)' }}
+                >
+                  <span className="truncate font-medium">Todos los edificios</span>
+                  {activeBuildingId === ALL_BUILDINGS && (
+                    <Check size={12} style={{ color: 'var(--baw-primary)' }} />
+                  )}
+                </button>
+              </li>
               {buildingsForActiveOrg.map((b) => (
                 <li key={b.id}>
                   <button
