@@ -81,6 +81,7 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
                 <option value="LTR">Larga estancia (LTR)</option>
                 <option value="MTR">Media estancia (MTR)</option>
                 <option value="STR">Corta estancia (STR)</option>
+                <option value="RETAIL">Local comercial</option>
                 <option value="OFFICE">Oficina</option>
                 <option value="COMMON">Área común</option>
               </select>
