@@ -18,6 +18,7 @@ interface ContractRow {
   monthly_amount: number
   payment_day: number
   status: string
+  start_date: string | null
   unit: { number: string } | null
   occupant: { name: string } | null
 }
@@ -32,6 +33,8 @@ interface PaymentRow {
   amount_paid: number | null
   rent_amount: number | null
   water_fee: number | null
+  late_fee_amount: number | null
+  late_fee_level: string | null
   method: string | null
   reference: string | null
   confirmed_by: string | null
@@ -42,11 +45,70 @@ type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | '
 interface BillingRow {
   contract: ContractRow
   payment: PaymentRow | null
+  month: string // 'YYYY-MM'
+  dueDate: string // 'YYYY-MM-DD'
   status: BillingStatus
   moraAmount: number
   remaining: number
 }
 
+const WATER_FEE_DEFAULT = 250
+const MAX_MONTHS_BACK = 24
+const MONTH_NAMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+function pad2(n: number) {
+  return String(n).padStart(2, '0')
+}
+
+function dayDiff(from: Date, to: Date): number {
+  return Math.floor((to.getTime() - from.getTime()) / 86_400_000)
+}
+
+function monthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${MONTH_NAMES[m - 1]} ${y}`
+}
+
+// Meses 'YYYY-MM' desde el inicio del contrato hasta el mes de corte (inclusive),
+// acotado a los últimos MAX_MONTHS_BACK meses para no generar listas gigantes.
+function scheduleMonths(startISO: string | null, cutoff: string): string[] {
+  const [cy, cm] = cutoff.split('-').map(Number)
+  let y: number
+  let m: number
+  if (startISO) {
+    const s = new Date(startISO)
+    y = s.getFullYear()
+    m = s.getMonth() + 1
+  } else {
+    y = cy
+    m = cm
+  }
+  const out: string[] = []
+  while (y < cy || (y === cy && m <= cm)) {
+    out.push(`${y}-${pad2(m)}`)
+    m++
+    if (m > 12) {
+      m = 1
+      y++
+    }
+  }
+  return out.slice(-MAX_MONTHS_BACK)
+}
+
+// Prioridad de pago cuando hay más de un registro en el mismo mes.
+function rankPayment(p: PaymentRow): number {
+  if (p.status === 'paid') return 3
+  if (p.status === 'partial') return 2
+  return 1
+}
+
+// Mora sugerida al registrar: respeta una mora ya guardada; si no, la calcula por
+// los días entre el vencimiento y la fecha de pago.
+function suggestedMora(rent: number, dueDate: string, paidDate: string, payment: PaymentRow | null): number {
+  if (payment && payment.late_fee_amount != null) return Number(payment.late_fee_amount)
+  const days = Math.max(0, dayDiff(new Date(`${dueDate}T00:00:00`), new Date(`${paidDate}T00:00:00`)))
+  return calcMoraSurcharge(rent, days).amount
+}
 
 export default function CobrosPage() {
   const toast = useToast()
@@ -55,15 +117,16 @@ export default function CobrosPage() {
   const [filter, setFilter] = useState<string>('all')
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`
   })
   const { orgId } = useOrgContext()
 
   // Modal state
-  const [payingContract, setPayingContract] = useState<ContractRow | null>(null)
+  const [payingRow, setPayingRow] = useState<BillingRow | null>(null)
   const [payForm, setPayForm] = useState({
     rent_amount: 0,
-    water_fee: 250,
+    water_fee: WATER_FEE_DEFAULT,
+    late_fee: 0,
     method: 'Transferencia',
     reference: '',
     paid_date: new Date().toISOString().split('T')[0],
@@ -77,109 +140,108 @@ export default function CobrosPage() {
 
   async function fetchBilling() {
     setLoading(true)
-    const [year, month] = selectedMonth.split('-').map(Number)
-    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
-    const nextMonth = month === 12
-      ? `${year + 1}-01-01`
-      : `${year}-${String(month + 1).padStart(2, '0')}-01`
+    const [cutYear, cutMonth] = selectedMonth.split('-').map(Number)
+    // Límite superior exclusivo: primer día del mes siguiente al de corte.
+    const upperExcl = cutMonth === 12 ? `${cutYear + 1}-01-01` : `${cutYear}-${pad2(cutMonth + 1)}-01`
 
-    const [contractsRes, paymentsRes, latePaymentsRes] = await Promise.all([
-      supabase
-        .from('contracts')
-        .select('id, unit_id, occupant_id, monthly_amount, payment_day, status, unit:units(number), occupant:occupants(name)')
-        .in('status', ['active', 'en_renovacion'])
-        .eq('org_id', orgId),
-      supabase
-        .from('payments')
-        .select('id, contract_id, status, due_date, paid_date, amount, amount_paid, rent_amount, water_fee, method, reference, confirmed_by')
-        .eq('status', 'paid')
-        .gte('due_date', monthStart)
-        .lt('due_date', nextMonth),
-      supabase
-        .from('payments')
-        .select('contract_id, status, contract:contracts(occupant:occupants(name))')
-        .eq('status', 'late')
-        .lt('due_date', monthStart),
-    ])
+    const contractsRes = await supabase
+      .from('contracts')
+      .select(
+        'id, unit_id, occupant_id, monthly_amount, payment_day, status, start_date, unit:units(number), occupant:occupants(name)',
+      )
+      .in('status', ['active', 'en_renovacion'])
+      .eq('org_id', orgId)
 
     const contracts = (contractsRes.data || []) as unknown as ContractRow[]
+    const contractIds = contracts.map((c) => c.id)
+
+    const paymentsRes = contractIds.length
+      ? await supabase
+          .from('payments')
+          .select(
+            'id, contract_id, status, due_date, paid_date, amount, amount_paid, rent_amount, water_fee, late_fee_amount, late_fee_level, method, reference, confirmed_by',
+          )
+          .in('contract_id', contractIds)
+          .lt('due_date', upperExcl)
+      : { data: [] as PaymentRow[] }
+
     const payments = (paymentsRes.data || []) as PaymentRow[]
 
-    const paymentByContract = new Map<string, PaymentRow>()
+    // Indexa pagos por contrato+mes (mes tomado del due_date).
+    const paymentByKey = new Map<string, PaymentRow>()
     for (const p of payments) {
-      paymentByContract.set(p.contract_id, p)
+      const key = `${p.contract_id}|${p.due_date.slice(0, 7)}`
+      const prev = paymentByKey.get(key)
+      if (!prev || rankPayment(p) > rankPayment(prev)) paymentByKey.set(key, p)
     }
 
     const today = new Date()
-    const currentYear = today.getFullYear()
-    const currentMonth = today.getMonth() + 1
-    const isCurrentMonth = year === currentYear && month === currentMonth
-    const todayDay = today.getDate()
+    const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
-    const billingRows: BillingRow[] = contracts.map((c) => {
-      const payment = paymentByContract.get(c.id) || null
+    const billingRows: BillingRow[] = []
+    for (const c of contracts) {
+      const day = c.payment_day || 1
+      for (const month of scheduleMonths(c.start_date, selectedMonth)) {
+        const dueDate = `${month}-${pad2(day)}`
+        const payment = paymentByKey.get(`${c.id}|${month}`) || null
 
-      let status: BillingStatus = 'pendiente'
-      let moraAmount = 0
-      let remaining = 0
+        const base = payment?.amount ?? c.monthly_amount + WATER_FEE_DEFAULT
+        const fee = Number(payment?.late_fee_amount || 0)
+        const paid = Number(payment?.amount_paid || 0)
+        const hasCollection = payment != null && (payment.status === 'paid' || payment.status === 'partial')
 
-      if (!c.payment_day) {
-        // No fixed payment day — verbal agreement
-        status = payment ? (payment.status === 'partial' ? 'parcial' : 'pagado') : 'verbal'
-        if (status === 'parcial') remaining = Math.max(0, (payment!.amount || 0) - (payment!.amount_paid || 0))
-      } else if (payment) {
-        if (payment.status === 'partial') {
-          status = 'parcial'
-          remaining = Math.max(0, (payment.amount || 0) - (payment.amount_paid || 0))
+        let status: BillingStatus = 'pendiente'
+        let moraAmount = 0
+        let remaining = 0
+
+        if (hasCollection) {
+          remaining = Math.max(0, base + fee - paid)
+          status = remaining > 0.001 ? 'parcial' : 'pagado'
+        } else if (!c.payment_day) {
+          status = 'verbal'
         } else {
-          status = 'pagado'
-        }
-      } else if (isCurrentMonth) {
-        if (todayDay >= c.payment_day) {
-          // Recargo según política oficial (motor de mora): 5% (6-15 días),
-          // 10% (16+), sobre la mensualidad vencida. 0% en gracia (1-5 días).
-          const daysPastDue = todayDay - c.payment_day
-          const { amount: fee } = calcMoraSurcharge(c.monthly_amount, daysPastDue)
-          if (fee > 0) {
-            status = 'mora'
-            moraAmount = fee
+          const due = new Date(`${dueDate}T00:00:00`)
+          if (todayMid < due) {
+            status = 'pendiente'
           } else {
-            status = 'vencido'
+            // Recargo escalonado (motor de mora): 0% gracia (1-5d), 5% (6-15d), 10% (16+).
+            const daysPastDue = dayDiff(due, todayMid)
+            const { amount: surcharge } = calcMoraSurcharge(c.monthly_amount, daysPastDue)
+            if (surcharge > 0) {
+              status = 'mora'
+              moraAmount = surcharge
+            } else {
+              status = 'vencido'
+            }
           }
-        } else {
-          status = 'pendiente'
         }
-      } else {
-        // Past months without payment
-        const selectedDate = new Date(year, month - 1, 1)
-        if (selectedDate < new Date(currentYear, currentMonth - 1, 1)) {
-          status = 'vencido'
-        }
-      }
 
-      return { contract: c, payment, status, moraAmount, remaining }
-    })
-
-    // Sort by unit number
-    billingRows.sort((a, b) => {
-      const aNum = a.contract.unit?.number || ''
-      const bNum = b.contract.unit?.number || ''
-      return aNum.localeCompare(bNum)
-    })
-
-    // Chronic debtors: contracts with late payments from previous months
-    const latePayments = (latePaymentsRes.data || []) as unknown as { contract_id: string; status: string; contract: { occupant: { name: string } | null } | null }[]
-    const debtorMap = new Map<string, { name: string; count: number }>()
-    for (const lp of latePayments) {
-      const name = lp.contract?.occupant?.name || 'Sin nombre'
-      const existing = debtorMap.get(lp.contract_id)
-      if (existing) {
-        existing.count++
-      } else {
-        debtorMap.set(lp.contract_id, { name, count: 1 })
+        billingRows.push({ contract: c, payment, month, dueDate, status, moraAmount, remaining })
       }
     }
-    setChronicDebtors(Array.from(debtorMap.values()).sort((a, b) => b.count - a.count))
+
+    // Orden: por unidad y luego por mes ascendente.
+    billingRows.sort((a, b) => {
+      const u = (a.contract.unit?.number || '').localeCompare(b.contract.unit?.number || '')
+      if (u !== 0) return u
+      return a.month.localeCompare(b.month)
+    })
+
+    // Deudores crónicos: contratos con ≥2 meses pendientes/vencidos/parciales.
+    const debtorMap = new Map<string, { name: string; count: number }>()
+    for (const r of billingRows) {
+      if (r.status === 'vencido' || r.status === 'mora' || r.status === 'parcial') {
+        const name = r.contract.occupant?.name || 'Sin nombre'
+        const e = debtorMap.get(r.contract.id)
+        if (e) e.count++
+        else debtorMap.set(r.contract.id, { name, count: 1 })
+      }
+    }
+    setChronicDebtors(
+      Array.from(debtorMap.values())
+        .filter((d) => d.count >= 2)
+        .sort((a, b) => b.count - a.count),
+    )
 
     setRows(billingRows)
     setLoading(false)
@@ -188,103 +250,125 @@ export default function CobrosPage() {
   useEffect(() => {
     if (!orgId) return
     fetchBilling()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, orgId])
 
-  function openPayModal(contract: ContractRow) {
-    setPayingContract(contract)
+  function openPayModal(row: BillingRow) {
+    const c = row.contract
+    const today = new Date().toISOString().split('T')[0]
+    const rent = row.payment?.rent_amount ?? c.monthly_amount
+    const water = row.payment?.water_fee ?? WATER_FEE_DEFAULT
+    const lateFee = suggestedMora(rent, row.dueDate, today, row.payment)
+    setPayingRow(row)
     setPayForm({
-      rent_amount: contract.monthly_amount,
-      water_fee: 250,
+      rent_amount: rent,
+      water_fee: water,
+      late_fee: lateFee,
       method: 'Transferencia',
       reference: '',
-      paid_date: new Date().toISOString().split('T')[0],
+      paid_date: today,
       is_partial: false,
-      amount_paid: contract.monthly_amount + 250,
+      amount_paid: rent + water + lateFee,
     })
   }
 
+  // Recalcula la mora sugerida cuando cambia la fecha de pago (días de atraso).
+  function onPaidDateChange(paid_date: string) {
+    if (!payingRow) return
+    const lateFee = suggestedMora(payForm.rent_amount, payingRow.dueDate, paid_date, payingRow.payment)
+    setPayForm((f) => ({
+      ...f,
+      paid_date,
+      late_fee: lateFee,
+      amount_paid: f.is_partial ? f.amount_paid : f.rent_amount + f.water_fee + lateFee,
+    }))
+  }
+
   async function handleMarkPaid() {
-    if (!payingContract) return
+    if (!payingRow) return
     setSaving(true)
+    const c = payingRow.contract
 
-    const [year, month] = selectedMonth.split('-').map(Number)
-    const dueDate = `${year}-${String(month).padStart(2, '0')}-${String(payingContract.payment_day).padStart(2, '0')}`
-    const totalAmount = payForm.rent_amount + payForm.water_fee
-    // Pago parcial: se guarda el monto recibido y status='partial'. El renglón
-    // sigue vivo; el agente de cobranza recalcula recargos y el estado de cuenta
-    // refleja el saldo restante automáticamente.
+    const dueDate = payingRow.dueDate
+    const lateFee = Math.max(0, payForm.late_fee)
+    const baseAmount = payForm.rent_amount + payForm.water_fee
+    const totalDue = baseAmount + lateFee // renta + agua + mora
     const amountReceived = payForm.is_partial
-      ? Math.max(0, Math.min(payForm.amount_paid, totalAmount))
-      : totalAmount
+      ? Math.max(0, Math.min(payForm.amount_paid, totalDue))
+      : totalDue
+
+    const daysLate = Math.max(
+      0,
+      dayDiff(new Date(`${dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)),
+    )
+    const { level: lateLevel } = calcMoraSurcharge(payForm.rent_amount, daysLate)
     const paymentMethod =
-      payForm.method.toLowerCase() === 'transferencia' ? 'transferencia'
-      : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro'
+      payForm.method.toLowerCase() === 'transferencia'
+        ? 'transferencia'
+        : payForm.method.toLowerCase() === 'efectivo'
+          ? 'efectivo'
+          : 'otro'
 
-    // Si ya existe un renglón de este periodo (p.ej. un parcial anterior),
-    // sumamos el abono al renglón en vez de duplicar el cargo.
-    const existing = rows.find((r) => r.contract.id === payingContract.id)?.payment || null
-
+    const existing = payingRow.payment
     let paymentData: { id: string } | null = null
     let error: { message: string } | null = null
     let isPartial = false
 
+    const common = {
+      amount: baseAmount,
+      rent_amount: payForm.rent_amount,
+      water_fee: payForm.water_fee,
+      late_fee_amount: lateFee,
+      late_fee_level: lateFee > 0 ? lateLevel : null,
+      paid_date: payForm.paid_date,
+      method: payForm.method,
+      reference: payForm.reference || null,
+      confirmed_by: confirmedBy,
+      confirmed_at: new Date().toISOString(),
+      payment_method: paymentMethod,
+    }
+
     if (existing) {
-      const newPaid = payForm.is_partial
-        ? Math.min((existing.amount_paid || 0) + amountReceived, existing.amount)
-        : existing.amount
-      isPartial = newPaid < existing.amount
+      // Suma el abono al renglón del periodo en vez de duplicar el cargo.
+      const prevPaid = Number(existing.amount_paid || 0)
+      const newPaid = payForm.is_partial ? Math.min(prevPaid + amountReceived, totalDue) : totalDue
+      isPartial = newPaid + 0.001 < totalDue
       const res = await supabase
         .from('payments')
-        .update({
-          amount_paid: newPaid,
-          status: isPartial ? 'partial' : 'paid',
-          paid_date: payForm.paid_date,
-          method: payForm.method,
-          reference: payForm.reference || null,
-          confirmed_by: confirmedBy,
-          confirmed_at: new Date().toISOString(),
-          payment_method: paymentMethod,
-        })
+        .update({ ...common, amount_paid: newPaid, status: isPartial ? 'partial' : 'paid' })
         .eq('id', existing.id)
         .select()
         .single()
       paymentData = res.data
       error = res.error
     } else {
-      isPartial = payForm.is_partial && amountReceived < totalAmount
-      const res = await supabase.from('payments').insert({
-        org_id: orgId,
-        contract_id: payingContract.id,
-        amount: totalAmount,
-        amount_paid: amountReceived,
-        rent_amount: payForm.rent_amount,
-        water_fee: payForm.water_fee,
-        due_date: dueDate,
-        paid_date: payForm.paid_date,
-        status: isPartial ? 'partial' : 'paid',
-        method: payForm.method,
-        reference: payForm.reference || null,
-        confirmed_by: confirmedBy,
-        confirmed_at: new Date().toISOString(),
-        payment_method: paymentMethod,
-      }).select().single()
+      isPartial = amountReceived + 0.001 < totalDue
+      const res = await supabase
+        .from('payments')
+        .insert({
+          ...common,
+          org_id: orgId,
+          contract_id: c.id,
+          due_date: dueDate,
+          amount_paid: amountReceived,
+          status: isPartial ? 'partial' : 'paid',
+        })
+        .select()
+        .single()
       paymentData = res.data
       error = res.error
     }
 
-    // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza)
     if (paymentData && !error) {
+      // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza).
       fetch(`/api/payments/${paymentData.id}/receipt`, { method: 'POST' }).catch(() => {})
-    }
-
-    // Also create ledger entry
-    if (paymentData && !error) {
+      // Asiento en el ledger.
       await supabase.from('payment_ledger').insert({
         org_id: orgId,
         payment_id: paymentData.id,
-        contract_id: payingContract.id,
-        unit_id: payingContract.unit_id,
-        tenant_name: payingContract.occupant?.name || null,
+        contract_id: c.id,
+        unit_id: c.unit_id,
+        tenant_name: c.occupant?.name || null,
         amount: payForm.rent_amount,
         water_fee: payForm.water_fee,
         total: amountReceived,
@@ -296,7 +380,7 @@ export default function CobrosPage() {
       })
     }
 
-    setPayingContract(null)
+    setPayingRow(null)
     setSaving(false)
     if (error) {
       toast.error(`Error al guardar: ${error.message}`)
@@ -306,22 +390,25 @@ export default function CobrosPage() {
     fetchBilling()
   }
 
-  const filtered = filter === 'all'
-    ? rows
-    : rows.filter((r) => {
-        if (filter === 'pendientes') return r.status === 'pendiente'
-        if (filter === 'vencidos') return r.status === 'vencido' || r.status === 'mora'
-        if (filter === 'pagados') return r.status === 'pagado'
-        return true
-      })
+  const filtered =
+    filter === 'all'
+      ? rows
+      : rows.filter((r) => {
+          if (filter === 'pendientes') return r.status === 'pendiente'
+          if (filter === 'vencidos') return r.status === 'vencido' || r.status === 'mora' || r.status === 'parcial'
+          if (filter === 'pagados') return r.status === 'pagado'
+          return true
+        })
 
-  // Total expected = rent + water ($250) per contract
-  const totalExpected = rows.reduce((s, r) => s + r.contract.monthly_amount + 250, 0)
-  const totalCollected = rows.reduce((s, r) => {
-    if (r.status === 'pagado') return s + (r.payment?.amount || r.contract.monthly_amount + 250)
-    if (r.status === 'parcial') return s + (r.payment?.amount_paid || 0)
-    return s
-  }, 0)
+  // Totales sobre TODO el backlog mostrado (todos los meses).
+  let totalExpected = 0
+  let totalCollected = 0
+  for (const r of rows) {
+    const rowBase = r.payment?.amount ?? r.contract.monthly_amount + WATER_FEE_DEFAULT
+    const rowFee = r.status === 'mora' ? r.moraAmount : Number(r.payment?.late_fee_amount || 0)
+    totalExpected += rowBase + rowFee
+    totalCollected += Number(r.payment?.amount_paid || 0)
+  }
   const totalPending = totalExpected - totalCollected
 
   const statusBadge = (status: BillingStatus, moraAmount: number, remaining: number) => {
@@ -353,6 +440,11 @@ export default function CobrosPage() {
     }
   }
 
+  // Días de atraso del pago que se está registrando (para el hint de mora).
+  const modalDaysLate = payingRow
+    ? Math.max(0, dayDiff(new Date(`${payingRow.dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)))
+    : 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -362,16 +454,19 @@ export default function CobrosPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">Cobros</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">
-              Estado de pagos mensuales — Contratos LTR / MTR
+              Estado de pagos mes a mes — Contratos LTR / MTR
             </p>
           </div>
         </div>
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="input-field w-auto"
-        />
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-500 dark:text-gray-400">Hasta</label>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="input-field w-auto"
+          />
+        </div>
       </div>
 
       {/* Filters */}
@@ -416,12 +511,15 @@ export default function CobrosPage() {
       {chronicDebtors.length > 0 && (
         <div className="card border-red-500/30">
           <h3 className="text-sm font-semibold text-red-400 mb-2">
-            Deudores crónicos — {chronicDebtors.length} inquilino(s) con pagos atrasados de meses anteriores
+            Deudores crónicos — {chronicDebtors.length} inquilino(s) con 2+ meses atrasados
           </h3>
           <div className="flex flex-wrap gap-2">
             {chronicDebtors.map((d, i) => (
-              <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                {d.name} ({d.count} pago{d.count > 1 ? 's' : ''})
+              <span
+                key={i}
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20"
+              >
+                {d.name} ({d.count} mes{d.count > 1 ? 'es' : ''})
               </span>
             ))}
           </div>
@@ -434,8 +532,8 @@ export default function CobrosPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No hay contratos activos para este mes"
-          description="Los cobros se generan automáticamente para contratos activos"
+          title="No hay meses por cobrar en este rango"
+          description="Los cobros se generan mes a mes desde el inicio de cada contrato activo"
         />
       ) : (
         <div className="card overflow-x-auto p-0">
@@ -443,11 +541,12 @@ export default function CobrosPage() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Depto</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Mes</th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Inquilino</th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Renta</th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Agua</th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
-                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Día cobro</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Vence</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Confirmó</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Acción</th>
@@ -455,84 +554,83 @@ export default function CobrosPage() {
             </thead>
             <tbody>
               {filtered.map((row) => {
-                const waterFee = row.payment?.water_fee ?? 250
+                const waterFee = row.payment?.water_fee ?? WATER_FEE_DEFAULT
                 const rentAmt = row.payment?.rent_amount ?? row.contract.monthly_amount
-                const total = row.payment ? row.payment.amount : row.contract.monthly_amount + 250
+                const total = row.payment ? row.payment.amount : row.contract.monthly_amount + WATER_FEE_DEFAULT
 
                 return (
-                  <tr key={row.contract.id} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                  <tr
+                    key={`${row.contract.id}-${row.month}`}
+                    className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30"
+                  >
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                       {row.contract.unit?.number || '—'}
                       {row.contract.status === 'en_renovacion' && (
-                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/15 text-yellow-500 border border-yellow-500/20" title="Contrato en renovación">
+                        <span
+                          className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/15 text-yellow-500 border border-yellow-500/20"
+                          title="Contrato en renovación"
+                        >
                           &#9888;
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 capitalize whitespace-nowrap">
+                      {monthLabel(row.month)}
+                    </td>
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
                       {row.contract.occupant?.name || 'Sin inquilino'}
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                      {formatCurrency(rentAmt)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                      {formatCurrency(waterFee)}
-                    </td>
+                    <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(rentAmt)}</td>
+                    <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(waterFee)}</td>
                     <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">
                       {formatCurrency(total)}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">
-                      {row.contract.payment_day}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {statusBadge(row.status, row.moraAmount, row.remaining)}
-                    </td>
+                    <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{row.contract.payment_day || '—'}</td>
+                    <td className="px-4 py-3 text-center">{statusBadge(row.status, row.moraAmount, row.remaining)}</td>
                     <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400 capitalize">
                       {row.payment?.confirmed_by || '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
-                      {row.status !== 'pagado' ? (
-                        <button
-                          onClick={() => openPayModal(row.contract)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+                        {row.status !== 'pagado' ? (
+                          <button
+                            onClick={() => openPayModal(row)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+                          >
+                            <Check className="w-3 h-3" />
+                            Marcar pagado
+                          </button>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            {row.payment?.method === 'stripe' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                                Pagado por Stripe
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">{row.payment?.method || '—'}</span>
+                            )}
+                            {row.payment && (
+                              <button
+                                onClick={() => setInvoicingRow(row)}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
+                                title="Generar factura CFDI"
+                              >
+                                <FileText className="w-3 h-3" />
+                                Facturar
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <a
+                          href={`/api/contracts/${row.contract.id}/estado-cuenta?periodo=${row.month}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                          title="Estado de cuenta (PDF)"
                         >
-                          <Check className="w-3 h-3" />
-                          Marcar pagado
-                        </button>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          {row.payment?.method === 'stripe' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                              Pagado por Stripe
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
-                              {row.payment?.method || '—'}
-                            </span>
-                          )}
-                          {row.payment && (
-                            <button
-                              onClick={() => setInvoicingRow(row)}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
-                              title="Generar factura CFDI"
-                            >
-                              <FileText className="w-3 h-3" />
-                              Facturar
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      <a
-                        href={`/api/contracts/${row.contract.id}/estado-cuenta?periodo=${selectedMonth}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
-                        title="Estado de cuenta (PDF)"
-                      >
-                        <Receipt className="w-3 h-3" />
-                        Estado
-                      </a>
+                          <Receipt className="w-3 h-3" />
+                          Estado
+                        </a>
                       </div>
                     </td>
                   </tr>
@@ -556,20 +654,21 @@ export default function CobrosPage() {
       )}
 
       {/* Pay Modal */}
-      {payingContract && (
+      {payingRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4 relative">
+          <div className="card w-full max-w-md mx-4 relative max-h-[90vh] overflow-y-auto">
             <button
-              onClick={() => setPayingContract(null)}
+              onClick={() => setPayingRow(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
             >
               <X className="w-5 h-5" />
             </button>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              Registrar pago — {payingContract.unit?.number || ''}
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              Registrar pago — {payingRow.contract.unit?.number || ''}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {payingContract.occupant?.name || 'Sin inquilino'}
+              {payingRow.contract.occupant?.name || 'Sin inquilino'} ·{' '}
+              <span className="capitalize">{monthLabel(payingRow.month)}</span> · vence {payingRow.dueDate}
             </p>
             <div className="space-y-4">
               <div>
@@ -577,7 +676,13 @@ export default function CobrosPage() {
                 <input
                   type="number"
                   value={payForm.rent_amount}
-                  onChange={(e) => setPayForm({ ...payForm, rent_amount: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setPayForm((f) => ({
+                      ...f,
+                      rent_amount: Number(e.target.value),
+                      amount_paid: f.is_partial ? f.amount_paid : Number(e.target.value) + f.water_fee + f.late_fee,
+                    }))
+                  }
                   className="input-field w-full"
                 />
               </div>
@@ -586,14 +691,43 @@ export default function CobrosPage() {
                 <input
                   type="number"
                   value={payForm.water_fee}
-                  onChange={(e) => setPayForm({ ...payForm, water_fee: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setPayForm((f) => ({
+                      ...f,
+                      water_fee: Number(e.target.value),
+                      amount_paid: f.is_partial ? f.amount_paid : f.rent_amount + Number(e.target.value) + f.late_fee,
+                    }))
+                  }
                   className="input-field w-full"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Total</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  Mora{' '}
+                  <span className="text-xs text-gray-400">
+                    ({modalDaysLate} día{modalDaysLate === 1 ? '' : 's'} de atraso · editable)
+                  </span>
+                </label>
+                <input
+                  type="number"
+                  value={payForm.late_fee}
+                  onChange={(e) =>
+                    setPayForm((f) => ({
+                      ...f,
+                      late_fee: Number(e.target.value),
+                      amount_paid: f.is_partial ? f.amount_paid : f.rent_amount + f.water_fee + Number(e.target.value),
+                    }))
+                  }
+                  className="input-field w-full"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Recargo calculado por días entre el vencimiento y la fecha de pago. Ponlo en 0 para condonarlo.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Total a cobrar</label>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(payForm.rent_amount + payForm.water_fee)}
+                  {formatCurrency(payForm.rent_amount + payForm.water_fee + payForm.late_fee)}
                 </p>
               </div>
               <div>
@@ -602,11 +736,11 @@ export default function CobrosPage() {
                     type="checkbox"
                     checked={payForm.is_partial}
                     onChange={(e) =>
-                      setPayForm({
-                        ...payForm,
+                      setPayForm((f) => ({
+                        ...f,
                         is_partial: e.target.checked,
-                        amount_paid: e.target.checked ? payForm.amount_paid : payForm.rent_amount + payForm.water_fee,
-                      })
+                        amount_paid: e.target.checked ? f.amount_paid : f.rent_amount + f.water_fee + f.late_fee,
+                      }))
                     }
                     className="rounded border-gray-300"
                   />
@@ -619,12 +753,15 @@ export default function CobrosPage() {
                   <input
                     type="number"
                     value={payForm.amount_paid}
-                    onChange={(e) => setPayForm({ ...payForm, amount_paid: Number(e.target.value) })}
+                    onChange={(e) => setPayForm((f) => ({ ...f, amount_paid: Number(e.target.value) }))}
                     className="input-field w-full"
                   />
                   <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                    Restante: {formatCurrency(Math.max(0, payForm.rent_amount + payForm.water_fee - payForm.amount_paid))}
-                    {' '}· el recargo por mora se sigue acumulando sobre el saldo
+                    Restante:{' '}
+                    {formatCurrency(
+                      Math.max(0, payForm.rent_amount + payForm.water_fee + payForm.late_fee - payForm.amount_paid),
+                    )}{' '}
+                    · queda vivo en el estado de cuenta hasta cubrirse
                   </p>
                 </div>
               )}
@@ -632,7 +769,7 @@ export default function CobrosPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método</label>
                 <select
                   value={payForm.method}
-                  onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
+                  onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
                   className="input-field w-full"
                 >
                   <option value="Transferencia">Transferencia</option>
@@ -645,7 +782,7 @@ export default function CobrosPage() {
                 <input
                   type="text"
                   value={payForm.reference}
-                  onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+                  onChange={(e) => setPayForm((f) => ({ ...f, reference: e.target.value }))}
                   className="input-field w-full"
                   placeholder="Número de referencia"
                 />
@@ -668,13 +805,13 @@ export default function CobrosPage() {
                 <input
                   type="date"
                   value={payForm.paid_date}
-                  onChange={(e) => setPayForm({ ...payForm, paid_date: e.target.value })}
+                  onChange={(e) => onPaidDateChange(e.target.value)}
                   className="input-field w-full"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
-                  onClick={() => setPayingContract(null)}
+                  onClick={() => setPayingRow(null)}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
                 >
                   Cancelar
