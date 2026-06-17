@@ -5,6 +5,7 @@ import { Search, Building2, FileText, Users, Wrench } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SkeletonText } from '@/components/Skeleton'
 import Link from 'next/link'
+import { useActiveContext, ALL_BUILDINGS } from '@/lib/useActiveContext'
 
 interface SearchResult {
   category: 'units' | 'contracts' | 'occupants' | 'incidents'
@@ -22,6 +23,7 @@ const CATEGORY_META = {
 }
 
 export default function SearchPage() {
+  const { activeOrgId, activeBuildingId } = useActiveContext()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -38,37 +40,53 @@ export default function SearchPage() {
       setResults([])
       return
     }
+    if (!activeOrgId) {
+      setResults([])
+      return
+    }
     timerRef.current = setTimeout(() => {
       performSearch(query.trim())
     }, 300)
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [query])
+  }, [query, activeOrgId, activeBuildingId])
 
   async function performSearch(q: string) {
+    if (!activeOrgId) return
     setLoading(true)
     const pattern = `%${q}%`
+    // Edificio activo específico (no "Todos") acota las unidades.
+    const bId =
+      activeBuildingId && activeBuildingId !== ALL_BUILDINGS
+        ? activeBuildingId
+        : null
+
+    let unitsQ = supabase
+      .from('units')
+      .select('id, number, notes, status')
+      .eq('org_id', activeOrgId)
+      .or(`number.ilike.${pattern},notes.ilike.${pattern}`)
+    if (bId) unitsQ = unitsQ.eq('building_id', bId)
 
     const [unitsRes, contractsRes, occupantsRes, incidentsRes] = await Promise.all([
-      supabase
-        .from('units')
-        .select('id, number, notes, status')
-        .or(`number.ilike.${pattern},notes.ilike.${pattern}`)
-        .limit(5),
+      unitsQ.limit(5),
       supabase
         .from('contracts')
-        .select('id, status, occupant:occupants(name), unit:units(number)')
-        .or(`occupant.name.ilike.${pattern}`)
+        .select('id, status, occupant:occupants!inner(name), unit:units(number)')
+        .eq('org_id', activeOrgId)
+        .ilike('occupant.name', pattern)
         .limit(5),
       supabase
         .from('occupants')
         .select('id, name, phone, email')
+        .eq('org_id', activeOrgId)
         .or(`name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`)
         .limit(5),
       supabase
         .from('incidents')
         .select('id, title, status, unit:units(number)')
+        .eq('org_id', activeOrgId)
         .ilike('title', pattern)
         .limit(5),
     ])
