@@ -23,6 +23,7 @@ export default function ContractsPage() {
     status: 'active' as ContractStatus,
     rent_type: 'LTR' as 'LTR' | 'MTR' | 'STR',
     notes: '',
+    start_date: '',
     end_date: '',
     drive_link: '',
     aval: '',
@@ -75,6 +76,7 @@ export default function ContractsPage() {
       status: contract.status,
       rent_type: (contract.rent_type as 'LTR' | 'MTR' | 'STR') || 'LTR',
       notes: contract.notes?.replace(/\n?📎 https?:\/\/\S+/, '').trim() || '',
+      start_date: contract.start_date || '',
       end_date: contract.end_date || '',
       drive_link: existingLink,
       aval: contract.aval || '',
@@ -97,6 +99,7 @@ export default function ContractsPage() {
         payment_day: editForm.payment_day,
         status: editForm.status,
         rent_type: editForm.rent_type,
+        start_date: editForm.start_date || null,
         notes: notesValue || null,
         end_date: editForm.end_date || null,
         aval: editForm.aval || null,
@@ -488,6 +491,16 @@ export default function ContractsPage() {
                   <option value="MTR">Media (MTR)</option>
                   <option value="STR">Corta (STR) — sin cobro mensual</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de inicio</label>
+                <input
+                  type="date"
+                  value={editForm.start_date}
+                  onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
+                  className="input-field w-full"
+                />
+                <p className="text-xs text-gray-400 mt-1">Determina desde qué mes se generan los cobros.</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha fin</label>
