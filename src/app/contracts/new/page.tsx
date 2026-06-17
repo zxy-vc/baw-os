@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useOrgContext } from '@/hooks/useOrgContext'
+import { useActiveContext } from '@/lib/useActiveContext'
 import { useToast } from '@/components/Toast'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Unit, Occupant } from '@/types'
@@ -12,7 +12,7 @@ import Link from 'next/link'
 
 export default function NewContractPage() {
   const router = useRouter()
-  const { orgId } = useOrgContext()
+  const { activeOrgId } = useActiveContext()
   const toast = useToast()
   const [units, setUnits] = useState<Unit[]>([])
   const [occupants, setOccupants] = useState<Occupant[]>([])
@@ -51,6 +51,10 @@ export default function NewContractPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // El contrato (y el inquilino) pertenecen a la misma org que la unidad
+    // seleccionada; respaldo a la org activa del switcher.
+    const selectedUnit = units.find((u) => u.id === form.unit_id)
+    const orgId = selectedUnit?.org_id ?? activeOrgId
     if (!orgId) {
       toast.error('No se pudo resolver tu organización; recarga la página e intenta de nuevo')
       return
