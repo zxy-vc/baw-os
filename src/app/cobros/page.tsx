@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
+import { calcMoraSurcharge } from '@/lib/mora-engine'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
@@ -28,6 +29,7 @@ interface PaymentRow {
   due_date: string
   paid_date: string | null
   amount: number
+  amount_paid: number | null
   rent_amount: number | null
   water_fee: number | null
   method: string | null
@@ -35,13 +37,14 @@ interface PaymentRow {
   confirmed_by: string | null
 }
 
-type BillingStatus = 'pagado' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
+type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
 
 interface BillingRow {
   contract: ContractRow
   payment: PaymentRow | null
   status: BillingStatus
   moraAmount: number
+  remaining: number
 }
 
 
@@ -64,6 +67,8 @@ export default function CobrosPage() {
     method: 'Transferencia',
     reference: '',
     paid_date: new Date().toISOString().split('T')[0],
+    is_partial: false,
+    amount_paid: 0,
   })
   const [saving, setSaving] = useState(false)
   const [confirmedBy, setConfirmedBy] = useState('alicia')
@@ -86,7 +91,7 @@ export default function CobrosPage() {
         .eq('org_id', orgId),
       supabase
         .from('payments')
-        .select('id, contract_id, status, due_date, paid_date, amount, rent_amount, water_fee, method, reference, confirmed_by')
+        .select('id, contract_id, status, due_date, paid_date, amount, amount_paid, rent_amount, water_fee, method, reference, confirmed_by')
         .eq('status', 'paid')
         .gte('due_date', monthStart)
         .lt('due_date', nextMonth),
@@ -116,18 +121,31 @@ export default function CobrosPage() {
 
       let status: BillingStatus = 'pendiente'
       let moraAmount = 0
+      let remaining = 0
 
       if (!c.payment_day) {
         // No fixed payment day — verbal agreement
-        status = payment ? 'pagado' : 'verbal'
+        status = payment ? (payment.status === 'partial' ? 'parcial' : 'pagado') : 'verbal'
+        if (status === 'parcial') remaining = Math.max(0, (payment!.amount || 0) - (payment!.amount_paid || 0))
       } else if (payment) {
-        status = 'pagado'
+        if (payment.status === 'partial') {
+          status = 'parcial'
+          remaining = Math.max(0, (payment.amount || 0) - (payment.amount_paid || 0))
+        } else {
+          status = 'pagado'
+        }
       } else if (isCurrentMonth) {
-        if (todayDay >= 10) {
-          status = 'mora'
-          moraAmount = Math.round(c.monthly_amount * 0.03 * 100) / 100
-        } else if (todayDay >= c.payment_day) {
-          status = 'vencido'
+        if (todayDay >= c.payment_day) {
+          // Recargo según política oficial (motor de mora): 5% (6-15 días),
+          // 10% (16+), sobre la mensualidad vencida. 0% en gracia (1-5 días).
+          const daysPastDue = todayDay - c.payment_day
+          const { amount: fee } = calcMoraSurcharge(c.monthly_amount, daysPastDue)
+          if (fee > 0) {
+            status = 'mora'
+            moraAmount = fee
+          } else {
+            status = 'vencido'
+          }
         } else {
           status = 'pendiente'
         }
@@ -139,7 +157,7 @@ export default function CobrosPage() {
         }
       }
 
-      return { contract: c, payment, status, moraAmount }
+      return { contract: c, payment, status, moraAmount, remaining }
     })
 
     // Sort by unit number
@@ -180,6 +198,8 @@ export default function CobrosPage() {
       method: 'Transferencia',
       reference: '',
       paid_date: new Date().toISOString().split('T')[0],
+      is_partial: false,
+      amount_paid: contract.monthly_amount + 250,
     })
   }
 
@@ -190,22 +210,67 @@ export default function CobrosPage() {
     const [year, month] = selectedMonth.split('-').map(Number)
     const dueDate = `${year}-${String(month).padStart(2, '0')}-${String(payingContract.payment_day).padStart(2, '0')}`
     const totalAmount = payForm.rent_amount + payForm.water_fee
+    // Pago parcial: se guarda el monto recibido y status='partial'. El renglón
+    // sigue vivo; el agente de cobranza recalcula recargos y el estado de cuenta
+    // refleja el saldo restante automáticamente.
+    const amountReceived = payForm.is_partial
+      ? Math.max(0, Math.min(payForm.amount_paid, totalAmount))
+      : totalAmount
+    const paymentMethod =
+      payForm.method.toLowerCase() === 'transferencia' ? 'transferencia'
+      : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro'
 
-    const { data: paymentData, error } = await supabase.from('payments').insert({
-      org_id: orgId,
-      contract_id: payingContract.id,
-      amount: totalAmount,
-      rent_amount: payForm.rent_amount,
-      water_fee: payForm.water_fee,
-      due_date: dueDate,
-      paid_date: payForm.paid_date,
-      status: 'paid',
-      method: payForm.method,
-      reference: payForm.reference || null,
-      confirmed_by: confirmedBy,
-      confirmed_at: new Date().toISOString(),
-      payment_method: payForm.method.toLowerCase() === 'transferencia' ? 'transferencia' : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro',
-    }).select().single()
+    // Si ya existe un renglón de este periodo (p.ej. un parcial anterior),
+    // sumamos el abono al renglón en vez de duplicar el cargo.
+    const existing = rows.find((r) => r.contract.id === payingContract.id)?.payment || null
+
+    let paymentData: { id: string } | null = null
+    let error: { message: string } | null = null
+    let isPartial = false
+
+    if (existing) {
+      const newPaid = payForm.is_partial
+        ? Math.min((existing.amount_paid || 0) + amountReceived, existing.amount)
+        : existing.amount
+      isPartial = newPaid < existing.amount
+      const res = await supabase
+        .from('payments')
+        .update({
+          amount_paid: newPaid,
+          status: isPartial ? 'partial' : 'paid',
+          paid_date: payForm.paid_date,
+          method: payForm.method,
+          reference: payForm.reference || null,
+          confirmed_by: confirmedBy,
+          confirmed_at: new Date().toISOString(),
+          payment_method: paymentMethod,
+        })
+        .eq('id', existing.id)
+        .select()
+        .single()
+      paymentData = res.data
+      error = res.error
+    } else {
+      isPartial = payForm.is_partial && amountReceived < totalAmount
+      const res = await supabase.from('payments').insert({
+        org_id: orgId,
+        contract_id: payingContract.id,
+        amount: totalAmount,
+        amount_paid: amountReceived,
+        rent_amount: payForm.rent_amount,
+        water_fee: payForm.water_fee,
+        due_date: dueDate,
+        paid_date: payForm.paid_date,
+        status: isPartial ? 'partial' : 'paid',
+        method: payForm.method,
+        reference: payForm.reference || null,
+        confirmed_by: confirmedBy,
+        confirmed_at: new Date().toISOString(),
+        payment_method: paymentMethod,
+      }).select().single()
+      paymentData = res.data
+      error = res.error
+    }
 
     // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza)
     if (paymentData && !error) {
@@ -222,10 +287,12 @@ export default function CobrosPage() {
         tenant_name: payingContract.occupant?.name || null,
         amount: payForm.rent_amount,
         water_fee: payForm.water_fee,
-        total: totalAmount,
-        payment_method: payForm.method.toLowerCase() === 'transferencia' ? 'transferencia' : payForm.method.toLowerCase() === 'efectivo' ? 'efectivo' : 'otro',
+        total: amountReceived,
+        payment_method: paymentMethod,
         confirmed_by: confirmedBy,
-        notes: payForm.reference || null,
+        notes: isPartial
+          ? `Pago parcial${payForm.reference ? ` · ${payForm.reference}` : ''}`
+          : payForm.reference || null,
       })
     }
 
@@ -234,7 +301,7 @@ export default function CobrosPage() {
     if (error) {
       toast.error('Error al guardar — intenta de nuevo')
     } else {
-      toast.success('Pago registrado correctamente')
+      toast.success(isPartial ? 'Pago parcial registrado' : 'Pago registrado correctamente')
     }
     fetchBilling()
   }
@@ -250,13 +317,23 @@ export default function CobrosPage() {
 
   // Total expected = rent + water ($250) per contract
   const totalExpected = rows.reduce((s, r) => s + r.contract.monthly_amount + 250, 0)
-  const totalCollected = rows.filter((r) => r.status === 'pagado').reduce((s, r) => s + (r.payment?.amount || r.contract.monthly_amount + 250), 0)
+  const totalCollected = rows.reduce((s, r) => {
+    if (r.status === 'pagado') return s + (r.payment?.amount || r.contract.monthly_amount + 250)
+    if (r.status === 'parcial') return s + (r.payment?.amount_paid || 0)
+    return s
+  }, 0)
   const totalPending = totalExpected - totalCollected
 
-  const statusBadge = (status: BillingStatus, moraAmount: number) => {
+  const statusBadge = (status: BillingStatus, moraAmount: number, remaining: number) => {
     switch (status) {
       case 'pagado':
         return <span className="badge-available">Pagado</span>
+      case 'parcial':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/30">
+            Parcial · restan {formatCurrency(remaining)}
+          </span>
+        )
       case 'pendiente':
         return <span className="badge-pending">Pendiente</span>
       case 'vencido':
@@ -408,12 +485,13 @@ export default function CobrosPage() {
                       {row.contract.payment_day}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      {statusBadge(row.status, row.moraAmount)}
+                      {statusBadge(row.status, row.moraAmount, row.remaining)}
                     </td>
                     <td className="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400 capitalize">
                       {row.payment?.confirmed_by || '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
                       {row.status !== 'pagado' ? (
                         <button
                           onClick={() => openPayModal(row.contract)}
@@ -445,6 +523,17 @@ export default function CobrosPage() {
                           )}
                         </div>
                       )}
+                      <a
+                        href={`/api/contracts/${row.contract.id}/estado-cuenta?periodo=${selectedMonth}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                        title="Estado de cuenta (PDF)"
+                      >
+                        <Receipt className="w-3 h-3" />
+                        Estado
+                      </a>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -508,6 +597,38 @@ export default function CobrosPage() {
                 </p>
               </div>
               <div>
+                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={payForm.is_partial}
+                    onChange={(e) =>
+                      setPayForm({
+                        ...payForm,
+                        is_partial: e.target.checked,
+                        amount_paid: e.target.checked ? payForm.amount_paid : payForm.rent_amount + payForm.water_fee,
+                      })
+                    }
+                    className="rounded border-gray-300"
+                  />
+                  Pago parcial (fuera de fecha)
+                </label>
+              </div>
+              {payForm.is_partial && (
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto recibido</label>
+                  <input
+                    type="number"
+                    value={payForm.amount_paid}
+                    onChange={(e) => setPayForm({ ...payForm, amount_paid: Number(e.target.value) })}
+                    className="input-field w-full"
+                  />
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                    Restante: {formatCurrency(Math.max(0, payForm.rent_amount + payForm.water_fee - payForm.amount_paid))}
+                    {' '}· el recargo por mora se sigue acumulando sobre el saldo
+                  </p>
+                </div>
+              )}
+              <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método</label>
                 <select
                   value={payForm.method}
@@ -564,7 +685,7 @@ export default function CobrosPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  Guardar pago
+                  {payForm.is_partial ? 'Guardar pago parcial' : 'Guardar pago'}
                 </button>
               </div>
             </div>
