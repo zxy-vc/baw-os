@@ -440,3 +440,58 @@ export interface WebhookEvent {
   attempts: number
   created_at: string
 }
+
+// ── CRM (clientes + recompra) ───────────────────────────────────────────────
+export type CrmSource = 'llamada' | 'whatsapp' | 'referido' | 'portal' | 'anuncio' | 'manual' | 'otro'
+export type CrmStatus = 'nuevo' | 'contactado' | 'activo' | 'inactivo' | 'en_seguimiento' | 'recompro' | 'descartado'
+export type CrmOppKind = 'recompra' | 'migracion' | 'nueva'
+export type CrmOppStage = 'identificado' | 'contactado' | 'interesado' | 'negociacion' | 'ganado' | 'perdido'
+
+// Producto/segmento del cliente. Texto libre (el negocio tiene productos
+// heterogéneos y crecientes); esta lista solo sugiere valores en la UI.
+export const CRM_PRODUCT_OPTIONS: string[] = [
+  'Residencial larga',
+  'Residencial media',
+  'Residencial corta',
+  'Espectacular',
+  'Agropecuario',
+  'Estacionamiento',
+  'Bodega',
+  'Otro',
+]
+
+export interface CrmContact {
+  id: string
+  org_id: string
+  occupant_id?: string | null
+  name: string
+  phone?: string | null
+  email?: string | null
+  source: CrmSource
+  is_client: boolean
+  status: CrmStatus
+  interest_product?: string | null
+  owner?: string | null
+  next_followup_at?: string | null
+  tags: string[]
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CrmOpportunity {
+  id: string
+  org_id: string
+  contact_id: string
+  kind: CrmOppKind
+  target_product?: string | null
+  unit_id?: string | null
+  stage: CrmOppStage
+  est_monthly?: number | null
+  owner?: string | null
+  next_followup_at?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+  closed_at?: string | null
+}
