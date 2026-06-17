@@ -299,7 +299,7 @@ export default function CobrosPage() {
     setPayingContract(null)
     setSaving(false)
     if (error) {
-      toast.error('Error al guardar — intenta de nuevo')
+      toast.error(`Error al guardar: ${error.message}`)
     } else {
       toast.success(isPartial ? 'Pago parcial registrado' : 'Pago registrado correctamente')
     }
