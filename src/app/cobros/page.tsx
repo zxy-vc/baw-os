@@ -76,9 +76,11 @@ function scheduleMonths(startISO: string | null, cutoff: string): string[] {
   let y: number
   let m: number
   if (startISO) {
-    const s = new Date(startISO)
-    y = s.getFullYear()
-    m = s.getMonth() + 1
+    // Derivar el mes directo del string 'YYYY-MM-DD' para no desfasar por zona
+    // horaria (new Date('2026-02-01') retrocede a ene 31 en husos UTC negativos).
+    const [sy, sm] = startISO.slice(0, 7).split('-').map(Number)
+    y = sy
+    m = sm
   } else {
     y = cy
     m = cm
