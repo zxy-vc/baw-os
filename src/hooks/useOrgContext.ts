@@ -1,11 +1,18 @@
-// BaW OS — useOrgContext hook (Sprint 4 / S4-1)
+// BaW OS — useOrgContext hook
 // Hook para client components que necesitan el org_id activo del usuario logueado.
-// Reemplaza el patrón legacy: const ORG_ID = '<hardcoded>' (e.g. org pre-Sprint3 wipe)
-// UUID canónico prod actual: org=81a011c4-4ea6-4b79-924d-73dbe6d35e14 building=0d05c6d8-a9cd-437c-8b26-bd637bed7d49
+//
+// 2026-06: reescrito para derivar del MISMO origen confiable que el switcher del
+// sidebar (useActiveContext, client-side) en vez de pegarle a /api/me/org. Ese
+// endpoint resolvía la org en el servidor (auth.getUser + cookie) y devolvía
+// null para algunas sesiones, dejando páginas enteras (contactos, clientes,
+// cobros, etc.) atascadas en loading. Ahora hay una sola fuente de verdad de la
+// org activa en el cliente.
 
 'use client'
 
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useActiveContext } from '@/lib/useActiveContext'
 
 export interface OrgContext {
   orgId: string | null
@@ -15,68 +22,41 @@ export interface OrgContext {
   error: string | null
 }
 
-let cachedContext: Omit<OrgContext, 'loading' | 'error'> | null = null
-let cachedAt = 0
-const CACHE_TTL_MS = 60_000
-
-async function fetchOrgContext() {
-  const res = await fetch('/api/me/org', { credentials: 'include' })
-  const json = await res.json()
-  if (!res.ok || !json.success) {
-    throw new Error(json.error || 'Failed to resolve org')
-  }
-  return {
-    orgId: json.data.org_id as string,
-    userId: json.data.user_id as string,
-    role: json.data.role as string,
-  }
-}
-
 export function useOrgContext(): OrgContext {
-  const [state, setState] = useState<OrgContext>(() => {
-    if (cachedContext && Date.now() - cachedAt < CACHE_TTL_MS) {
-      return { ...cachedContext, loading: false, error: null }
-    }
-    return { orgId: null, userId: null, role: null, loading: true, error: null }
-  })
+  const { activeOrgId, userId, loading } = useActiveContext()
+  const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-
-    if (cachedContext && Date.now() - cachedAt < CACHE_TTL_MS) {
-      setState({ ...cachedContext, loading: false, error: null })
+    if (!activeOrgId || !userId) {
+      setRole(null)
       return
     }
-
-    fetchOrgContext()
-      .then((ctx) => {
-        cachedContext = ctx
-        cachedAt = Date.now()
-        if (!cancelled) {
-          setState({ ...ctx, loading: false, error: null })
-        }
+    let cancelled = false
+    supabase
+      .from('org_members')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('org_id', activeOrgId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setRole((data?.role as string | undefined) ?? null)
       })
-      .catch((err) => {
-        if (!cancelled) {
-          setState({
-            orgId: null,
-            userId: null,
-            role: null,
-            loading: false,
-            error: err.message,
-          })
-        }
-      })
-
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [activeOrgId, userId])
 
-  return state
+  return {
+    orgId: activeOrgId,
+    userId,
+    role,
+    loading,
+    error: null,
+  }
 }
 
+// Compat: el cache vivía en este módulo. Ya no hay cache propio (useActiveContext
+// gestiona su estado). Se conserva el export como no-op por si algo lo importa.
 export function clearOrgContextCache() {
-  cachedContext = null
-  cachedAt = 0
+  /* no-op */
 }

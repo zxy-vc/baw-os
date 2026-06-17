@@ -11,7 +11,9 @@ export type IncidentPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type ReservationStatus = 'tentative' | 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out'
 export type ReservationPaymentStatus = 'pending' | 'partial' | 'paid'
 export type BookingMode = 'full' | 'room' | 'bed'
-export type OccupantType = 'tenant' | 'guest' | 'owner' | 'staff'
+// occupants.type en la BD: CHECK IN ('ltr','str','both') — modalidad de renta
+// del contacto, no un rol. (migration 20260330_occupants_type.sql)
+export type OccupantType = 'ltr' | 'str' | 'both'
 export type AncillaryKind = 'parking' | 'billboard' | 'storage' | 'antenna' | 'other'
 export type AncillaryCadence = 'monthly' | 'annual'
 export type AncillaryOwnership = 'ours' | 'third_party'
