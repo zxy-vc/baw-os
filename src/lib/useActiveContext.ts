@@ -20,6 +20,18 @@ const STORAGE_KEY_BUILDING = 'baw:active_building_id'
 const EVT_ORG_CHANGED = 'baw:active-org-changed'
 const EVT_BUILDING_CHANGED = 'baw:active-building-changed'
 
+// Cookie legible por el servidor para que la resolución server-side de org
+// (resolveOrgId / /api/me/org / generación de PDFs) coincida con la org que el
+// usuario tiene activa en el switcher. El cliente la escribe; el server la lee.
+const ACTIVE_ORG_COOKIE = 'baw_active_org_id'
+function persistOrgCookie(id: string) {
+  try {
+    document.cookie = `${ACTIVE_ORG_COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`
+  } catch {
+    // ignore (SSR / cookies deshabilitadas)
+  }
+}
+
 // Valor centinela para "Todos los edificios" (vista consolidada).
 // activeBuildingId === ALL_BUILDINGS → las pantallas muestran toda la org.
 export const ALL_BUILDINGS = 'all'
@@ -68,6 +80,7 @@ export function useActiveContext(): ActiveContext {
     } catch {
       // ignore
     }
+    persistOrgCookie(id)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(EVT_ORG_CHANGED, { detail: id }))
     }
@@ -152,6 +165,7 @@ export function useActiveContext(): ActiveContext {
         nextActiveOrg = orgList[0].id
       }
       setActiveOrgIdState(nextActiveOrg)
+      if (nextActiveOrg) persistOrgCookie(nextActiveOrg)
 
       // Buildings de todas las orgs del usuario
       if (orgList.length > 0) {
