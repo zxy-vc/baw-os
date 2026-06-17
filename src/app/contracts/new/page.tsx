@@ -42,7 +42,7 @@ export default function NewContractPage() {
   useEffect(() => {
     Promise.all([
       supabase.from('units').select('*').order('number'),
-      supabase.from('occupants').select('*').eq('type', 'tenant').order('name'),
+      supabase.from('occupants').select('*').order('name'),
     ]).then(([unitsRes, occupantsRes]) => {
       setUnits(unitsRes.data || [])
       setOccupants(occupantsRes.data || [])
@@ -64,6 +64,9 @@ export default function NewContractPage() {
     let occupantId = form.occupant_id
 
     if (newOccupant) {
+      // occupants.type solo admite 'ltr' | 'str' | 'both' (modalidad de renta del
+      // contacto), no roles. Lo derivamos del tipo de renta del contrato.
+      const occupantType = form.rent_type === 'STR' ? 'str' : 'ltr'
       const { data: occ, error: occError } = await supabase
         .from('occupants')
         .insert({
@@ -71,7 +74,7 @@ export default function NewContractPage() {
           name: occupantForm.name,
           phone: occupantForm.phone || null,
           email: occupantForm.email || null,
-          type: 'tenant',
+          type: occupantType,
         })
         .select()
         .single()
