@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Search, Bell } from 'lucide-react'
@@ -79,6 +79,19 @@ function getPageTitle(pathname: string): string {
 function GlobalHeader({ pathname }: { pathname: string }) {
   const title = getPageTitle(pathname)
   const [unread, setUnread] = useState(0)
+  const router = useRouter()
+
+  // ⌘K / Ctrl+K abren el buscador global (página /search).
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        router.push('/search')
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [router])
 
   const fetchUnread = useCallback(async () => {
     try {
@@ -135,13 +148,14 @@ function GlobalHeader({ pathname }: { pathname: string }) {
           {/* Search ⌘K */}
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] transition-colors"
+            onClick={() => router.push('/search')}
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors hover:bg-white/5 text-[12px]"
             style={{
               backgroundColor: 'var(--baw-surface)',
               color: 'var(--baw-muted)',
               border: '1px solid var(--baw-border)',
             }}
-            title="Buscar"
+            title="Buscar (⌘K)"
           >
             <Search className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Buscar</span>
