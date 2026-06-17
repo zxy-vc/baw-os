@@ -12,6 +12,14 @@ import { supabase } from '@/lib/supabase'
 const STORAGE_KEY_ORG = 'baw:active_org_id'
 const STORAGE_KEY_BUILDING = 'baw:active_building_id'
 
+// Eventos para sincronizar TODAS las instancias del hook en la misma pestaña.
+// El hook se monta por separado en cada componente (sidebar, páginas, etc.) y
+// sin esto solo la instancia que dispara el cambio se entera; las demás se
+// quedan con el valor viejo hasta un refresh. Al emitir estos eventos, cada
+// instancia actualiza su estado local al instante.
+const EVT_ORG_CHANGED = 'baw:active-org-changed'
+const EVT_BUILDING_CHANGED = 'baw:active-building-changed'
+
 // Valor centinela para "Todos los edificios" (vista consolidada).
 // activeBuildingId === ALL_BUILDINGS → las pantallas muestran toda la org.
 export const ALL_BUILDINGS = 'all'
@@ -60,6 +68,9 @@ export function useActiveContext(): ActiveContext {
     } catch {
       // ignore
     }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(EVT_ORG_CHANGED, { detail: id }))
+    }
   }, [])
 
   const setActiveBuildingId = useCallback((id: string) => {
@@ -68,6 +79,9 @@ export function useActiveContext(): ActiveContext {
       localStorage.setItem(STORAGE_KEY_BUILDING, id)
     } catch {
       // ignore
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(EVT_BUILDING_CHANGED, { detail: id }))
     }
   }, [])
 
@@ -190,6 +204,36 @@ export function useActiveContext(): ActiveContext {
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  // Mantiene esta instancia en sync con cualquier otra que cambie org/edificio
+  // (p.ej. el switcher del sidebar) sin requerir refresh de la página. También
+  // escucha `storage` para sincronizar entre pestañas.
+  useEffect(() => {
+    function onOrg(e: Event) {
+      const id = (e as CustomEvent<string>).detail
+      setActiveOrgIdState((prev) => (prev === id ? prev : id))
+    }
+    function onBuilding(e: Event) {
+      const id = (e as CustomEvent<string>).detail
+      setActiveBuildingIdState((prev) => (prev === id ? prev : id))
+    }
+    function onStorage(e: StorageEvent) {
+      if (e.key === STORAGE_KEY_ORG && e.newValue) {
+        setActiveOrgIdState((prev) => (prev === e.newValue ? prev : e.newValue))
+      }
+      if (e.key === STORAGE_KEY_BUILDING && e.newValue) {
+        setActiveBuildingIdState((prev) => (prev === e.newValue ? prev : e.newValue))
+      }
+    }
+    window.addEventListener(EVT_ORG_CHANGED, onOrg)
+    window.addEventListener(EVT_BUILDING_CHANGED, onBuilding)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(EVT_ORG_CHANGED, onOrg)
+      window.removeEventListener(EVT_BUILDING_CHANGED, onBuilding)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
 
   // Si cambia la org activa, ajustar el building activo si pertenece a otra org
   useEffect(() => {
