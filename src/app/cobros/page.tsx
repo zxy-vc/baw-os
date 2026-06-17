@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
+import { calcMoraSurcharge } from '@/lib/mora-engine'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
@@ -123,11 +124,17 @@ export default function CobrosPage() {
       } else if (payment) {
         status = 'pagado'
       } else if (isCurrentMonth) {
-        if (todayDay >= 10) {
-          status = 'mora'
-          moraAmount = Math.round(c.monthly_amount * 0.03 * 100) / 100
-        } else if (todayDay >= c.payment_day) {
-          status = 'vencido'
+        if (todayDay >= c.payment_day) {
+          // Recargo según política oficial (motor de mora): 5% (6-15 días),
+          // 10% (16+), sobre la mensualidad vencida. 0% en gracia (1-5 días).
+          const daysPastDue = todayDay - c.payment_day
+          const { amount: fee } = calcMoraSurcharge(c.monthly_amount, daysPastDue)
+          if (fee > 0) {
+            status = 'mora'
+            moraAmount = fee
+          } else {
+            status = 'vencido'
+          }
         } else {
           status = 'pendiente'
         }
@@ -414,6 +421,7 @@ export default function CobrosPage() {
                       {row.payment?.confirmed_by || '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
                       {row.status !== 'pagado' ? (
                         <button
                           onClick={() => openPayModal(row.contract)}
@@ -445,6 +453,17 @@ export default function CobrosPage() {
                           )}
                         </div>
                       )}
+                      <a
+                        href={`/api/contracts/${row.contract.id}/estado-cuenta?periodo=${selectedMonth}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                        title="Estado de cuenta (PDF)"
+                      >
+                        <Receipt className="w-3 h-3" />
+                        Estado
+                      </a>
+                      </div>
                     </td>
                   </tr>
                 )
