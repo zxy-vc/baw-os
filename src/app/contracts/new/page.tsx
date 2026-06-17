@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
+import { useToast } from '@/components/Toast'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import type { Unit, Occupant } from '@/types'
 import Link from 'next/link'
 
 export default function NewContractPage() {
   const router = useRouter()
+  const { orgId } = useOrgContext()
+  const toast = useToast()
   const [units, setUnits] = useState<Unit[]>([])
   const [occupants, setOccupants] = useState<Occupant[]>([])
   const [saving, setSaving] = useState(false)
@@ -47,14 +51,19 @@ export default function NewContractPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!orgId) {
+      toast.error('No se pudo resolver tu organización; recarga la página e intenta de nuevo')
+      return
+    }
     setSaving(true)
 
     let occupantId = form.occupant_id
 
     if (newOccupant) {
-      const { data: occ } = await supabase
+      const { data: occ, error: occError } = await supabase
         .from('occupants')
         .insert({
+          org_id: orgId,
           name: occupantForm.name,
           phone: occupantForm.phone || null,
           email: occupantForm.email || null,
@@ -63,15 +72,22 @@ export default function NewContractPage() {
         .select()
         .single()
 
-      if (occ) occupantId = occ.id
+      if (occError || !occ) {
+        setSaving(false)
+        toast.error(`Error al crear el inquilino${occError ? `: ${occError.message}` : ''}`)
+        return
+      }
+      occupantId = occ.id
     }
 
     if (!occupantId) {
       setSaving(false)
+      toast.error('Selecciona o crea un inquilino')
       return
     }
 
     const { error } = await supabase.from('contracts').insert({
+      org_id: orgId,
       unit_id: form.unit_id,
       occupant_id: occupantId,
       start_date: form.start_date,
@@ -86,10 +102,15 @@ export default function NewContractPage() {
       drive_folder_url: form.drive_folder_url || null,
     })
 
-    if (!error) {
-      await supabase.from('units').update({ status: 'occupied' }).eq('id', form.unit_id)
-      router.push('/contracts')
+    if (error) {
+      setSaving(false)
+      toast.error(`Error al crear el contrato: ${error.message}`)
+      return
     }
+
+    await supabase.from('units').update({ status: 'occupied' }).eq('id', form.unit_id)
+    toast.success('Contrato creado')
+    router.push('/contracts')
     setSaving(false)
   }
 
