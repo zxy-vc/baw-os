@@ -323,7 +323,7 @@ export default function CobrosPage() {
       late_fee_amount: lateFee,
       late_fee_level: lateFee > 0 ? lateLevel : null,
       paid_date: payForm.paid_date,
-      method: payForm.method,
+      method: paymentMethod,
       reference: payForm.reference || null,
       confirmed_by: confirmedBy,
       confirmed_at: new Date().toISOString(),

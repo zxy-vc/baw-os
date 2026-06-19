@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { validateApiKey, createServiceClient } from '@/lib/api-auth'
-import { createSupabaseServer } from '@/lib/supabase-server'
+import { createSupabaseServerFromRequest } from '@/lib/supabase-server'
 import { getEstadoCuentaData } from '@/lib/estado-cuenta'
 import { EstadoCuentaPDF } from '@/lib/pdf/EstadoCuentaPDF'
 
@@ -23,7 +23,7 @@ export async function GET(
 ) {
   // Auth: API key (agente) usa service client; humano usa session client (RLS).
   const usingApiKey = validateApiKey(request)
-  const supabase = usingApiKey ? createServiceClient() : createSupabaseServer()
+  const supabase = usingApiKey ? createServiceClient() : createSupabaseServerFromRequest(request)
   if (!usingApiKey) {
     const {
       data: { user },
