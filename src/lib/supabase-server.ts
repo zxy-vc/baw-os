@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { NextRequest } from 'next/server'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -21,6 +22,22 @@ export function createSupabaseServer() {
           // setAll called from Server Component — ignored (handled by middleware)
         }
       },
+    },
+  })
+}
+
+// Variante para Route Handlers detrás del middleware. Lee las cookies del propio
+// request (que el middleware ya refrescó), en vez de next/headers cookies(), que
+// en route handlers no siempre refleja ese refresh. Evita el Unauthorized por la
+// carrera de rotación de refresh-token cuando el access token expira.
+export function createSupabaseServerFromRequest(request: NextRequest) {
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      // No persistimos cookies aquí: el middleware ya hizo el refresh.
+      setAll() {},
     },
   })
 }
