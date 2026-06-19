@@ -7,6 +7,7 @@ import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { calcMoraSurcharge } from '@/lib/mora-engine'
+import { mapPaymentMethod, referenceFor } from '@/lib/cobros'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
@@ -75,13 +76,6 @@ function methodLabel(method: string | null | undefined): string {
     default:
       return method || '—'
   }
-}
-
-// Referencia auto-generada: depto + periodo (ordenada por fecha, no aleatoria).
-// Ej. D102 + 2026-02 => 'D102-2026-02'. Editable por si va la referencia bancaria.
-function referenceFor(unitNumber: string | null | undefined, month: string): string {
-  const depto = (unitNumber || '').trim().replace(/\s+/g, '') || 'SN'
-  return `${depto}-${month}`
 }
 
 function monthLabel(month: string): string {
@@ -324,13 +318,10 @@ export default function CobrosPage() {
       dayDiff(new Date(`${dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)),
     )
     const { level: lateLevel } = calcMoraSurcharge(payForm.rent_amount, daysLate)
-    // Dos columnas, dos vocabularios:
-    //  - payments.method  → enum payment_method EN INGLÉS (transfer/cash/stripe…),
-    //    como lo escriben Stripe, conserje y la API v1.
-    //  - payments.payment_method → TEXT en español (efectivo/transferencia/otro).
-    const m = payForm.method.toLowerCase()
-    const methodEnum = m === 'efectivo' ? 'cash' : 'transfer' // transferencia y depósito → transfer
-    const paymentMethodEs = m === 'efectivo' ? 'efectivo' : m === 'transferencia' ? 'transferencia' : 'otro'
+    // Dos columnas, dos vocabularios (ver src/lib/cobros.ts):
+    //  - payments.method         → enum en inglés (transfer/cash/stripe…)
+    //  - payments.payment_method → TEXT en español (efectivo/transferencia/otro)
+    const { methodEnum, paymentMethodEs } = mapPaymentMethod(payForm.method)
 
     const existing = payingRow.payment
     let paymentData: { id: string } | null = null
