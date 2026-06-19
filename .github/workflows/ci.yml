@@ -102,6 +102,9 @@ jobs:
       - name: Run tests (v1)
         run: bash tests/v1/run-all.sh
 
+      - name: Run tests (cobros)
+        run: bash tests/cobros/run-all.sh
+
   smoke-supabase:
     name: smoke-supabase
     needs: lint-and-typecheck
