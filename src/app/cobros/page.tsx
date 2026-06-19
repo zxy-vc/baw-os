@@ -64,6 +64,19 @@ function dayDiff(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / 86_400_000)
 }
 
+function methodLabel(method: string | null | undefined): string {
+  switch (method) {
+    case 'cash':
+      return 'Efectivo'
+    case 'transfer':
+      return 'Transferencia'
+    case 'stripe':
+      return 'Stripe'
+    default:
+      return method || '—'
+  }
+}
+
 function monthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number)
   return `${MONTH_NAMES[m - 1]} ${y}`
@@ -304,12 +317,13 @@ export default function CobrosPage() {
       dayDiff(new Date(`${dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)),
     )
     const { level: lateLevel } = calcMoraSurcharge(payForm.rent_amount, daysLate)
-    const paymentMethod =
-      payForm.method.toLowerCase() === 'transferencia'
-        ? 'transferencia'
-        : payForm.method.toLowerCase() === 'efectivo'
-          ? 'efectivo'
-          : 'otro'
+    // Dos columnas, dos vocabularios:
+    //  - payments.method  → enum payment_method EN INGLÉS (transfer/cash/stripe…),
+    //    como lo escriben Stripe, conserje y la API v1.
+    //  - payments.payment_method → TEXT en español (efectivo/transferencia/otro).
+    const m = payForm.method.toLowerCase()
+    const methodEnum = m === 'efectivo' ? 'cash' : 'transfer' // transferencia y depósito → transfer
+    const paymentMethodEs = m === 'efectivo' ? 'efectivo' : m === 'transferencia' ? 'transferencia' : 'otro'
 
     const existing = payingRow.payment
     let paymentData: { id: string } | null = null
@@ -323,11 +337,11 @@ export default function CobrosPage() {
       late_fee_amount: lateFee,
       late_fee_level: lateFee > 0 ? lateLevel : null,
       paid_date: payForm.paid_date,
-      method: paymentMethod,
+      method: methodEnum,
       reference: payForm.reference || null,
       confirmed_by: confirmedBy,
       confirmed_at: new Date().toISOString(),
-      payment_method: paymentMethod,
+      payment_method: paymentMethodEs,
     }
 
     if (existing) {
@@ -374,7 +388,7 @@ export default function CobrosPage() {
         amount: payForm.rent_amount,
         water_fee: payForm.water_fee,
         total: amountReceived,
-        payment_method: paymentMethod,
+        payment_method: paymentMethodEs,
         confirmed_by: confirmedBy,
         notes: isPartial
           ? `Pago parcial${payForm.reference ? ` · ${payForm.reference}` : ''}`
@@ -609,7 +623,7 @@ export default function CobrosPage() {
                                 Pagado por Stripe
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-400 dark:text-gray-500">{row.payment?.method || '—'}</span>
+                              <span className="text-xs text-gray-400 dark:text-gray-500">{methodLabel(row.payment?.method)}</span>
                             )}
                             {row.payment && (
                               <button
