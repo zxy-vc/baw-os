@@ -77,6 +77,13 @@ function methodLabel(method: string | null | undefined): string {
   }
 }
 
+// Referencia auto-generada: depto + periodo (ordenada por fecha, no aleatoria).
+// Ej. D102 + 2026-02 => 'D102-2026-02'. Editable por si va la referencia bancaria.
+function referenceFor(unitNumber: string | null | undefined, month: string): string {
+  const depto = (unitNumber || '').trim().replace(/\s+/g, '') || 'SN'
+  return `${depto}-${month}`
+}
+
 function monthLabel(month: string): string {
   const [y, m] = month.split('-').map(Number)
   return `${MONTH_NAMES[m - 1]} ${y}`
@@ -280,7 +287,7 @@ export default function CobrosPage() {
       water_fee: water,
       late_fee: lateFee,
       method: 'Transferencia',
-      reference: '',
+      reference: row.payment?.reference || referenceFor(c.unit?.number, row.month),
       paid_date: today,
       is_partial: false,
       amount_paid: rent + water + lateFee,

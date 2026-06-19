@@ -271,10 +271,11 @@ export function computeEstadoCuenta(
 
 // ── Capa de datos ───────────────────────────────────────────────────────────
 
-/** Folio determinista por contrato + periodo (no se persiste). */
-export function folioFor(contractId: string, periodo: string): string {
-  const short = contractId.replace(/-/g, '').slice(0, 4).toUpperCase()
-  return `EC-${periodo}-${short}`
+/** Folio determinista por depto + periodo (no se persiste). Ordenado por fecha,
+ *  legible y estable: mismo depto+mes => mismo folio. */
+export function folioFor(unitNumber: string | null | undefined, periodo: string): string {
+  const depto = (unitNumber || '').trim().replace(/\s+/g, '') || 'SN'
+  return `EC-${depto}-${periodo}`
 }
 
 /**
@@ -335,7 +336,7 @@ export async function getEstadoCuentaData(
     tenantPhone: (occupant?.phone as string) || null,
     unitNumber: (unit?.number as string) || '—',
     contractId,
-    folio: folioFor(contractId, periodo),
+    folio: folioFor(unit?.number as string, periodo),
     data,
     emittedAt: new Date().toISOString(),
   }
