@@ -8,7 +8,9 @@
     "prebuild": "node scripts/check-design-tokens.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "bash tests/cobros/run-all.sh && bash tests/v1/run-all.sh && bash tests/public-booking/run-all.sh && bash tests/agents/run-all.sh"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
