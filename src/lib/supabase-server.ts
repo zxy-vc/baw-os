@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
 
@@ -39,5 +40,23 @@ export function createSupabaseServerFromRequest(request: NextRequest) {
       // No persistimos cookies aquí: el middleware ya hizo el refresh.
       setAll() {},
     },
+  })
+}
+
+// Lee 'Authorization: Bearer <jwt>' del request. Devuelve el token o null.
+export function bearerFromRequest(request: NextRequest): string | null {
+  const header = request.headers.get('authorization') || ''
+  return header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() || null : null
+}
+
+// Cliente autenticado con un access token de usuario (Authorization header).
+// Lo usan endpoints que se abren en pestaña nueva (PDFs): ahí la cookie puede
+// llegar con un access token vencido por la rotación de refresh-token, mientras
+// que el browser client garantiza un token fresco vía getSession(). Aplica RLS
+// como ese usuario, igual que la ruta por cookie.
+export function createSupabaseFromToken(accessToken: string) {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
   })
 }

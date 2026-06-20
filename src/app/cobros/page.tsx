@@ -404,6 +404,45 @@ export default function CobrosPage() {
     fetchBilling()
   }
 
+  // Abre el estado de cuenta (PDF) en pestaña nueva con un access token FRESCO.
+  // No usamos <a href> porque esa navegación manda la cookie tal cual, y si su
+  // access token venció por la rotación de refresh-token el server responde
+  // Unauthorized. getSession() del browser client refresca el token primero.
+  async function openEstadoCuenta(contractId: string, periodo: string) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    const token = session?.access_token
+    if (!token) {
+      toast.error('Tu sesión expiró. Vuelve a iniciar sesión.')
+      return
+    }
+    // Abrimos la pestaña dentro del gesto del clic (antes del await) para que el
+    // bloqueador de pop-ups no la mate.
+    const tab = window.open('', '_blank')
+    try {
+      const res = await fetch(
+        `/api/contracts/${contractId}/estado-cuenta?periodo=${periodo}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      )
+      if (!res.ok) {
+        tab?.close()
+        toast.error(
+          res.status === 401
+            ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+            : 'No se pudo generar el estado de cuenta.',
+        )
+        return
+      }
+      const url = URL.createObjectURL(await res.blob())
+      if (tab) tab.location.href = url
+      else window.open(url, '_blank')
+    } catch {
+      tab?.close()
+      toast.error('No se pudo generar el estado de cuenta.')
+    }
+  }
+
   const filtered =
     filter === 'all'
       ? rows
@@ -635,16 +674,14 @@ export default function CobrosPage() {
                             )}
                           </div>
                         )}
-                        <a
-                          href={`/api/contracts/${row.contract.id}/estado-cuenta?periodo=${row.month}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => openEstadoCuenta(row.contract.id, row.month)}
                           className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
                           title="Estado de cuenta (PDF)"
                         >
                           <Receipt className="w-3 h-3" />
                           Estado
-                        </a>
+                        </button>
                       </div>
                     </td>
                   </tr>

@@ -6,7 +6,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { validateApiKey, createServiceClient } from '@/lib/api-auth'
-import { createSupabaseServerFromRequest } from '@/lib/supabase-server'
+import {
+  createSupabaseServerFromRequest,
+  createSupabaseFromToken,
+  bearerFromRequest,
+} from '@/lib/supabase-server'
 import { getEstadoCuentaData } from '@/lib/estado-cuenta'
 import { EstadoCuentaPDF } from '@/lib/pdf/EstadoCuentaPDF'
 
@@ -21,10 +25,19 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  // Auth: API key (agente) usa service client; humano usa session client (RLS).
+  // Auth, tres caminos (todos con RLS por org salvo la API key de agente):
+  //  1. API key (agente)        → service client.
+  //  2. Bearer token de usuario → cliente con ese token. Lo usa el front al abrir
+  //     el PDF en pestaña nueva, donde la cookie puede traer un access token
+  //     vencido por la rotación de refresh-token (causa del Unauthorized).
+  //  3. Cookie de sesión        → fallback para enlaces directos.
   const usingApiKey = validateApiKey(request)
-  const supabase = usingApiKey ? createServiceClient() : createSupabaseServerFromRequest(request)
-  if (!usingApiKey) {
+  const bearer = bearerFromRequest(request)
+  let supabase
+  if (usingApiKey) {
+    supabase = createServiceClient()
+  } else {
+    supabase = bearer ? createSupabaseFromToken(bearer) : createSupabaseServerFromRequest(request)
     const {
       data: { user },
     } = await supabase.auth.getUser()
