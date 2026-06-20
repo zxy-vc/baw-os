@@ -7,7 +7,6 @@ import { Search, Bell } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import SectionTopNav from '@/components/SectionTopNav'
 import AuthGuard from '@/components/AuthGuard'
-import SessionSync from '@/components/SessionSync'
 import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
@@ -208,20 +207,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     isMultiTenantConserje(pathname)
 
   if (isPublic) {
-    // /admin y portales públicos viven fuera del AuthGuard pero igual necesitan
-    // que la cookie del servidor se mantenga fresca (el guardia de /admin la lee).
-    return (
-      <>
-        <SessionSync />
-        {children}
-      </>
-    )
+    return <>{children}</>
   }
 
   return (
     <ThemeProvider>
       <ToastProvider>
-        <SessionSync />
         <AuthGuard>
           {/*
             Sprint 6 followup: retícula BaW homologada a TODA la plataforma.
