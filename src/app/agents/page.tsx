@@ -269,7 +269,7 @@ export default async function AgentsPage() {
             className="text-[11px] uppercase tracking-wider"
             style={{ color: 'var(--baw-muted)', fontFamily: 'var(--font-mono)' }}
           >
-            Agentes third-party conectados a BaW OS · Alicia opera Mateos 809P · Hugo supervisa · Sprint 5A MVP
+            Tu equipo de agentes de IA conectados a BaW OS · Ejecutan tareas y registran cada acción en tiempo real
           </p>
         </div>
         <ViewModeSwitch initialMode={viewMode} size="sm" />
