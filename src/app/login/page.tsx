@@ -232,7 +232,7 @@ function LoginForm() {
           style={{ fontFamily: 'var(--font-mono)' }}
           className="text-center text-[10px] uppercase tracking-[0.2em] text-[--baw-faint] mt-10"
         >
-          BaW Design Lab · ZXY Ventures
+          Built by ZXY Ventures
         </p>
       </div>
     </div>

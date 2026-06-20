@@ -627,7 +627,7 @@ export default function ApplyForm({
           style={{ fontFamily: 'var(--font-mono)', color: 'var(--baw-faint)' }}
           className="text-center text-[10px] uppercase tracking-[0.2em] mt-12"
         >
-          BaW Design Lab · ZXY Ventures
+          Built by ZXY Ventures
         </p>
       </div>
     </div>
