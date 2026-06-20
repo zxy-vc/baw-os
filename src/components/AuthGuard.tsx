@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { pushSessionToServer } from '@/lib/sync-session'
+import type { Session } from '@supabase/supabase-js'
 
 const PUBLIC_PATHS = ['/portal', '/tenant', '/owner', '/conserje', '/onboarding', '/apply', '/login']
 
@@ -38,11 +40,20 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return `/login?next=${encodeURIComponent(safe)}`
     }
 
+    // Si llegamos a /login con sesión viva, casi siempre es porque una página
+    // del servidor (p.ej. /me) nos rebotó al ver su cookie vieja. Antes de
+    // regresar al destino, resincronizamos la cookie del servidor con la sesión
+    // del navegador: así la página del servidor ya la ve fresca y no hay loop.
+    const goToNextHealed = async (session: Session) => {
+      await pushSessionToServer(session)
+      router.replace(getNext())
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session && pathname !== '/login') {
         router.replace(buildLoginUrl())
       } else if (session && pathname === '/login') {
-        router.replace(getNext())
+        void goToNextHealed(session)
       } else {
         setChecking(false)
       }
@@ -53,7 +64,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (!session && pathname !== '/login') {
         router.replace(buildLoginUrl())
       } else if (session && pathname === '/login') {
-        router.replace(getNext())
+        void goToNextHealed(session)
       } else {
         setChecking(false)
       }
