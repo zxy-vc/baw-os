@@ -132,9 +132,9 @@ const FAMILY_DESC: Record<string, string> = {
   'ops-core': 'Tier Starter+ · Cobro, facturación y operación del edificio',
   'experiencia': 'Tier Professional+ · Comunicación, captación y ciclo de vida del residente',
   'inteligencia': 'Tier Enterprise/Max · Reporting, governance y compliance',
-  'third-party': 'Agentes que operan BaW OS desde fuera (ZXY Agent OS, vía Discord).',
+  'third-party': 'Agentes conectados que trabajan dentro de BaW OS para ejecutar tareas en tu nombre.',
   'pm-ops': 'Familia legacy — migrada a escuadrones',
-  'zxy-shared': 'Agentes que operan BaW OS desde fuera (ZXY Agent OS, vía Discord).',
+  'zxy-shared': 'Agentes conectados que trabajan dentro de BaW OS para ejecutar tareas en tu nombre.',
 }
 
 const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 'third-party', 'pm-ops', 'zxy-shared']
