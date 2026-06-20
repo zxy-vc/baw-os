@@ -27,7 +27,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: 'BaW OS',
-  description: 'Property Management System — BaW Design Lab · ZXY Ventures',
+  description: 'Property Management System — Built by ZXY Ventures',
   icons: {
     icon: '/favicon.svg',
   },

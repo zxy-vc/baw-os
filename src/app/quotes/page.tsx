@@ -546,7 +546,7 @@ export default function QuotesPage() {
             {/* Footer */}
             <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-400 space-y-1">
               <p>Cotización válida por 15 días. Precios en MXN. Sujeto a disponibilidad.</p>
-              <p>BaW Design Lab · ZXY Ventures · baw-os.vercel.app</p>
+              <p>Built by ZXY Ventures · baw-os.vercel.app</p>
             </div>
 
             {/* Close button (not printed) */}
