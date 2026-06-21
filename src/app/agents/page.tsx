@@ -22,6 +22,8 @@ interface AgentRow {
   feedback_level: number
   status: string
   is_shared_zxy: boolean
+  is_connectable: boolean
+  role_label: string | null
   autonomy_level?: number
 }
 
@@ -46,16 +48,14 @@ async function loadData() {
     orgId = null
   }
 
-  // MVP Sprint 5A: la UI muestra SOLO los agentes third-party activos del MVP
-  // (Alicia operadora + Hugo supervisor). Los nativos y los demás third-party
-  // (Beto, Maribel, Luis, Andrés, Rafa) permanecen en la tabla `agents` pero
-  // no se presentan en el catálogo. El runner de cobranza sigue corriendo como
-  // automatización interna vía /api/cron/cobranza.
-  const MVP_AGENT_IDS = ['alicia-ops', 'hugo-cos']
+  // Catálogo DB-driven: se muestran los agentes marcados como `is_connectable`
+  // desde el editor de Platform Admin (/admin/agents). Los demás permanecen en
+  // la tabla `agents` pero ocultos del catálogo. El runner de cobranza sigue
+  // corriendo como automatización interna vía /api/cron/cobranza.
   const { data: agentsData } = await supabase
     .from('agents')
     .select('*')
-    .in('id', MVP_AGENT_IDS)
+    .eq('is_connectable', true)
     .order('display_name')
 
   let runs: AgentRunRow[] = []
@@ -139,19 +139,12 @@ const FAMILY_DESC: Record<string, string> = {
 
 const FAMILY_ORDER = ['baw-coord', 'ops-core', 'experiencia', 'inteligencia', 'third-party', 'pm-ops', 'zxy-shared']
 
-// MVP Sprint 5A: agentes third-party activos y su rol operativo.
-// Los demás third-party quedan diferidos (Sprint 5B+).
-const MVP_AGENT_ROLES: Record<string, string> = {
-  'alicia-ops': 'Operadora · Mateos 809P',
-  'hugo-cos': 'Supervisor de Alicia · solo lectura',
-}
-
 function ConnectionBadge({
   connected,
-  isMvpAgent,
+  isConnectable,
 }: {
   connected: boolean
-  isMvpAgent: boolean
+  isConnectable: boolean
 }) {
   if (connected) {
     return (
@@ -166,7 +159,7 @@ function ConnectionBadge({
       </span>
     )
   }
-  if (isMvpAgent) {
+  if (isConnectable) {
     return (
       <span
         className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full"
@@ -295,7 +288,7 @@ export default async function AgentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {list.map((a) => {
               const isImpl = implemented.has(a.id)
-              const isMvpAgent = a.id in MVP_AGENT_ROLES
+              const isConnectable = a.is_connectable
               const connected = connectedIds.has(a.id)
               return (
                 <div
@@ -303,7 +296,7 @@ export default async function AgentsPage() {
                   className="rounded-lg p-4 flex flex-col gap-3"
                   style={{
                     backgroundColor: 'var(--baw-surface)',
-                    border: isMvpAgent
+                    border: isConnectable
                       ? '1px solid var(--baw-accent)'
                       : '1px solid var(--baw-border)',
                   }}
@@ -320,11 +313,11 @@ export default async function AgentsPage() {
                         className="text-[11px] mt-0.5"
                         style={{ color: 'var(--baw-muted)' }}
                       >
-                        {MVP_AGENT_ROLES[a.id] ?? a.domain} · L{a.capability_level} · F{a.feedback_level}
+                        {a.role_label ?? a.domain} · L{a.capability_level} · F{a.feedback_level}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <ConnectionBadge connected={connected} isMvpAgent={isMvpAgent} />
+                      <ConnectionBadge connected={connected} isConnectable={isConnectable} />
                       <StatusBadge status={a.status} />
                     </div>
                   </div>
@@ -338,7 +331,7 @@ export default async function AgentsPage() {
                   )}
                   {isImpl && orgId ? (
                     <AgentRunButton agentId={a.id} agentName={a.display_name} />
-                  ) : orgId && isMvpAgent ? (
+                  ) : orgId && isConnectable ? (
                     <Link
                       href={`/agents/${a.id}/credentials`}
                       className="text-[11px] underline"
@@ -423,7 +416,7 @@ export default async function AgentsPage() {
       </section>
 
       <div className="text-[11px]" style={{ color: 'var(--baw-muted)' }}>
-        <Link href="/admin" className="underline">L0 Platform admin</Link> · Catálogo de agentes solo editable por platform admins.
+        <Link href="/admin/agents" className="underline">L0 Platform admin</Link> · Catálogo de agentes solo editable por platform admins.
       </div>
     </div>
   )
