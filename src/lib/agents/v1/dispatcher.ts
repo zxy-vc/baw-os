@@ -47,7 +47,9 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
           description: p.description ?? null,
           priority: p.priority ?? 'normal',
           estimated_cost: p.estimated_cost ?? null,
-          reported_by: p.reported_by ?? `agent:${ctx.agentId}`,
+          // reported_by es uuid FK a occupants(id); para incidencias de un agente
+          // va null (la autoría se registra en agent_actions/audit, no aquí).
+          reported_by: p.reported_by ?? null,
           status: 'open',
         })
         .select('id')

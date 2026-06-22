@@ -80,7 +80,10 @@ export const POST = v1Write<IncidentCreateBody>({
         description: body.description ?? null,
         priority: body.priority ?? 'normal',
         estimated_cost: body.estimated_cost ?? null,
-        reported_by: body.reported_by ?? `agent:${auth.agentId}`,
+        // reported_by es uuid FK a occupants(id). Para incidencias creadas por un
+        // agente no hay occupant reportante → null. La autoría del agente queda
+        // registrada vía recordAction() en agent_actions/audit (no en esta columna).
+        reported_by: body.reported_by ?? null,
         status: 'open',
       })
       .select('id, org_id, unit_id, title, description, status, priority, created_at')
