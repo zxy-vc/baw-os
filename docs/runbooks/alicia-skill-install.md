@@ -1,120 +1,159 @@
-# Runbook — Install `baw-os-skill` on Alicia (M1)
+# Runbook — Conectar Alicia (operadora) con BaW OS
 
-**Audience**: Fran
-**Estimated time**: 30 min
-**Sprint**: 5A
-**Prerequisite**:
-- Cloudflare Tunnel runbook complete (`alicia.zxy.vc` healthy)
-- Discord channel runbook complete (`#baw-os-operations` exists)
-- `openclaw-skill-baw-os` v0.1.0 released on GitHub
-- Alicia's runtime on M1 reachable and operational
-- Token issued from BaW OS UI wizard at `/agents/alicia-ops/connect` (copy it once — shown only on issue)
+**Audience:** Fran / `hugosanchez`
+**Host actual:** Mac Studio M4 Max · `MS-M4Max-HS`
+**Plataforma:** ZXY Agent OS **MK2** sobre OpenClaw 2026.5.28
+**Última verificación en host:** 2026-06-21
 
-## Steps
+---
 
-### 1. Open Alicia's workspace
+> ## ⚠️ ESTADO: la integración Alicia ↔ BaW OS NO está implementada en MK2
+>
+> Esta integración (skill + long-poll + callbacks HMAC + Cloudflare Tunnel) vivía en
+> **MK1 (MacBook Pro M1)** pero **nunca se reconstruyó al migrar a MK2 (Mac Studio M4 Max)**.
+> Verificado empíricamente en `MS-M4Max-HS` el 2026-06-21 por cuatro vías:
+>
+> | Dónde se buscó | Esperado | Encontrado en MK2 |
+> |---|---|---|
+> | `skills.entries` (35 skills) | una `baw-os` enabled | ninguna; 35 en `false` |
+> | `plugins.entries` / `installs.json` | plugin `baw-os` | sin rastro de baw |
+> | `service-env/…alicia.env` | vars `BAW_OS_*`, HMAC, puerto | cero vars de BaW |
+> | `tools` / MCP | MCP server BaW | sin MCP de BaW |
+>
+> Alicia **sabe** que es la operadora de BaW (en `SOUL.md`, `IDENTITY.md`, `capabilities.yaml`,
+> `MEMORY.md`), pero **no tiene mecanismo vivo para llamar la API**. No hay token cableado.
+>
+> **Implicación operativa:** la credencial que se emite en BaW OS
+> (`/agents/alicia-ops/credentials`, formato `sk_live_...`) es válida del lado servidor,
+> pero **del lado de Alicia no hay nada que la consuma todavía**. Conectar a Alicia
+> end-to-end requiere **reconstruir la integración en MK2** (ver §Reconstrucción).
+>
+> El procedimiento MK1 se conserva al final como **referencia histórica (Legacy)** — no
+> ejecutarlo tal cual en MK2 (sus comandos y rutas ya no aplican).
+
+---
+
+## Infraestructura MK2 confirmada (referencia)
+
+| Campo | Valor MK2 |
+|---|---|
+| Host | Mac Studio M4 Max · `MS-M4Max-HS` · user `hugosanchez` |
+| Plataforma | ZXY Agent OS MK2 sobre OpenClaw 2026.5.28 |
+| Malla remota | **Tailscale** (variante `macsys`) — ya **no** Cloudflare Tunnel |
+| Alicia — config home | `~/.openclaw-alicia` |
+| Alicia — workspace de contenido | `~/agents/baw-operations/alicia` (`SOUL.md`, `IDENTITY.md`, `MEMORY.md`, `capabilities.yaml`) |
+| Alicia — puerto gateway | `19100` |
+| Alicia — label launchd | `ai.openclaw.alicia` |
+| Alicia — log | `~/.openclaw-alicia/logs/gateway.log` (stderr → `/dev/null`) |
+| Alicia — env de servicio | `~/.openclaw-alicia/service-env/ai.openclaw.alicia.env` (generado por OpenClaw; "do not edit while service is installed") |
+| Token BaW (formato) | `sk_live_...` (el viejo `baw_pat_prod_...` está **obsoleto**) |
+| Integración Alicia ↔ BaW OS | **No implementada en MK2** (legacy de MK1) |
+
+El `~/.alicia` y el `.env` de MK1 **no existen** en MK2.
+
+### Reiniciar Alicia (regla dura MK2)
+
+**Nunca** `launchctl kickstart -k` en MK2. Usar bootout/bootstrap:
 
 ```bash
-cd ~/.alicia    # or wherever Alicia's OpenClaw workspace lives
-ls skills/      # see existing skills (notion-skill, gcli, etc.)
+launchctl bootout gui/$(id -u)/ai.openclaw.alicia
+sleep 3
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.openclaw.alicia.plist
 ```
 
-### 2. Install the skill
+### Discord (MK2)
 
+- Guild `1503865235575148635`.
+- Canal de operación BaW = **`#baw-os`** (ID `1503898850601996369`).
+- Alicia también escucha **`#809`** (ID `1514326760345309275`).
+- Home channel de Alicia = **`#alicia`** (ID `1503898896873558167`).
+- Alicia con `requireMention: false` en `#baw-os` y `#809` (desde 2026-06-21).
+- El ruteo de Discord vive en `openclaw.json` (`channels.discord.accounts.default.guilds.…`).
+- El `#baw-os-operations` de MK1 **ya no existe**.
+
+### Operación del host
+
+- La Mac Studio **no duerme** (modo servidor permanente). La advertencia MK1 de "sleeps overnight, Alicia offline" **no aplica**.
+- Auto-updates de macOS/Tailscale **desactivados** (evitar reboots headless).
+- `hugosanchez` (uid 501) debe mantener el foreground de consola; si `fran` (uid 502) lo toma, los LaunchAgents fallan.
+
+---
+
+## Reconstrucción (pendiente — decisión de producto)
+
+La integración ha estado **ausente desde la migración de mayo**; la operación se ha
+sostenido vía la web de BaW OS. Reconstruirla es un trabajo nuevo, no un "update de valores".
+Approach previsto cuando se decida implementar:
+
+1. **Cliente BaW OS como plugin/MCP de OpenClaw MK2.** El `openclaw skill install` de MK1
+   ya no existe (`Unknown command: skill`); las skills hoy son **plugins** (`plugins.entries`
+   en `openclaw.json`).
+2. **Credencial:** emitir en `/agents/alicia-ops/credentials` (formato `sk_live_...`) y
+   guardarla en el `service-env` de Alicia — **nunca** en archivos `.md` ni en Discord.
+3. **Ruteo de canal:** ya vive en `openclaw.json`; `BAW_OS_DISCORD_CHANNEL_ID` sería redundante.
+4. **Callbacks entrantes (Vercel → Alicia):** opcionales. Si se quieren, definir exposición
+   sobre **Tailscale** (no Cloudflare) + HMAC + sincronización de reloj. Si no, basta el
+   flujo **saliente** (Alicia → API de BaW OS), que no requiere túnel ni HMAC entrante.
+5. **Smoke test:** validar `Auth: OK (agent=alicia-ops)` contra la API y una acción real
+   que aparezca en BaW OS con badge `via Alicia`.
+
+---
+
+## Hugo (supervisor)
+
+Hugo corre en el **mismo host MK2** pero con **workspace propio** (`~/.openclaw-hugo`,
+puerto `19000`, label `ai.openclaw.hugo`) — no comparte workspace con Alicia.
+
+**Hugo NO está conectado a BaW OS** (decisión 2026-06-17): obtiene info de BaW
+preguntándole a Alicia por Discord y/o leyendo un resumen que Alicia empuja por cron a un
+canal. El encuadre "Hugo = supervisor de la API con scopes solo-lectura" y el break-glass de
+escritura quedan **teóricos** hasta que exista la integración. Ver `hugo-cos-connect.md`
+(igualmente legacy).
+
+---
+
+---
+
+# Legacy — MK1 (MacBook Pro M1) · referencia histórica
+
+> ⚠️ Lo siguiente describe el setup de **MK1** que **ya no aplica** en MK2. Se conserva por
+> trazabilidad. No ejecutar tal cual: el workspace, el CLI de skills, el restart, el túnel y
+> el canal de Discord cambiaron (ver secciones MK2 arriba).
+
+**Prerequisite (MK1):**
+- Cloudflare Tunnel (`alicia.zxy.vc`) healthy — *en MK2 se usa Tailscale, no Cloudflare*
+- Canal Discord `#baw-os-operations` — *en MK2 el canal es `#baw-os`*
+- `openclaw-skill-baw-os` v0.1.0 released
+- Token issued from `/agents/alicia-ops/connect` — *en MK2 la ruta es `/agents/alicia-ops/credentials`*
+
+### 1. (MK1) Open Alicia's workspace
 ```bash
-openclaw skill install gh:zxy-vc/openclaw-skill-baw-os@v0.1.0
+cd ~/.alicia     # MK2: ~/.openclaw-alicia (config) + ~/agents/baw-operations/alicia (contenido)
+ls skills/
 ```
 
-If `openclaw skill install` is not yet a command in your runtime, fallback:
-
+### 2. (MK1) Install the skill
 ```bash
-cd skills/
-git clone https://github.com/zxy-vc/openclaw-skill-baw-os baw-os
-cd baw-os
-pip install -e .   # or npm install if Node-based
+openclaw skill install gh:zxy-vc/openclaw-skill-baw-os@v0.1.0   # MK2: comando inexistente; las skills son plugins
 ```
 
-### 3. Configure environment
-
-Create or update `~/.alicia/.env`:
-
+### 3. (MK1) Configure environment — `~/.alicia/.env`
 ```
 BAW_OS_API_URL=https://baw-os.vercel.app
-BAW_OS_API_KEY=baw_pat_prod_<paste-token-from-wizard>
+BAW_OS_API_KEY=baw_pat_prod_<token>   # MK2: formato real sk_live_...; y no hay .env (se usa service-env)
 ALICIA_HMAC_SHARED_SECRET=<same-as-vercel>
-ALICIA_HTTP_LISTEN_PORT=8787
+ALICIA_HTTP_LISTEN_PORT=8787          # MK2: gateway en 19100
 BAW_OS_DISCORD_CHANNEL_ID=<from-discord-runbook>
 ```
 
-### 4. Restart Alicia
-
+### 4. (MK1) Restart Alicia
 ```bash
-launchctl kickstart -k gui/$(id -u)/com.zxy.alicia
-# or whatever your existing restart command is
-tail -f ~/.alicia/logs/alicia.log
+launchctl kickstart -k gui/$(id -u)/com.zxy.alicia   # MK2: label ai.openclaw.alicia y bootout/bootstrap (NUNCA kickstart -k)
+tail -f ~/.alicia/logs/alicia.log                    # MK2: ~/.openclaw-alicia/logs/gateway.log
 ```
 
-Look for these lines:
+### 5. (MK1) Smoke test desde Discord
 ```
-[baw-os-skill] loaded v0.1.0
-[baw-os-skill] HTTP listener bound to :8787
-[baw-os-skill] BAW_OS_API_URL=https://baw-os.vercel.app
-[baw-os-skill] long-poll started (interval=30s, agent=alicia-ops)
+alicia, ping baw-os    →   ✅ BaW OS conectado · Auth: OK (agent=alicia-ops…)
 ```
-
-### 5. Smoke test from Discord
-
-In `#baw-os-operations`:
-
-```
-alicia, ping baw-os
-```
-
-Expected reply (within 5s):
-```
-✅ BaW OS conectado
-- API: https://baw-os.vercel.app (status 200)
-- Auth: OK (agent=alicia-ops, scopes: incidents:rw, tasks:rw, units:r, contracts:r, payments:r, approvals:r)
-- Tunnel: alicia.zxy.vc (Vercel can reach me)
-- Long-poll: every 30s, last poll 12s ago
-```
-
-Then real query:
-```
-alicia, ¿qué incidencias hay abiertas en D104?
-```
-
-### 6. Inspect first action in BaW OS
-
-Open https://baw-os.vercel.app/incidents in a browser. The list view should be unchanged (Alicia only read).
-
-Now create one:
-```
-alicia, agrega incidencia "test conexión sprint 5A" en D104, prioridad baja
-```
-
-Refresh BaW OS `/incidents`. The new incident should appear with badge:
-```
-via Alicia · ZXY Agent OS · Discord · [ver mensaje]
-```
-
-Click "ver mensaje" → opens the Discord message that triggered the action.
-
-## Done when
-
-- [ ] Skill installed, version v0.1.0 confirmed in logs
-- [ ] Environment configured with token, HMAC secret, port
-- [ ] `alicia, ping baw-os` returns healthy in Discord
-- [ ] `alicia, agrega incidencia ...` creates a real incident in BaW OS prod
-- [ ] The incident shows `via Alicia` badge with working Discord link
-- [ ] At least one approval-required action tested with button click → grant flow works
-
-## Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `auth: 401` in logs | Token wrong or revoked | Re-issue from `/agents/alicia-ops/connect` |
-| `tunnel: unreachable` | Cloudflared not running | `sudo launchctl start com.cloudflare.cloudflared` |
-| Incident created but no badge | `agent_runs` insert failed | Check Vercel logs for the insert query |
-| Approval button click does nothing | Discord Interactions endpoint not configured | Re-verify Vercel `/api/discord/interactions` and Discord app settings |
-| HMAC mismatch errors | Clock drift on M1 | `sudo sntp -sS time.apple.com` |
+*En MK2 esto no responde "conectado": no hay backend cableado todavía.*

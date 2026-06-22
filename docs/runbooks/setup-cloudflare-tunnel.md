@@ -1,5 +1,12 @@
 # Runbook — Cloudflare Tunnel `alicia.zxy.vc`
 
+> ## ⚠️ OBSOLETO — no aplica en MK2 (2026-06-21)
+> En MK2 (Mac Studio M4 Max) la malla remota es **Tailscale** (variante `macsys`), **no**
+> Cloudflare Tunnel. No existe `alicia.zxy.vc` ni una ruta de callbacks entrantes para Alicia.
+> Este runbook se conserva solo como referencia histórica de MK1. Si en la reconstrucción se
+> necesitan callbacks Vercel → Alicia, se definirían sobre Tailscale (ver
+> `alicia-skill-install.md` §Reconstrucción).
+
 **Audience**: Fran
 **Estimated time**: 30 min
 **Sprint**: 5A

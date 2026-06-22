@@ -1,5 +1,15 @@
 # Runbook — Discord channel `#BaW-OS`
 
+> ## ⚠️ Parcialmente desactualizado — valores MK2 (2026-06-21)
+> El canal **sí existe** y es la interfaz operativa, pero los datos cambiaron en MK2:
+> - Canal de operación BaW = **`#baw-os`** (ID `1503898850601996369`), guild `1503865235575148635`.
+> - Alicia también escucha **`#809`** (ID `1514326760345309275`); home channel `#alicia` (ID `1503898896873558167`).
+> - Alicia con `requireMention: false` en `#baw-os` y `#809` (desde 2026-06-21).
+> - El ruteo vive en `openclaw.json`; el `#baw-os-operations` de MK1 ya no existe.
+>
+> Nota: que Alicia responda en Discord es independiente de la integración con la **API** de
+> BaW OS, que **no está implementada en MK2** (ver `alicia-skill-install.md`).
+
 **Audience**: Fran (or delegated to Hugo)
 **Estimated time**: 15 min
 **Sprint**: 5A MVP
