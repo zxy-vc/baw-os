@@ -3,13 +3,23 @@
 // BaW OS — Switch Human ↔ Agent
 // Drop-in: monta donde quieras (sidebar, navbar, header).
 // Persiste vía POST /api/me/view-mode → cookie baw_view_mode (preferencia de UI).
+// El estado visual es COMPARTIDO entre todas las instancias vía view-mode-store,
+// para que los dos toggles (sidebar + header) nunca se desincronicen.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { User2, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  getViewModeSnapshot,
+  isViewModeInitialized,
+  seedViewMode,
+  setViewModeLocal,
+  subscribeViewMode,
+  type ViewMode,
+} from '@/lib/agents/view-mode-store'
 
-export type ViewMode = 'human' | 'agent'
+export type { ViewMode }
 
 interface Props {
   initialMode?: ViewMode
@@ -23,25 +33,38 @@ export default function ViewModeSwitch({
   size = 'md',
 }: Props) {
   const router = useRouter()
-  const [mode, setMode] = useState<ViewMode>(initialMode || 'human')
   const [saving, setSaving] = useState(false)
 
-  // Si no llegó initialMode, lo cargamos client-side
+  // Siembra el store con el valor del servidor (si llegó) una sola vez.
+  useState(() => {
+    if (initialMode) seedViewMode(initialMode)
+    return null
+  })
+
+  // Estado COMPARTIDO: cambiar una instancia re-renderiza todas (fin del desync).
+  const mode = useSyncExternalStore(
+    subscribeViewMode,
+    getViewModeSnapshot,
+    () => initialMode || 'human' // snapshot para SSR
+  )
+
+  // Si nadie sembró el modo (ninguna instancia recibió initialMode), lo cargamos
+  // client-side una vez.
   useEffect(() => {
-    if (initialMode) return
+    if (isViewModeInitialized()) return
     fetch('/api/me/view-mode')
       .then((r) => r.json())
       .then((j) => {
-        if (j?.success && j.data?.mode) setMode(j.data.mode as ViewMode)
+        setViewModeLocal(j?.success && j.data?.mode ? (j.data.mode as ViewMode) : 'human')
       })
-      .catch(() => {})
-  }, [initialMode])
+      .catch(() => setViewModeLocal('human'))
+  }, [])
 
   const apply = async (next: ViewMode) => {
     if (next === mode) return
     const prev = mode
     setSaving(true)
-    setMode(next)
+    setViewModeLocal(next) // actualiza TODAS las instancias al instante
     try {
       const res = await fetch('/api/me/view-mode', {
         method: 'POST',
@@ -50,12 +73,12 @@ export default function ViewModeSwitch({
       })
       // Si el guardado no persistió, revertimos para no mentir en el UI.
       if (!res.ok) {
-        setMode(prev)
+        setViewModeLocal(prev)
         return
       }
       router.refresh()
     } catch {
-      setMode(prev)
+      setViewModeLocal(prev)
     } finally {
       setSaving(false)
     }
