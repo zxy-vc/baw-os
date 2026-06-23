@@ -1,5 +1,14 @@
 # Runbook — Conectar a Hugo (hugo-cos) como supervisor read-only
 
+> ## ⚠️ LEGACY — no aplica en MK2 (2026-06-21)
+> **Hugo NO está conectado a BaW OS** (decisión 2026-06-17). En MK2 (Mac Studio M4 Max),
+> Hugo corre con workspace propio (`~/.openclaw-hugo`, puerto `19000`, label
+> `ai.openclaw.hugo`) y **no tiene credencial ni scopes de BaW** (ni lectura ni escritura).
+> Obtiene info de BaW preguntándole a **Alicia** por Discord y/o leyendo un resumen que
+> Alicia empuja por cron. Los scopes read-only, el break-glass de escritura y los smoke
+> tests de abajo presuponen una integración que **hoy no existe en MK2**. Se conserva por
+> trazabilidad. Ver `alicia-skill-install.md` §Reconstrucción.
+
 **Audience**: Fran
 **Estimated time**: 15 min
 **Sprint**: 5A MVP
