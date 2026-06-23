@@ -81,6 +81,10 @@ export const DEFAULT_ACTION_CLASSIFICATION: Record<string, Classification> = {
   // Agents
   'agent.run': 'LOG',
   'policy.modify': 'REQUIRE_APPROVAL',
+
+  // Lifecycle — archivado por agente (reversible, pero SIEMPRE con aprobación).
+  // Los agentes NUNCA eliminan (no existe endpoint de borrado para agentes).
+  'lifecycle.archive': 'REQUIRE_APPROVAL',
 }
 
 /**
@@ -100,6 +104,16 @@ const IRREVERSIBLE_EXTERNAL = new Set([
   'contract.sign',
   'contract.terminate',
   'policy.modify',
+])
+
+// Archivado por agente: reversible, pero por decisión SIEMPRE requiere aprobación
+// humana (no se degrada a AUTO ni por trigger humano ni por autonomía L4).
+const AGENT_ARCHIVE = new Set(['lifecycle.archive'])
+
+// Guardrail duro combinado: ni trigger humano ni L4 lo bajan a AUTO.
+const HARD_APPROVAL = new Set<string>([
+  ...Array.from(IRREVERSIBLE_EXTERNAL),
+  ...Array.from(AGENT_ARCHIVE),
 ])
 
 /**
@@ -139,7 +153,7 @@ export async function resolveActionClassification(
   if (
     triggerSource === 'human' &&
     resolved.classification === 'REQUIRE_APPROVAL' &&
-    !IRREVERSIBLE_EXTERNAL.has(actionType)
+    !HARD_APPROVAL.has(actionType)
   ) {
     return {
       classification: 'AUTO',
@@ -189,7 +203,7 @@ async function resolveBaseClassification(
   if (perAction[actionType]) {
     const override = perAction[actionType]
     if (
-      IRREVERSIBLE_EXTERNAL.has(actionType) &&
+      HARD_APPROVAL.has(actionType) &&
       override !== 'REQUIRE_APPROVAL'
     ) {
       // Locked: no se puede bajar el guardrail de irreversibles externos
@@ -220,7 +234,7 @@ async function resolveBaseClassification(
 
   // L4: REQUIRE_APPROVAL → AUTO, excepto irreversibles externos
   if (autonomyLevel === 4 && baseDefault === 'REQUIRE_APPROVAL') {
-    if (IRREVERSIBLE_EXTERNAL.has(actionType)) {
+    if (HARD_APPROVAL.has(actionType)) {
       return {
         classification: 'REQUIRE_APPROVAL',
         source: 'irreversible_lock',

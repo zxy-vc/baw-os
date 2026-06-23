@@ -52,6 +52,7 @@ const COMMON_SCOPES = [
   'agents:read',
   'interactions:read',
   'interactions:write',
+  'lifecycle:archive',
 ]
 
 export default function CredentialsManager({

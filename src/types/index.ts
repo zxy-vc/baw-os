@@ -32,6 +32,7 @@ export interface Building {
   postal_code?: string | null
   parking_total?: number // pool de cajones del edificio
   notes?: string | null
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -118,6 +119,7 @@ export interface Unit {
   description_long?: string
   amenities?: string[] | AmenityItem[]
   notes?: string
+  archived_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -183,6 +185,7 @@ export interface Occupant {
   cp_fiscal?: string
   email_factura?: string
   requiere_factura?: boolean
+  archived_at?: string | null
   created_at: string
   updated_at: string
   // CRM enrichment (joined)
@@ -216,6 +219,7 @@ export interface Contract {
   // Mifiel digital signature
   mifiel_document_id?: string
   signature_status?: 'none' | 'pending' | 'signed'
+  archived_at?: string | null
   created_at: string
   updated_at: string
   // Relations (joined)

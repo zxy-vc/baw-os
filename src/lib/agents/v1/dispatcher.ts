@@ -7,6 +7,7 @@
 // Mantener este dispatcher en sync con los handlers de cada endpoint write.
 
 import { createServiceClient } from '@/lib/supabase'
+import { archiveEntity, ENTITY_TABLE, type LifecycleEntity } from '@/lib/lifecycle'
 
 export interface DispatchContext {
   approvalId: string
@@ -234,6 +235,29 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         entityType: 'message',
         entityId: messageId,
       }
+    }
+
+    // Lifecycle — archivar (agentes pueden archivar con aprobación, nunca eliminar).
+    case 'lifecycle.archive': {
+      const p = ctx.payload as { entity?: LifecycleEntity; id?: string }
+      if (!p.entity || !p.id || !(p.entity in ENTITY_TABLE)) {
+        return { ok: false, error: 'payload inválido: entity/id requeridos' }
+      }
+      // Scoping por org: el agente solo archiva entidades de su propia org.
+      const { data: row } = await supabase
+        .from(ENTITY_TABLE[p.entity])
+        .select('org_id')
+        .eq('id', p.id)
+        .maybeSingle()
+      if (!row || (row as { org_id: string }).org_id !== ctx.orgId) {
+        return { ok: false, error: 'entidad no encontrada en esta organización' }
+      }
+      try {
+        await archiveEntity(supabase, p.entity, p.id)
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'archive failed' }
+      }
+      return { ok: true, result: { archived: p.id }, entityType: p.entity, entityId: p.id }
     }
 
     // Acciones que requieren aprobación pero deben ejecutarse mediante un runner

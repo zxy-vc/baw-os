@@ -5,12 +5,13 @@
 // Cuenta unidades por building via relación inversa.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Building2, Pencil, MapPin, Trash2 } from 'lucide-react'
+import { Plus, Building2, Pencil, MapPin } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Building } from '@/types'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import BuildingModal from './BuildingModal'
+import LifecycleActions, { ArchivedBadge } from '@/components/LifecycleActions'
 import { useActiveContext } from '@/lib/useActiveContext'
 
 interface BuildingWithCounts extends Building {
@@ -26,6 +27,7 @@ export default function BuildingsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Building | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   const activeOrg = useMemo(
     () => orgs.find((o) => o.id === activeOrgId) || null,
@@ -40,11 +42,13 @@ export default function BuildingsPage() {
     }
     setLoading(true)
 
-    const { data: bldgs, error: bErr } = await supabase
+    let bQuery = supabase
       .from('buildings')
       .select('*')
       .eq('org_id', activeOrgId)
       .order('name', { ascending: true })
+    if (!showArchived) bQuery = bQuery.is('archived_at', null)
+    const { data: bldgs, error: bErr } = await bQuery
 
     if (bErr) {
       setError(bErr.message)
@@ -103,7 +107,7 @@ export default function BuildingsPage() {
     if (ctxLoading) return
     fetchBuildings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctxLoading, activeOrgId])
+  }, [ctxLoading, activeOrgId, showArchived])
 
   async function handleSave(data: Partial<Building>) {
     if (!activeOrgId) return
@@ -134,50 +138,8 @@ export default function BuildingsPage() {
     refresh()
   }
 
-  async function deleteBuilding(building: Building) {
-    if (!activeOrgId) return
-    const current = buildings.find((item) => item.id === building.id)
-    const unitsCount = current?.units_count ?? 0
-
-    if (unitsCount > 0) {
-      setError(
-        `No se puede eliminar "${building.name}" porque todavía tiene ${unitsCount} unidades ligadas.`,
-      )
-      return
-    }
-
-    if (!confirm(`¿Eliminar el edificio "${building.name}"?`)) return
-
-    setError(null)
-
-    const { error: stakesErr } = await supabase
-      .from('ownership_stakes')
-      .delete()
-      .eq('org_id', activeOrgId)
-      .eq('building_id', building.id)
-
-    if (stakesErr) {
-      setError(stakesErr.message)
-      return
-    }
-
-    const { error: deleteErr } = await supabase
-      .from('buildings')
-      .delete()
-      .eq('org_id', activeOrgId)
-      .eq('id', building.id)
-
-    if (deleteErr) {
-      setError(deleteErr.message)
-      return
-    }
-
-    if (editing?.id === building.id) {
-      setModalOpen(false)
-      setEditing(null)
-    }
-
-    await fetchBuildings()
+  function onLifecycleChanged() {
+    fetchBuildings()
     refresh()
   }
 
@@ -216,16 +178,22 @@ export default function BuildingsPage() {
             unidades
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo edificio
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Ver archivados
+          </label>
+          <button
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo edificio
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -255,8 +223,9 @@ export default function BuildingsPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 dark:text-white truncate">
+                    <div className="font-medium text-gray-900 dark:text-white truncate flex items-center gap-2">
                       {b.name}
+                      {b.archived_at && <ArchivedBadge />}
                     </div>
                     {(b.address || b.city) && (
                       <div className="mt-1 flex items-start gap-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -290,13 +259,13 @@ export default function BuildingsPage() {
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => deleteBuilding(b)}
-                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <LifecycleActions
+                      entity="building"
+                      id={b.id}
+                      name={b.name}
+                      archived={!!b.archived_at}
+                      onChanged={onLifecycleChanged}
+                    />
                   </div>
                 </div>
               </div>
@@ -321,8 +290,9 @@ export default function BuildingsPage() {
                     className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                   >
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 dark:text-white">
+                      <div className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
                         {b.name}
+                        {b.archived_at && <ArchivedBadge />}
                       </div>
                       {b.notes && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">
@@ -366,13 +336,13 @@ export default function BuildingsPage() {
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => deleteBuilding(b)}
-                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <LifecycleActions
+                          entity="building"
+                          id={b.id}
+                          name={b.name}
+                          archived={!!b.archived_at}
+                          onChanged={onLifecycleChanged}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -387,7 +357,6 @@ export default function BuildingsPage() {
         <BuildingModal
           building={editing}
           onSave={handleSave}
-          onDelete={editing ? () => deleteBuilding(editing) : undefined}
           onClose={() => {
             setModalOpen(false)
             setEditing(null)
