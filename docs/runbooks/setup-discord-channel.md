@@ -8,7 +8,7 @@
 > - El ruteo vive en `openclaw.json`; el `#baw-os-operations` de MK1 ya no existe.
 >
 > Nota: que Alicia responda en Discord es independiente de la integración con la **API** de
-> BaW OS, que **no está implementada en MK2** (ver `alicia-skill-install.md`).
+> BaW OS, que **ya está conectada y operando en MK2** desde 2026-06-22 (ver `alicia-skill-install.md`).
 
 **Audience**: Fran (or delegated to Hugo)
 **Estimated time**: 15 min

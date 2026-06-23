@@ -7,29 +7,19 @@
 
 ---
 
-> ## ⚠️ ESTADO: la integración Alicia ↔ BaW OS NO está implementada en MK2
+> ## ✅ ESTADO: Alicia conectada y operando en MK2 (desde 2026-06-22)
 >
-> Esta integración (skill + long-poll + callbacks HMAC + Cloudflare Tunnel) vivía en
-> **MK1 (MacBook Pro M1)** pero **nunca se reconstruyó al migrar a MK2 (Mac Studio M4 Max)**.
-> Verificado empíricamente en `MS-M4Max-HS` el 2026-06-21 por cuatro vías:
+> Alicia (`alicia-ops`) **ya está conectada a la API de BaW OS desde MK2** (Mac Studio M4 Max)
+> y opera como agente third-party: puede **leer y registrar** en la plataforma. Verificado en
+> `/agents` → aparece **CONECTADO** con runs recientes (trigger `agent` y `manual`).
 >
-> | Dónde se buscó | Esperado | Encontrado en MK2 |
-> |---|---|---|
-> | `skills.entries` (35 skills) | una `baw-os` enabled | ninguna; 35 en `false` |
-> | `plugins.entries` / `installs.json` | plugin `baw-os` | sin rastro de baw |
-> | `service-env/…alicia.env` | vars `BAW_OS_*`, HMAC, puerto | cero vars de BaW |
-> | `tools` / MCP | MCP server BaW | sin MCP de BaW |
->
-> Alicia **sabe** que es la operadora de BaW (en `SOUL.md`, `IDENTITY.md`, `capabilities.yaml`,
-> `MEMORY.md`), pero **no tiene mecanismo vivo para llamar la API**. No hay token cableado.
->
-> **Implicación operativa:** la credencial que se emite en BaW OS
-> (`/agents/alicia-ops/credentials`, formato `sk_live_...`) es válida del lado servidor,
-> pero **del lado de Alicia no hay nada que la consuma todavía**. Conectar a Alicia
-> end-to-end requiere **reconstruir la integración en MK2** (ver §Reconstrucción).
->
-> El procedimiento MK1 se conserva al final como **referencia histórica (Legacy)** — no
-> ejecutarlo tal cual en MK2 (sus comandos y rutas ya no aplican).
+> - **Credencial:** se gestiona en `/agents/alicia-ops/credentials` (formato `sk_live_...`).
+> - **El conector vivo** (skill/plugin que llama la API) vive del lado de **OpenClaw / MK2**
+>   (repo `openclaw-skill-baw-os` + config en la Mac Studio), **no** en este repo. Los pasos
+>   exactos de instalación los mantiene quien opera MK2.
+> - **Histórico:** un relevamiento del 2026-06-21 reportó la integración como "no reconstruida
+>   en MK2"; **se completó el 2026-06-22**. El procedimiento de MK1 (MacBook Pro M1) queda al
+>   final como **Legacy** — no ejecutarlo tal cual (rutas/comandos cambiaron; ver tabla MK2).
 
 ---
 
@@ -79,11 +69,13 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.openclaw.alicia.plist
 
 ---
 
-## Reconstrucción (pendiente — decisión de producto)
+## Reconstrucción (✅ COMPLETADA — 2026-06-22)
 
-La integración ha estado **ausente desde la migración de mayo**; la operación se ha
-sostenido vía la web de BaW OS. Reconstruirla es un trabajo nuevo, no un "update de valores".
-Approach previsto cuando se decida implementar:
+> Esta sección era el approach previsto cuando la integración estaba pendiente. **Ya se
+> reconstruyó el 2026-06-22** (Alicia conectada y operando, ver banner arriba). Se conserva
+> como referencia del diseño; los pasos exactos del conector vivo los mantiene MK2/OpenClaw.
+
+Approach que se siguió:
 
 1. **Cliente BaW OS como plugin/MCP de OpenClaw MK2.** El `openclaw skill install` de MK1
    ya no existe (`Unknown command: skill`); las skills hoy son **plugins** (`plugins.entries`
