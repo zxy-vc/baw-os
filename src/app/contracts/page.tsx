@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, FileText, AlertTriangle, Pencil, Trash2, X, Save, RefreshCw, ChevronDown, ChevronUp, PenTool, CheckCircle2, Clock } from 'lucide-react'
+import { Plus, FileText, AlertTriangle, Pencil, X, Save, RefreshCw, ChevronDown, ChevronUp, PenTool, CheckCircle2, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
+import LifecycleActions, { ArchivedBadge } from '@/components/LifecycleActions'
 import type { Contract, ContractStatus } from '@/types'
 import { getAlertLevel, getAlertColor, getAlertText } from '@/lib/contract-alerts'
 import Link from 'next/link'
@@ -30,8 +31,8 @@ export default function ContractsPage() {
     curp_arrendatario: '',
     domicilio_arrendatario: '',
   })
-  const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [renewTarget, setRenewTarget] = useState<Contract | null>(null)
   const [renewForm, setRenewForm] = useState({
     monthly_amount: 0,
@@ -48,10 +49,12 @@ export default function ContractsPage() {
   async function fetchContracts() {
     setLoading(true)
     // Always fetch all for alerts computation
-    const { data: all } = await supabase
+    let q = supabase
       .from('contracts')
       .select('*, signature_status, mifiel_document_id, unit:units(number, floor, type), occupant:occupants(name, phone, email)')
       .order('created_at', { ascending: false })
+    if (!showArchived) q = q.is('archived_at', null)
+    const { data: all } = await q
 
     setAllContracts(all || [])
 
@@ -65,7 +68,8 @@ export default function ContractsPage() {
 
   useEffect(() => {
     fetchContracts()
-  }, [filterStatus])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterStatus, showArchived])
 
   function openEdit(contract: Contract) {
     setEditingContract(contract)
@@ -109,25 +113,6 @@ export default function ContractsPage() {
       })
       .eq('id', editingContract.id)
     setEditingContract(null)
-    setSaving(false)
-    fetchContracts()
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/contracts?id=${deleteTarget.id}`, { method: 'DELETE' })
-      const json = await res.json()
-      if (!json.success) {
-        toast.error('Error al eliminar contrato — intenta de nuevo')
-      } else {
-        toast.success('Contrato eliminado')
-      }
-    } catch {
-      toast.error('Error al eliminar contrato — intenta de nuevo')
-    }
-    setDeleteTarget(null)
     setSaving(false)
     fetchContracts()
   }
@@ -308,6 +293,10 @@ export default function ContractsPage() {
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          Ver archivados
+        </label>
       </div>
 
       {loading ? (
@@ -357,6 +346,7 @@ export default function ContractsPage() {
                           <span className={statusBadge[contract.status] || 'badge-expired'}>
                             {statusLabels[contract.status] || contract.status}
                           </span>
+                          {contract.archived_at && <ArchivedBadge />}
                           {alertLevel && days !== null && (
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getAlertColor(alertLevel)}`}>
                               <AlertTriangle className="w-3 h-3" />
@@ -418,13 +408,13 @@ export default function ContractsPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setDeleteTarget(contract)}
-                        title="Eliminar contrato"
-                        className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <LifecycleActions
+                        entity="contract"
+                        id={contract.id}
+                        name={`Contrato de ${occupantName}`}
+                        archived={!!contract.archived_at}
+                        onChanged={fetchContracts}
+                      />
                     </div>
                   </div>
                 </div>
@@ -587,33 +577,6 @@ export default function ContractsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar contrato</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              ¿Eliminar contrato de <strong className="text-gray-900 dark:text-white">{(deleteTarget.occupant as { name: string } | null)?.name || 'Sin inquilino'}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Renew Modal */}
       {renewTarget && (

@@ -14,6 +14,7 @@ import EmptyState from '@/components/EmptyState'
 import UnitModal from './UnitModal'
 import BulkUnitsModal from './BulkUnitsModal'
 import { StatusBadge, type StatusKind } from '@/components/ui/status'
+import LifecycleActions, { ArchivedBadge } from '@/components/LifecycleActions'
 import { useActiveContext } from '@/lib/useActiveContext'
 
 const statusLabels: Record<UnitStatus, string> = {
@@ -71,6 +72,7 @@ export default function UnitsPage() {
   // (ALL_BUILDINGS no permite bulk — Supabase requiere building_id NOT NULL).
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkBanner, setBulkBanner] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   // Buildings de la org activa (lo que el user puede ver/elegir)
   const orgBuildings = useMemo(
@@ -103,6 +105,7 @@ export default function UnitsPage() {
     if (buildingFilter !== ALL_BUILDINGS) {
       query = query.eq('building_id', buildingFilter)
     }
+    if (!showArchived) query = query.is('archived_at', null)
 
     const { data } = await query
     setUnits((data as UnitWithBuilding[]) || [])
@@ -113,7 +116,7 @@ export default function UnitsPage() {
     if (ctxLoading) return
     fetchUnits()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctxLoading, activeOrgId, buildingFilter])
+  }, [ctxLoading, activeOrgId, buildingFilter, showArchived])
 
   const counts = useMemo(() => {
     const c = { total: units.length, occupied: 0, vacant: 0, maintenance: 0, reserved: 0 }
@@ -207,6 +210,10 @@ export default function UnitsPage() {
           <p className="text-[13px] muted-text mt-0.5 truncate">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <label className="flex items-center gap-1.5 text-[12px] muted-text cursor-pointer select-none mr-1">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Ver archivadas
+          </label>
           {/*
             Sprint 6 followup #2: botón "Generar varias" portado del wizard
             de onboarding (Cantidad / Prefijo / Empezar en / Tipo). Solo
@@ -366,7 +373,10 @@ export default function UnitsPage() {
                     className="px-4 py-2 font-medium tabular-nums"
                     style={{ color: 'var(--baw-text)' }}
                   >
-                    {unit.number}
+                    <span className="inline-flex items-center gap-2">
+                      {unit.number}
+                      {unit.archived_at && <ArchivedBadge />}
+                    </span>
                   </td>
                   {showBuildingColumn && (
                     <td className="px-4 py-2 muted-text">
@@ -428,6 +438,13 @@ export default function UnitsPage() {
                           </option>
                         ))}
                       </select>
+                      <LifecycleActions
+                        entity="unit"
+                        id={unit.id}
+                        name={`Unidad ${unit.number}`}
+                        archived={!!unit.archived_at}
+                        onChanged={fetchUnits}
+                      />
                     </div>
                   </td>
                 </tr>

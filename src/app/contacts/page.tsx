@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Users, Search, Pencil, Trash2, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Users, Search, Pencil, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
+import LifecycleActions, { ArchivedBadge } from '@/components/LifecycleActions'
 import type { ContactType, Reservation, Contract } from '@/types'
 
 interface Contact {
@@ -24,6 +25,7 @@ interface Contact {
   cp_fiscal?: string
   email_factura?: string
   requiere_factura?: boolean
+  archived_at?: string | null
   created_at: string
   updated_at: string
   reservation_count?: number
@@ -50,9 +52,9 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   const { orgId } = useOrgContext()
   // Add / Edit form
@@ -79,11 +81,13 @@ export default function ContactsPage() {
   // ─── Fetch contacts ──────────────────────────────────────────────
   async function fetchContacts() {
     setLoading(true)
-    const { data } = await supabase
+    let oQuery = supabase
       .from('occupants')
       .select('*')
       .eq('org_id', orgId)
       .order('name')
+    if (!showArchived) oQuery = oQuery.is('archived_at', null)
+    const { data } = await oQuery
 
     // Enrich with reservation counts
     const { data: reservations } = await supabase
@@ -110,7 +114,8 @@ export default function ContactsPage() {
   useEffect(() => {
     if (!orgId) return
     fetchContacts()
-  }, [orgId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, showArchived])
 
   // ─── Filtered contacts ───────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -198,26 +203,6 @@ export default function ContactsPage() {
   }
 
   // ─── Delete contact ──────────────────────────────────────────────
-  async function handleDelete() {
-    if (!deleteTarget) return
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/contacts?id=${deleteTarget.id}`, { method: 'DELETE' })
-      const json = await res.json()
-      if (!json.success) {
-        toast.error('Error al eliminar contacto — intenta de nuevo')
-      } else {
-        toast.success('Contacto eliminado')
-      }
-    } catch {
-      toast.error('Error al eliminar contacto — intenta de nuevo')
-    }
-    setDeleteTarget(null)
-    setSaving(false)
-    if (selectedContact?.id === deleteTarget.id) setSelectedContact(null)
-    fetchContacts()
-  }
-
   // ─── Contact detail ──────────────────────────────────────────────
   async function openDetail(contact: Contact) {
     setSelectedContact(contact)
@@ -428,6 +413,7 @@ export default function ContactsPage() {
                 <h1 className="text-xl font-bold">
                   {selectedContact.name}
                 </h1>
+                {selectedContact.archived_at && <ArchivedBadge />}
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[selectedContact.type || 'both']}`}>
                   {TYPE_LABELS[selectedContact.type || 'both']}
                 </span>
@@ -458,13 +444,13 @@ export default function ContactsPage() {
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setDeleteTarget(selectedContact)}
-                title="Eliminar contacto"
-                className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <LifecycleActions
+                entity="occupant"
+                id={selectedContact.id}
+                name={selectedContact.name}
+                archived={!!selectedContact.archived_at}
+                onChanged={() => { setSelectedContact(null); fetchContacts() }}
+              />
             </div>
           </div>
         </div>
@@ -569,34 +555,6 @@ export default function ContactsPage() {
           handleSaveEdit,
           () => setEditingContact(null)
         )}
-
-        {/* Delete confirmation from detail view */}
-        {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="card w-full max-w-md mx-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar contacto</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                ¿Eliminar a <strong className="text-gray-900 dark:text-white">{deleteTarget.name}</strong>? Esta acción no se puede deshacer.
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setDeleteTarget(null)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     )
   }
@@ -621,15 +579,21 @@ export default function ContactsPage() {
       </div>
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Buscar por nombre, teléfono o email..."
-          className="input-field pl-10"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nombre, teléfono o email..."
+            className="input-field pl-10 w-full"
+          />
+        </div>
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none shrink-0">
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          Ver archivados
+        </label>
       </div>
 
       {loading ? (
@@ -656,6 +620,7 @@ export default function ContactsPage() {
                     <h3 className="font-medium text-gray-900 dark:text-white">
                       {contact.name}
                     </h3>
+                    {contact.archived_at && <ArchivedBadge />}
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[contact.type || 'both']}`}>
                       {TYPE_LABELS[contact.type || 'both']}
                     </span>
@@ -692,13 +657,13 @@ export default function ContactsPage() {
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => setDeleteTarget(contact)}
-                    title="Eliminar contacto"
-                    className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <LifecycleActions
+                    entity="occupant"
+                    id={contact.id}
+                    name={contact.name}
+                    archived={!!contact.archived_at}
+                    onChanged={fetchContacts}
+                  />
                 </div>
               </div>
             </div>
@@ -720,33 +685,6 @@ export default function ContactsPage() {
         () => setEditingContact(null)
       )}
 
-      {/* Delete Confirmation */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar contacto</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              ¿Eliminar a <strong className="text-gray-900 dark:text-white">{deleteTarget.name}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                <Trash2 className="w-4 h-4" />
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

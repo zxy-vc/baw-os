@@ -71,13 +71,16 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
 
-  // Delete linked payments first (foreign key constraint)
-  const { error: payErr } = await supabase
+  // Guard: NUNCA borrar pagos en silencio. Si el contrato tiene historia
+  // financiera, se rechaza (la vía correcta es archivar — ver /api/lifecycle).
+  const { count: payCount } = await supabase
     .from('payments')
-    .delete()
+    .select('id', { count: 'exact', head: true })
     .eq('contract_id', id)
 
-  if (payErr) return apiError(payErr.message, 500)
+  if ((payCount ?? 0) > 0) {
+    return apiError('No se puede eliminar: el contrato tiene pagos registrados. Archívalo en su lugar.', 409)
+  }
 
   const { error } = await supabase
     .from('contracts')
