@@ -161,7 +161,11 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/agents',
     icon: 'Bot',
     placement: 'footer',
-    routes: ['/agents'],
+    routes: ['/agents', '/chat'],
+    subNav: [
+      { href: '/agents', label: 'Catálogo' },
+      { href: '/chat', label: 'Chat' },
+    ],
     // Conectar/configurar agentes y sus credenciales = admin de la cuenta.
     visibleToRoles: ORG_ADMIN_ROLES,
   },
