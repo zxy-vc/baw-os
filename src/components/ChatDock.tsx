@@ -6,7 +6,7 @@
 // Solo se monta si hay al menos un agente conectado en la org.
 
 import { useEffect, useState } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import ChatPanel from '@/app/chat/ChatPanel'
 
 const DOCK_WIDTH = 240 // = EXPANDED_WIDTH del sidebar
@@ -43,12 +43,13 @@ export default function ChatDock() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 flex items-center justify-center w-12 h-12 rounded-full shadow-xl text-white ring-2 ring-white/25 transition-transform hover:scale-105"
+          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full px-4 py-3 shadow-xl text-white ring-2 ring-white/20 transition-transform hover:scale-105"
           style={{ backgroundColor: 'var(--baw-primary)' }}
-          title="Chat con agentes"
-          aria-label="Abrir chat con agentes"
+          title="Chat con tus agentes"
+          aria-label="Abrir chat con tus agentes"
         >
-          <MessageSquare className="w-5 h-5" />
+          <Bot className="w-5 h-5" />
+          <span className="text-[13px] font-medium">Agentes</span>
         </button>
       )}
 

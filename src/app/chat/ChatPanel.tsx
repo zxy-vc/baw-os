@@ -5,13 +5,14 @@
 // SIEMPRE visible (flex + min-h-0). Soporta tema claro u oscuro (dock).
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bot, Plus, Send, Loader2, MessageSquare, ChevronLeft, X } from 'lucide-react'
+import { Plus, Send, Loader2, MessageSquare, ChevronLeft, X } from 'lucide-react'
 import { useToast } from '@/components/Toast'
+import { ActorAvatar } from '@/components/ui/status'
 
 const STALE_MS = 45000 // si el agente no responde en 45s, lo marcamos como sin respuesta
 
-interface AgentLite { id: string; display_name: string; full_name: string }
-interface Conversation { id: string; agent_id: string; agent_name?: string; title: string | null; last_message_at: string }
+interface AgentLite { id: string; display_name: string; full_name: string; role_label?: string | null; domain?: string | null }
+interface Conversation { id: string; agent_id: string; agent_name?: string; agent_role?: string | null; title: string | null; last_message_at: string }
 interface Message { id: string; user_text: string; agent_text: string | null; status: string; created_at: string }
 
 function palette(dark: boolean) {
@@ -143,8 +144,11 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
             <button onClick={() => setSelectedId(null)} className="p-1 rounded hover:opacity-70" style={{ color: c.muted }} title="Volver">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <Bot className="w-4 h-4" style={{ color: 'var(--baw-agent-fg)' }} />
-            <span className="text-[13px] font-semibold truncate">{selectedConv?.agent_name || selectedConv?.agent_id}</span>
+            <ActorAvatar type="agent" name={selectedConv?.agent_name || selectedConv?.agent_id || 'Agente'} size={26} />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold truncate">{selectedConv?.agent_name || selectedConv?.agent_id}</span>
+              {selectedConv?.agent_role && <span className="block text-[11px] truncate" style={{ color: c.muted }}>{selectedConv.agent_role}</span>}
+            </span>
           </>
         ) : (
           <>
@@ -169,9 +173,12 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
             <div className="p-2 space-y-1" style={{ borderBottom: `1px solid ${c.border}` }}>
               <p className="text-[11px] px-1 mb-1" style={{ color: c.muted }}>Chatear con:</p>
               {agents.map((a) => (
-                <button key={a.id} onClick={() => startConversation(a.id)} className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] text-left" style={{ backgroundColor: c.elevated }}>
-                  <Bot className="w-4 h-4" style={{ color: 'var(--baw-agent-fg)' }} />
-                  {a.full_name || a.display_name}
+                <button key={a.id} onClick={() => startConversation(a.id)} className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left" style={{ backgroundColor: c.elevated }}>
+                  <ActorAvatar type="agent" name={a.full_name || a.display_name} size={24} />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] truncate">{a.full_name || a.display_name}</span>
+                    {(a.role_label || a.domain) && <span className="block text-[11px] truncate" style={{ color: c.muted }}>{a.role_label || a.domain}</span>}
+                  </span>
                 </button>
               ))}
             </div>
@@ -184,11 +191,11 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
             </p>
           ) : (
             conversations.map((cv) => (
-              <button key={cv.id} onClick={() => setSelectedId(cv.id)} className="w-full text-left px-3 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${c.border}` }}>
-                <Bot className="w-4 h-4 shrink-0" style={{ color: 'var(--baw-agent-fg)' }} />
+              <button key={cv.id} onClick={() => setSelectedId(cv.id)} className="w-full text-left px-3 py-2.5 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${c.border}` }}>
+                <ActorAvatar type="agent" name={cv.agent_name || cv.agent_id} size={30} />
                 <span className="min-w-0">
                   <span className="block text-[13px] font-medium truncate">{cv.agent_name || cv.agent_id}</span>
-                  {cv.title && <span className="block text-[11px] truncate" style={{ color: c.muted }}>{cv.title}</span>}
+                  {(cv.agent_role || cv.title) && <span className="block text-[11px] truncate" style={{ color: c.muted }}>{cv.agent_role || cv.title}</span>}
                 </span>
               </button>
             ))

@@ -11,7 +11,15 @@ import { requireMemberCaller } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
-async function connectedAgents(db: ReturnType<typeof createServiceClient>, orgId: string) {
+interface AgentLite {
+  id: string
+  display_name: string
+  full_name: string
+  role_label: string | null
+  domain: string | null
+}
+
+async function connectedAgents(db: ReturnType<typeof createServiceClient>, orgId: string): Promise<AgentLite[]> {
   const { data: creds } = await db
     .from('agent_credentials')
     .select('agent_id')
@@ -21,9 +29,9 @@ async function connectedAgents(db: ReturnType<typeof createServiceClient>, orgId
   if (ids.length === 0) return []
   const { data: agents } = await db
     .from('agents')
-    .select('id, display_name, full_name')
+    .select('id, display_name, full_name, role_label, domain')
     .in('id', ids)
-  return (agents || []) as { id: string; display_name: string; full_name: string }[]
+  return (agents || []) as AgentLite[]
 }
 
 export async function GET() {
@@ -42,9 +50,11 @@ export async function GET() {
   ])
 
   const nameById = new Map(agents.map((a) => [a.id, a.full_name || a.display_name]))
+  const roleById = new Map(agents.map((a) => [a.id, a.role_label || a.domain || null]))
   const conversations = (convs || []).map((c) => ({
     ...c,
     agent_name: nameById.get(c.agent_id as string) ?? (c.agent_id as string),
+    agent_role: roleById.get(c.agent_id as string) ?? null,
   }))
 
   return NextResponse.json({ success: true, data: { conversations, agents } })
