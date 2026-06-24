@@ -245,7 +245,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             pasar la retícula del body.
           */}
           <main
-            className="relative min-h-screen md:transition-[padding] md:duration-200 md:[padding-left:var(--sidebar-effective-width,0px)]"
+            className="relative min-h-screen transition-[padding] duration-200 sm:[padding-right:var(--chat-dock-width,0px)] md:[padding-left:var(--sidebar-effective-width,0px)]"
           >
             <GlobalHeader pathname={pathname} />
             <SectionTopNav />

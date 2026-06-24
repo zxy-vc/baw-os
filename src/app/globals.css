@@ -51,6 +51,7 @@ html.dark {
   --baw-muted:        var(--text-2);
   --baw-faint:        var(--text-3);
   --baw-primary:      var(--brand-500);
+  --baw-accent:       var(--brand-500);
   --baw-agent:        var(--agent-500);
   --baw-agent-subtle: var(--agent-fill);
   --baw-human-subtle: var(--brand-fill);
