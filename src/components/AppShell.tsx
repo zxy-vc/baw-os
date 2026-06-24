@@ -10,6 +10,7 @@ import AuthGuard from '@/components/AuthGuard'
 import ProfileMenu from '@/components/ProfileMenu'
 import ThemeProvider from '@/components/ThemeProvider'
 import { ToastProvider } from '@/components/Toast'
+import ChatDock from '@/components/ChatDock'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import BawGrid from '@/components/BawGrid'
 import { findSection } from '@/lib/navigation'
@@ -253,6 +254,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {children}
             </div>
           </main>
+          <ChatDock />
         </AuthGuard>
       </ToastProvider>
     </ThemeProvider>
