@@ -64,7 +64,6 @@ export default function ClientesPage() {
 
   const [selected, setSelected] = useState<CrmContact | null>(null)
   const [showNew, setShowNew] = useState(false)
-  const [importing, setImporting] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!orgId) return
@@ -83,41 +82,9 @@ export default function ClientesPage() {
     fetchData()
   }, [orgId, fetchData])
 
-  // Importa inquilinos (occupants) que aún no están en el CRM como clientes.
-  async function importOccupants() {
-    if (!orgId) return
-    setImporting(true)
-    const [occRes, existingRes] = await Promise.all([
-      supabase.from('occupants').select('id, name, phone, email').eq('org_id', orgId),
-      supabase.from('crm_contacts').select('occupant_id').eq('org_id', orgId).not('occupant_id', 'is', null),
-    ])
-    const existing = new Set(((existingRes.data as { occupant_id: string }[]) || []).map((r) => r.occupant_id))
-    const occupants = ((occRes.data as { id: string; name: string; phone: string | null; email: string | null }[]) || [])
-      .filter((o) => !existing.has(o.id))
-    if (occupants.length === 0) {
-      setImporting(false)
-      toast.success('No hay inquilinos nuevos por importar')
-      return
-    }
-    const rows = occupants.map((o) => ({
-      org_id: orgId,
-      occupant_id: o.id,
-      name: o.name,
-      phone: o.phone,
-      email: o.email,
-      source: 'manual' as CrmSource,
-      is_client: true,
-      status: 'activo' as CrmStatus,
-    }))
-    const { error } = await supabase.from('crm_contacts').insert(rows)
-    setImporting(false)
-    if (error) {
-      toast.error('Error al importar inquilinos')
-    } else {
-      toast.success(`${rows.length} inquilino(s) importados como clientes`)
-      fetchData()
-    }
-  }
+  // El CRM y el directorio (occupants) se mantienen 1:1 automáticamente vía
+  // trigger en la DB (ver migración 20260625_crm_occupant_sync). Ya no hace falta
+  // "importar" — toda persona aparece sola.
 
   const filtered = contacts.filter((c) => {
     if (typeFilter === 'clientes' && !c.is_client) return false
@@ -156,14 +123,6 @@ export default function ClientesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={importOccupants}
-            disabled={importing}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            {importing ? 'Importando…' : 'Importar inquilinos'}
-          </button>
           <button
             onClick={() => setShowNew(true)}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
