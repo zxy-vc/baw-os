@@ -107,8 +107,8 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     subNav: [
       { href: '/contacts', label: 'Contactos' },
       { href: '/contracts', label: 'Contratos' },
-      { href: '/clientes', label: 'Clientes', matchPrefix: '/clientes' },
       { href: '/applications', label: 'Expedientes' },
+      { href: '/clientes', label: 'CRM', matchPrefix: '/clientes' },
     ],
   },
   {
