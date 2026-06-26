@@ -149,7 +149,7 @@ export default function ClientesPage() {
         <div className="flex items-center gap-3">
           <Users className="w-6 h-6 text-indigo-500" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Clientes</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">CRM</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {clientCount} clientes · {leadCount} leads · {opps.length} oportunidades
             </p>
