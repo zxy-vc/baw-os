@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Users, Search, Pencil, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Users, Search, Pencil, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
@@ -228,7 +228,22 @@ export default function ContactsPage() {
   }
 
   // ─── Form modal (shared for add/edit) ────────────────────────────
-  function renderFormModal(title: string, onSave: () => void, onClose: () => void) {
+  function renderFormModal(title: string, onSave: () => void, onClose: () => void, isAdd = false) {
+    // Buscar-antes-de-crear: al dar de alta, avisar si ya hay alguien con el
+    // mismo teléfono/email (exacto) o un nombre muy parecido. No bloquea — solo
+    // alerta para evitar duplicar a la misma persona.
+    const phone = form.phone.trim()
+    const email = form.email.trim().toLowerCase()
+    const name = form.name.trim().toLowerCase()
+    const dupMatches = isAdd
+      ? contacts.filter((c) => {
+          if (phone && c.phone && c.phone.trim() === phone) return true
+          if (email && c.email && c.email.trim().toLowerCase() === email) return true
+          if (name.length >= 3 && c.name.trim().toLowerCase() === name) return true
+          return false
+        }).slice(0, 4)
+      : []
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
         <div className="card w-full max-w-lg mx-4 relative">
@@ -250,6 +265,28 @@ export default function ContactsPage() {
                 className="input-field w-full"
               />
             </div>
+
+            {dupMatches.length > 0 && (
+              <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
+                <p className="flex items-center gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  Ya existe gente con datos similares
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {dupMatches.map((c) => (
+                    <li key={c.id} className="text-xs text-amber-700 dark:text-amber-400">
+                      {c.name}
+                      {(c.phone || c.email) && (
+                        <span className="text-amber-600/70 dark:text-amber-400/70"> · {[c.phone, c.email].filter(Boolean).join(' · ')}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[11px] text-amber-600/80 dark:text-amber-400/70">
+                  Si es la misma persona, ciérralo y edita la existente para no duplicar.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
@@ -675,14 +712,16 @@ export default function ContactsPage() {
       {showAddModal && renderFormModal(
         'Nuevo contacto',
         handleAdd,
-        () => setShowAddModal(false)
+        () => setShowAddModal(false),
+        true,
       )}
 
       {/* Edit Modal */}
       {editingContact && renderFormModal(
         `Editar contacto — ${editingContact.name}`,
         handleSaveEdit,
-        () => setEditingContact(null)
+        () => setEditingContact(null),
+        false,
       )}
 
     </div>
