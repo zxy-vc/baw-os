@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { SkeletonTable } from '@/components/Skeleton'
+import PersonPicker, { type PickedPerson } from '@/components/PersonPicker'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Unit, Reservation, BookingMode, ReservationStatus, ReservationPaymentStatus } from '@/types'
 
@@ -126,12 +127,9 @@ export default function ReservationsPage() {
   const [houseRules, setHouseRules] = useState('')
   const [checkInInstructions, setCheckInInstructions] = useState('')
 
-  // Autocomplete state
-  const [allContacts, setAllContacts] = useState<{ id: string; name: string; phone?: string; email?: string }[]>([])
-  const [acResults, setAcResults] = useState<{ id: string; name: string; phone?: string; email?: string }[]>([])
-  const [showAc, setShowAc] = useState(false)
-  const [saveAsContact, setSaveAsContact] = useState(false)
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  // Persona ligada (Party). Si es null, el huésped queda solo como texto libre
+  // (caso STR de una noche que no queremos meter al directorio).
+  const [guestPerson, setGuestPerson] = useState<PickedPerson | null>(null)
 
   // List filters
   const [filterUnit, setFilterUnit] = useState<string>('all')
@@ -139,14 +137,12 @@ export default function ReservationsPage() {
 
   // ─── Data loading ────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    const [unitsRes, resRes, contactsRes] = await Promise.all([
+    const [unitsRes, resRes] = await Promise.all([
       supabase.from('units').select('*').order('number'),
       supabase.from('reservations').select('*, unit:units(*)').order('check_in', { ascending: false }),
-      supabase.from('occupants').select('id, name, phone, email').order('name'),
     ])
     setUnits(unitsRes.data || [])
     setReservations(resRes.data || [])
-    setAllContacts(contactsRes.data || [])
     setLoading(false)
   }, [])
 
@@ -216,28 +212,14 @@ export default function ReservationsPage() {
     }
   }
 
-  // ─── Autocomplete handler ──────────────────────────────────────
-  function handleGuestNameChange(value: string) {
-    setGuestName(value)
-    setSelectedContactId(null)
-    if (value.length >= 2) {
-      const q = value.toLowerCase()
-      const matches = allContacts.filter((c) => c.name.toLowerCase().includes(q))
-      setAcResults(matches.slice(0, 5))
-      setShowAc(matches.length > 0)
-    } else {
-      setAcResults([])
-      setShowAc(false)
+  // Persona seleccionada/creada desde el PersonPicker → llena los datos del huésped.
+  function handlePersonChange(person: PickedPerson | null) {
+    setGuestPerson(person)
+    if (person) {
+      setGuestName(person.name)
+      setGuestPhone(person.phone || '')
+      setGuestEmail(person.email || '')
     }
-  }
-
-  function selectContact(contact: { id: string; name: string; phone?: string; email?: string }) {
-    setGuestName(contact.name)
-    setGuestPhone(contact.phone || '')
-    setGuestEmail(contact.email || '')
-    setSelectedContactId(contact.id)
-    setShowAc(false)
-    setSaveAsContact(false)
   }
 
   // ─── Save reservation ──────────────────────────────────────────
@@ -274,17 +256,9 @@ export default function ReservationsPage() {
     if (error) {
       alert('Error al guardar: ' + error.message)
     } else {
-      // Create contact if checkbox was checked
-      if (saveAsContact && !selectedContactId && guestName) {
-        await supabase.from('occupants').insert({
-          org_id: orgId,
-          name: guestName,
-          phone: guestPhone || null,
-          email: guestEmail || null,
-          type: 'str',
-        })
-      }
-      // Reset form
+      // El huésped ya quedó (o no) en el directorio vía el PersonPicker; aquí no
+      // se crea nada a ciegas. Reset del form.
+      setGuestPerson(null)
       setGuestName('')
       setGuestPhone('')
       setGuestEmail('')
@@ -298,8 +272,6 @@ export default function ReservationsPage() {
       setNotes('')
       setStatus('confirmed')
       setPaymentStatus('pending')
-      setSaveAsContact(false)
-      setSelectedContactId(null)
       setPlatform('')
       setCheckInCode('')
       setWifiName('')
@@ -586,43 +558,22 @@ export default function ReservationsPage() {
           </h2>
 
           <div className="space-y-4">
-            <div className="relative">
+            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre del huésped *</label>
-              <input
-                type="text"
-                value={guestName}
-                onChange={(e) => handleGuestNameChange(e.target.value)}
-                onBlur={() => setTimeout(() => setShowAc(false), 200)}
-                onFocus={() => { if (guestName.length >= 2 && acResults.length > 0) setShowAc(true) }}
-                placeholder="Nombre completo"
-                className="input-field"
-                autoComplete="off"
+              <PersonPicker
+                orgId={orgId}
+                value={guestPerson}
+                onChange={handlePersonChange}
+                allowFreeText
+                freeText={guestName}
+                onFreeTextChange={setGuestName}
+                newType="str"
+                placeholder="Buscar huésped o escribir nombre…"
               />
-              {showAc && acResults.length > 0 && (
-                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
-                  {acResults.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onMouseDown={() => selectContact(c)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{c.name}</p>
-                      {c.phone && <p className="text-xs text-gray-500 dark:text-gray-400">{c.phone}</p>}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {!selectedContactId && guestName.length >= 2 && (
-                <label className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={saveAsContact}
-                    onChange={(e) => setSaveAsContact(e.target.checked)}
-                    className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  Guardar como contacto
-                </label>
+              {!guestPerson && guestName.trim().length >= 2 && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Huésped sin ligar al directorio (queda solo en la reservación).
+                </p>
               )}
             </div>
 

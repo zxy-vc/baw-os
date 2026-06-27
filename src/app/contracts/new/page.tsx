@@ -7,7 +7,8 @@ import { supabase } from '@/lib/supabase'
 import { useActiveContext } from '@/lib/useActiveContext'
 import { useToast } from '@/components/Toast'
 import Breadcrumbs from '@/components/Breadcrumbs'
-import type { Unit, Occupant } from '@/types'
+import PersonPicker, { type PickedPerson } from '@/components/PersonPicker'
+import type { Unit } from '@/types'
 import Link from 'next/link'
 
 export default function NewContractPage() {
@@ -15,13 +16,11 @@ export default function NewContractPage() {
   const { activeOrgId } = useActiveContext()
   const toast = useToast()
   const [units, setUnits] = useState<Unit[]>([])
-  const [occupants, setOccupants] = useState<Occupant[]>([])
+  const [tenant, setTenant] = useState<PickedPerson | null>(null)
   const [saving, setSaving] = useState(false)
-  const [newOccupant, setNewOccupant] = useState(false)
 
   const [form, setForm] = useState({
     unit_id: '',
-    occupant_id: '',
     start_date: '',
     end_date: '',
     monthly_amount: '',
@@ -33,20 +32,12 @@ export default function NewContractPage() {
     drive_folder_url: '',
   })
 
-  const [occupantForm, setOccupantForm] = useState({
-    name: '',
-    phone: '',
-    email: '',
-  })
-
   useEffect(() => {
-    Promise.all([
-      supabase.from('units').select('*').order('number'),
-      supabase.from('occupants').select('*').order('name'),
-    ]).then(([unitsRes, occupantsRes]) => {
-      setUnits(unitsRes.data || [])
-      setOccupants(occupantsRes.data || [])
-    })
+    supabase
+      .from('units')
+      .select('*')
+      .order('number')
+      .then(({ data }) => setUnits(data || []))
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,44 +50,16 @@ export default function NewContractPage() {
       toast.error('No se pudo resolver tu organización; recarga la página e intenta de nuevo')
       return
     }
-    setSaving(true)
-
-    let occupantId = form.occupant_id
-
-    if (newOccupant) {
-      // occupants.type solo admite 'ltr' | 'str' | 'both' (modalidad de renta del
-      // contacto), no roles. Lo derivamos del tipo de renta del contrato.
-      const occupantType = form.rent_type === 'STR' ? 'str' : 'ltr'
-      const { data: occ, error: occError } = await supabase
-        .from('occupants')
-        .insert({
-          org_id: orgId,
-          name: occupantForm.name,
-          phone: occupantForm.phone || null,
-          email: occupantForm.email || null,
-          type: occupantType,
-        })
-        .select()
-        .single()
-
-      if (occError || !occ) {
-        setSaving(false)
-        toast.error(`Error al crear el inquilino${occError ? `: ${occError.message}` : ''}`)
-        return
-      }
-      occupantId = occ.id
-    }
-
-    if (!occupantId) {
-      setSaving(false)
+    if (!tenant) {
       toast.error('Selecciona o crea un inquilino')
       return
     }
+    setSaving(true)
 
     const { error } = await supabase.from('contracts').insert({
       org_id: orgId,
       unit_id: form.unit_id,
-      occupant_id: occupantId,
+      occupant_id: tenant.id,
       start_date: form.start_date,
       end_date: form.end_date || null,
       monthly_amount: Number(form.monthly_amount),
@@ -180,58 +143,17 @@ export default function NewContractPage() {
         </div>
 
         <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-sm text-gray-500 dark:text-gray-400">Inquilino</label>
-            <button
-              type="button"
-              onClick={() => setNewOccupant(!newOccupant)}
-              className="text-xs text-indigo-400 hover:text-indigo-300"
-            >
-              {newOccupant ? 'Seleccionar existente' : 'Crear nuevo'}
-            </button>
-          </div>
-          {newOccupant ? (
-            <div className="space-y-3 p-4 bg-gray-100 dark:bg-gray-800/50 rounded-lg border border-gray-300 dark:border-gray-700">
-              <input
-                type="text"
-                required
-                placeholder="Nombre completo"
-                value={occupantForm.name}
-                onChange={(e) => setOccupantForm({ ...occupantForm, name: e.target.value })}
-                className="input-field"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="tel"
-                  placeholder="Teléfono (+52...)"
-                  value={occupantForm.phone}
-                  onChange={(e) => setOccupantForm({ ...occupantForm, phone: e.target.value })}
-                  className="input-field"
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={occupantForm.email}
-                  onChange={(e) => setOccupantForm({ ...occupantForm, email: e.target.value })}
-                  className="input-field"
-                />
-              </div>
-            </div>
-          ) : (
-            <select
-              required={!newOccupant}
-              value={form.occupant_id}
-              onChange={(e) => setForm({ ...form, occupant_id: e.target.value })}
-              className="input-field"
-            >
-              <option value="">Seleccionar inquilino...</option>
-              {occupants.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} {o.phone ? `(${o.phone})` : ''}
-                </option>
-              ))}
-            </select>
-          )}
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Inquilino</label>
+          <PersonPicker
+            orgId={activeOrgId}
+            value={tenant}
+            onChange={setTenant}
+            newType={form.rent_type === 'STR' ? 'str' : 'ltr'}
+            placeholder="Buscar inquilino por nombre, teléfono o email…"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Busca primero; si no existe, créalo desde aquí (se agrega al directorio y al CRM).
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
