@@ -8,6 +8,7 @@ import { formatCurrency, formatDate, daysUntil } from '@/lib/utils'
 import { useToast } from '@/components/Toast'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { SkeletonDashboard } from '@/components/Skeleton'
+import StayOccupants from '@/components/StayOccupants'
 import type { Contract, Payment } from '@/types'
 import { getAlertLevel, getAlertColor, getAlertText } from '@/lib/contract-alerts'
 import Link from 'next/link'
@@ -314,6 +315,8 @@ export default function ContractDetailPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Tipo: {unit?.type || '—'}</p>
         </div>
       </div>
+
+      <StayOccupants contractId={contract.id} orgId={contract.org_id} />
 
       <div className="card">
         <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
