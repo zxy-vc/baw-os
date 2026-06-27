@@ -103,9 +103,10 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/contacts',
     icon: 'Users',
     placement: 'top',
-    routes: ['/contacts', '/contracts', '/applications', '/clientes'],
+    routes: ['/contacts', '/estancias', '/contracts', '/applications', '/clientes'],
     subNav: [
       { href: '/contacts', label: 'Contactos' },
+      { href: '/estancias', label: 'Estancias' },
       { href: '/contracts', label: 'Contratos' },
       { href: '/applications', label: 'Expedientes' },
       { href: '/clientes', label: 'CRM', matchPrefix: '/clientes' },
