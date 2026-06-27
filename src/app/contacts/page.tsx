@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Users, Search, Pencil, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import { Plus, Users, Search, Pencil, X, Save, Phone, Mail, CalendarDays, FileText, ChevronLeft, ChevronDown, ChevronUp, AlertTriangle, Building2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import LifecycleActions, { ArchivedBadge } from '@/components/LifecycleActions'
-import type { ContactType, Reservation, Contract } from '@/types'
+import type { ContactType, OccupantKind, Reservation, Contract } from '@/types'
 
 interface Contact {
   id: string
@@ -18,6 +18,7 @@ interface Contact {
   phone?: string
   email?: string
   type?: ContactType
+  kind?: OccupantKind
   notes?: string
   rfc?: string
   razon_social?: string
@@ -63,6 +64,7 @@ export default function ContactsPage() {
     phone: '',
     email: '',
     type: 'both' as ContactType,
+    kind: 'persona' as OccupantKind,
     notes: '',
     rfc: '',
     razon_social: '',
@@ -131,7 +133,7 @@ export default function ContactsPage() {
 
   // ─── Add contact ─────────────────────────────────────────────────
   function openAdd() {
-    setForm({ name: '', phone: '', email: '', type: 'both', notes: '', rfc: '', razon_social: '', regimen_fiscal: '', cp_fiscal: '', email_factura: '', requiere_factura: false })
+    setForm({ name: '', phone: '', email: '', type: 'both', kind: 'persona', notes: '', rfc: '', razon_social: '', regimen_fiscal: '', cp_fiscal: '', email_factura: '', requiere_factura: false })
     setShowFiscal(false)
     setShowAddModal(true)
   }
@@ -145,6 +147,7 @@ export default function ContactsPage() {
       phone: form.phone || null,
       email: form.email || null,
       type: form.type,
+      kind: form.kind,
       notes: form.notes || null,
       rfc: form.rfc || null,
       razon_social: form.razon_social || null,
@@ -166,6 +169,7 @@ export default function ContactsPage() {
       phone: contact.phone || '',
       email: contact.email || '',
       type: (contact.type as ContactType) || 'both',
+      kind: (contact.kind as OccupantKind) || 'persona',
       notes: contact.notes || '',
       rfc: contact.rfc || '',
       razon_social: contact.razon_social || '',
@@ -187,6 +191,7 @@ export default function ContactsPage() {
         phone: form.phone || null,
         email: form.email || null,
         type: form.type,
+        kind: form.kind,
         notes: form.notes || null,
         rfc: form.rfc || null,
         razon_social: form.razon_social || null,
@@ -256,12 +261,33 @@ export default function ContactsPage() {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{title}</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Nombre *</label>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Tipo de persona</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['persona', 'empresa'] as OccupantKind[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setForm({ ...form, kind: k })}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      form.kind === k
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {k === 'persona' ? 'Persona' : 'Empresa'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                {form.kind === 'empresa' ? 'Razón social / Nombre *' : 'Nombre *'}
+              </label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Nombre completo"
+                placeholder={form.kind === 'empresa' ? 'Razón social de la empresa' : 'Nombre completo'}
                 className="input-field w-full"
               />
             </div>
@@ -658,6 +684,12 @@ export default function ContactsPage() {
                       {contact.name}
                     </h3>
                     {contact.archived_at && <ArchivedBadge />}
+                    {contact.kind === 'empresa' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        <Building2 className="w-3 h-3" />
+                        Empresa
+                      </span>
+                    )}
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[contact.type || 'both']}`}>
                       {TYPE_LABELS[contact.type || 'both']}
                     </span>

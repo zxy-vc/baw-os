@@ -14,6 +14,8 @@ export type BookingMode = 'full' | 'room' | 'bed'
 // occupants.type en la BD: CHECK IN ('ltr','str','both') — modalidad de renta
 // del contacto, no un rol. (migration 20260330_occupants_type.sql)
 export type OccupantType = 'ltr' | 'str' | 'both'
+// Party: la identidad durable puede ser persona física o empresa (Fase 2b).
+export type OccupantKind = 'persona' | 'empresa'
 export type AncillaryKind = 'parking' | 'billboard' | 'storage' | 'antenna' | 'other'
 export type AncillaryCadence = 'monthly' | 'annual'
 export type AncillaryOwnership = 'ours' | 'third_party'
@@ -176,6 +178,7 @@ export interface Occupant {
   id_type?: string
   id_number?: string
   type: OccupantType
+  kind?: OccupantKind // persona | empresa (Fase 2b); default 'persona'
   contact_type?: ContactType
   notes?: string
   // Fiscal data (#9, #10)
@@ -198,6 +201,7 @@ export interface Contract {
   org_id: string
   unit_id?: string | null // NULL = contrato independiente (standalone)
   occupant_id: string
+  payer_occupant_id?: string | null // quién paga si ≠ inquilino (Fase 2b); NULL = el inquilino
   start_date: string
   end_date?: string
   monthly_amount: number

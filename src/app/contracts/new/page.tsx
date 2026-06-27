@@ -17,6 +17,9 @@ export default function NewContractPage() {
   const toast = useToast()
   const [units, setUnits] = useState<Unit[]>([])
   const [tenant, setTenant] = useState<PickedPerson | null>(null)
+  // Pagador ≠ inquilino (Fase 2b): ej. una empresa paga el contrato de su empleado.
+  const [otherPayer, setOtherPayer] = useState(false)
+  const [payer, setPayer] = useState<PickedPerson | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
@@ -54,12 +57,20 @@ export default function NewContractPage() {
       toast.error('Selecciona o crea un inquilino')
       return
     }
+    if (otherPayer && !payer) {
+      toast.error('Selecciona quién paga, o desmarca "Paga alguien más"')
+      return
+    }
     setSaving(true)
+
+    // Pagador: solo se guarda si está activo, hay alguien y es distinto al inquilino.
+    const payerId = otherPayer && payer && payer.id !== tenant.id ? payer.id : null
 
     const { error } = await supabase.from('contracts').insert({
       org_id: orgId,
       unit_id: form.unit_id,
       occupant_id: tenant.id,
+      payer_occupant_id: payerId,
       start_date: form.start_date,
       end_date: form.end_date || null,
       monthly_amount: Number(form.monthly_amount),
@@ -154,6 +165,35 @@ export default function NewContractPage() {
           <p className="mt-1 text-xs text-gray-400">
             Busca primero; si no existe, créalo desde aquí (se agrega al directorio y al CRM).
           </p>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={otherPayer}
+              onChange={(e) => {
+                setOtherPayer(e.target.checked)
+                if (!e.target.checked) setPayer(null)
+              }}
+              className="rounded border-gray-300 bg-gray-100 text-indigo-600 dark:border-gray-700 dark:bg-gray-800"
+            />
+            Paga alguien más (ej. una empresa)
+          </label>
+          {otherPayer && (
+            <div className="mt-2">
+              <PersonPicker
+                orgId={activeOrgId}
+                value={payer}
+                onChange={setPayer}
+                newType="ltr"
+                placeholder="Buscar pagador (persona o empresa)…"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Quien paga y factura. Puede ser una empresa; los datos fiscales van en su ficha de Contactos.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
