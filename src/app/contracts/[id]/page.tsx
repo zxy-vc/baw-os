@@ -17,6 +17,9 @@ export default function ContractDetailPage() {
   const router = useRouter()
   const [contract, setContract] = useState<Contract | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
+  // Pagador (Fase 2b): se carga aparte porque payer_occupant_id es columna simple
+  // sin FK (evita ambigüedad de embeds en PostgREST).
+  const [payer, setPayer] = useState<{ name: string; phone: string | null; email: string | null; kind: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteOccupantTarget, setDeleteOccupantTarget] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -50,6 +53,19 @@ export default function ContractDetailPage() {
     setContract(contractRes.data)
     setPayments(paymentsRes.data || [])
     setDriveFolderUrl(contractRes.data?.drive_folder_url || '')
+
+    // Cargar el pagador solo si es distinto del inquilino.
+    const payerId = contractRes.data?.payer_occupant_id
+    if (payerId && payerId !== contractRes.data?.occupant_id) {
+      const { data: payerData } = await supabase
+        .from('occupants')
+        .select('name, phone, email, kind')
+        .eq('id', payerId)
+        .single()
+      setPayer(payerData ?? null)
+    } else {
+      setPayer(null)
+    }
     setLoading(false)
   }
 
@@ -277,6 +293,16 @@ export default function ContractDetailPage() {
           <p className="text-gray-900 dark:text-white font-medium">{occupant?.name || '—'}</p>
           {occupant?.phone && <p className="text-sm text-gray-500 dark:text-gray-400">{occupant.phone}</p>}
           {occupant?.email && <p className="text-sm text-gray-500 dark:text-gray-400">{occupant.email}</p>}
+          {payer && (
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                Paga {payer.kind === 'empresa' ? '(empresa)' : ''}
+              </p>
+              <p className="text-gray-900 dark:text-white font-medium">{payer.name}</p>
+              {payer.phone && <p className="text-sm text-gray-500 dark:text-gray-400">{payer.phone}</p>}
+              {payer.email && <p className="text-sm text-gray-500 dark:text-gray-400">{payer.email}</p>}
+            </div>
+          )}
         </div>
         <div className="card space-y-3">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
