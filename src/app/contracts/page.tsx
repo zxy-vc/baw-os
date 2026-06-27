@@ -73,7 +73,7 @@ export default function ContractsPage() {
 
   function openEdit(contract: Contract) {
     setEditingContract(contract)
-    const existingLink = contract.contract_url || contract.notes?.match(/📎 (https?:\/\/\S+)/)?.[1] || ''
+    const existingLink = contract.drive_folder_url || contract.contract_url || contract.notes?.match(/📎 (https?:\/\/\S+)/)?.[1] || ''
     setEditForm({
       monthly_amount: contract.monthly_amount,
       payment_day: contract.payment_day,
@@ -92,11 +92,10 @@ export default function ContractsPage() {
   async function handleSaveEdit() {
     if (!editingContract) return
     setSaving(true)
-    let notesValue = editForm.notes || ''
-    if (editForm.drive_link) {
-      notesValue = notesValue ? `${notesValue}\n📎 ${editForm.drive_link}` : `📎 ${editForm.drive_link}`
-    }
-    await supabase
+    // .select() para detectar updates de 0 filas (RLS que bloquea en silencio).
+    // El link de Drive va a drive_folder_url (la columna real); contract_url no
+    // existe en la tabla y rompía el UPDATE entero.
+    const { data, error } = await supabase
       .from('contracts')
       .update({
         monthly_amount: editForm.monthly_amount,
@@ -104,16 +103,28 @@ export default function ContractsPage() {
         status: editForm.status,
         rent_type: editForm.rent_type,
         start_date: editForm.start_date || null,
-        notes: notesValue || null,
+        notes: editForm.notes || null,
         end_date: editForm.end_date || null,
         aval: editForm.aval || null,
         curp_arrendatario: editForm.curp_arrendatario || null,
         domicilio_arrendatario: editForm.domicilio_arrendatario || null,
-        contract_url: editForm.drive_link || null,
+        drive_folder_url: editForm.drive_link || null,
       })
       .eq('id', editingContract.id)
-    setEditingContract(null)
+      .select('id')
     setSaving(false)
+    if (error) {
+      toast.error(`No se pudo guardar: ${error.message}`)
+      return
+    }
+    if (!data || data.length === 0) {
+      // El UPDATE no afectó filas: típicamente RLS (tu rol de miembro no tiene
+      // permiso de escritura sobre contratos). Ver issue #23 (roles legacy).
+      toast.error('No se guardó: sin permiso de escritura sobre este contrato.')
+      return
+    }
+    setEditingContract(null)
+    toast.success('Contrato actualizado')
     fetchContracts()
   }
 

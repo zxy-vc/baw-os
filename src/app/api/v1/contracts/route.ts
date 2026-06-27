@@ -16,7 +16,7 @@ export const GET = v1Read({
     let q = supabase
       .from('contracts')
       .select(
-        'id, org_id, unit_id, occupant_id, start_date, end_date, monthly_amount, deposit_amount, deposit_paid, payment_day, status, contract_url, created_at, updated_at'
+        'id, org_id, unit_id, occupant_id, start_date, end_date, monthly_amount, deposit_amount, deposit_paid, payment_day, status, drive_folder_url, created_at, updated_at'
       )
       .eq('org_id', auth.orgId)
       .order('created_at', { ascending: false })
