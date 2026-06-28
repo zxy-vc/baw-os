@@ -25,6 +25,7 @@ export default function NewContractPage() {
   const [form, setForm] = useState({
     unit_id: '',
     start_date: '',
+    billing_start_date: '',
     end_date: '',
     monthly_amount: '',
     deposit_amount: '',
@@ -72,6 +73,7 @@ export default function NewContractPage() {
       occupant_id: tenant.id,
       payer_occupant_id: payerId,
       start_date: form.start_date,
+      billing_start_date: form.billing_start_date || null,
       end_date: form.end_date || null,
       monthly_amount: Number(form.monthly_amount),
       deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
@@ -216,6 +218,22 @@ export default function NewContractPage() {
               className="input-field"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+            Facturar desde <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
+          <input
+            type="date"
+            value={form.billing_start_date}
+            onChange={(e) => setForm({ ...form, billing_start_date: e.target.value })}
+            className="input-field"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Mes desde el que Cobros genera cargos. Déjalo vacío para facturar desde la fecha de inicio.
+            Útil en contratos viejos que siguen vigentes: registras su fecha real pero solo cobras el periodo reciente.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

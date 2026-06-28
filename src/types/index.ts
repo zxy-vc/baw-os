@@ -203,6 +203,7 @@ export interface Contract {
   occupant_id: string
   payer_occupant_id?: string | null // quién paga si ≠ inquilino (Fase 2b); NULL = el inquilino
   start_date: string
+  billing_start_date?: string | null // Cobros factura desde aquí; NULL = desde start_date
   end_date?: string
   monthly_amount: number
   deposit_amount?: number
