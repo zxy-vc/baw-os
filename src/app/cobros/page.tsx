@@ -11,6 +11,7 @@ import { mapPaymentMethod, referenceFor } from '@/lib/cobros'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
+import PersonPicker, { type PickedPerson } from '@/components/PersonPicker'
 
 interface ContractRow {
   id: string
@@ -39,6 +40,16 @@ interface PaymentRow {
   method: string | null
   reference: string | null
   confirmed_by: string | null
+}
+
+// Un abono (movimiento de dinero) dentro del cargo de un mes.
+interface ReceiptRow {
+  id: string
+  amount: number
+  paid_date: string
+  method: string | null
+  reference: string | null
+  payerName: string | null
 }
 
 type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
@@ -137,8 +148,10 @@ export default function CobrosPage() {
   })
   const { orgId } = useOrgContext()
 
-  // Modal state
+  // Modal state — payForm cubre el CARGO del mes (renta/agua/mora) + el abono
+  // que se está registrando (amount_paid = monto recibido en ESTE movimiento).
   const [payingRow, setPayingRow] = useState<BillingRow | null>(null)
+  const [chargeId, setChargeId] = useState<string | null>(null)
   const [payForm, setPayForm] = useState({
     rent_amount: 0,
     water_fee: WATER_FEE_DEFAULT,
@@ -146,9 +159,11 @@ export default function CobrosPage() {
     method: 'Transferencia',
     reference: '',
     paid_date: new Date().toISOString().split('T')[0],
-    is_partial: false,
     amount_paid: 0,
   })
+  const [payer, setPayer] = useState<PickedPerson | null>(null)
+  const [receipts, setReceipts] = useState<ReceiptRow[]>([])
+  const [loadingReceipts, setLoadingReceipts] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmedBy, setConfirmedBy] = useState('alicia')
   const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
@@ -275,132 +290,188 @@ export default function CobrosPage() {
     const rent = row.payment?.rent_amount ?? c.monthly_amount
     const water = row.payment?.water_fee ?? WATER_FEE_DEFAULT
     const lateFee = suggestedMora(rent, row.dueDate, today, row.payment)
+    const cid = row.payment?.id ?? null
+    const total = rent + water + lateFee
+    const alreadyPaid = Number(row.payment?.amount_paid ?? 0)
     setPayingRow(row)
+    setChargeId(cid)
     setPayForm({
       rent_amount: rent,
       water_fee: water,
       late_fee: lateFee,
       method: 'Transferencia',
-      reference: row.payment?.reference || referenceFor(c.unit?.number, row.month),
+      reference: referenceFor(c.unit?.number, row.month),
       paid_date: today,
-      is_partial: false,
-      amount_paid: rent + water + lateFee,
+      amount_paid: Math.max(0, total - alreadyPaid), // sugiere la resta
     })
+    setPayer(null)
+    setReceipts([])
+    if (cid) loadReceipts(cid)
+  }
+
+  async function loadReceipts(paymentId: string) {
+    setLoadingReceipts(true)
+    const { data } = await supabase
+      .from('payment_receipts')
+      .select('id, amount, paid_date, method, reference, payer:occupants(name)')
+      .eq('payment_id', paymentId)
+      .order('paid_date', { ascending: true })
+    setReceipts(
+      (data ?? []).map((r) => {
+        const payer = Array.isArray(r.payer) ? r.payer[0] : r.payer
+        return {
+          id: r.id,
+          amount: Number(r.amount),
+          paid_date: r.paid_date,
+          method: r.method,
+          reference: r.reference,
+          payerName: (payer as { name: string } | null)?.name ?? null,
+        }
+      }),
+    )
+    setLoadingReceipts(false)
   }
 
   // Recalcula la mora sugerida cuando cambia la fecha de pago (días de atraso).
   function onPaidDateChange(paid_date: string) {
     if (!payingRow) return
     const lateFee = suggestedMora(payForm.rent_amount, payingRow.dueDate, paid_date, payingRow.payment)
-    setPayForm((f) => ({
-      ...f,
-      paid_date,
-      late_fee: lateFee,
-      amount_paid: f.is_partial ? f.amount_paid : f.rent_amount + f.water_fee + lateFee,
-    }))
+    setPayForm((f) => ({ ...f, paid_date, late_fee: lateFee }))
   }
 
-  async function handleMarkPaid() {
-    if (!payingRow) return
-    setSaving(true)
+  // Crea (o actualiza) el CARGO del mes con renta/agua/mora actuales. Devuelve su id.
+  async function ensureCharge(): Promise<string | null> {
+    if (!payingRow) return null
     const c = payingRow.contract
-
-    const dueDate = payingRow.dueDate
     const lateFee = Math.max(0, payForm.late_fee)
-    const baseAmount = payForm.rent_amount + payForm.water_fee
-    const totalDue = baseAmount + lateFee // renta + agua + mora
-    const amountReceived = payForm.is_partial
-      ? Math.max(0, Math.min(payForm.amount_paid, totalDue))
-      : totalDue
-
     const daysLate = Math.max(
       0,
-      dayDiff(new Date(`${dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)),
+      dayDiff(new Date(`${payingRow.dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)),
     )
-    const { level: lateLevel } = calcMoraSurcharge(payForm.rent_amount, daysLate)
-    // Dos columnas, dos vocabularios (ver src/lib/cobros.ts):
-    //  - payments.method         → enum en inglés (transfer/cash/stripe…)
-    //  - payments.payment_method → TEXT en español (efectivo/transferencia/otro)
-    const { methodEnum, paymentMethodEs } = mapPaymentMethod(payForm.method)
-
-    const existing = payingRow.payment
-    let paymentData: { id: string } | null = null
-    let error: { message: string } | null = null
-    let isPartial = false
-
-    const common = {
-      amount: baseAmount,
+    const { level } = calcMoraSurcharge(payForm.rent_amount, daysLate)
+    const charge = {
+      amount: payForm.rent_amount + payForm.water_fee,
       rent_amount: payForm.rent_amount,
       water_fee: payForm.water_fee,
       late_fee_amount: lateFee,
-      late_fee_level: lateFee > 0 ? lateLevel : null,
+      late_fee_level: lateFee > 0 ? level : null,
+    }
+    if (chargeId) {
+      await supabase.from('payments').update(charge).eq('id', chargeId)
+      return chargeId
+    }
+    const { data, error } = await supabase
+      .from('payments')
+      .insert({
+        ...charge,
+        org_id: orgId,
+        contract_id: c.id,
+        due_date: payingRow.dueDate,
+        amount_paid: 0,
+        status: 'pending',
+      })
+      .select('id')
+      .single()
+    if (error || !data) return null
+    setChargeId(data.id)
+    return data.id
+  }
+
+  // Recalcula amount_paid + status del cargo a partir de la suma de sus abonos,
+  // y estampa los metadatos del último abono (método/confirmó/fecha) para que el
+  // grid los muestre como hasta ahora.
+  async function recomputeCharge(paymentId: string) {
+    const { data: rs } = await supabase
+      .from('payment_receipts')
+      .select('amount, paid_date, method, payment_method, confirmed_by')
+      .eq('payment_id', paymentId)
+      .order('paid_date', { ascending: true })
+    const list = rs ?? []
+    const sum = list.reduce((s, r) => s + Number(r.amount), 0)
+    const last = list[list.length - 1]
+    const { data: ch } = await supabase
+      .from('payments')
+      .select('amount, late_fee_amount')
+      .eq('id', paymentId)
+      .single()
+    const total = Number(ch?.amount ?? 0) + Number(ch?.late_fee_amount ?? 0)
+    const status = total > 0 && sum + 0.001 >= total ? 'paid' : sum > 0 ? 'partial' : 'pending'
+    await supabase
+      .from('payments')
+      .update({
+        amount_paid: sum,
+        status,
+        paid_date: last?.paid_date ?? null,
+        method: last?.method ?? null,
+        payment_method: last?.payment_method ?? null,
+        confirmed_by: last?.confirmed_by ?? null,
+        confirmed_at: last ? new Date().toISOString() : null,
+      })
+      .eq('id', paymentId)
+  }
+
+  // Registra UN abono (movimiento). El mes acumula y deriva su estatus.
+  async function addReceipt() {
+    if (!payingRow || payForm.amount_paid <= 0) return
+    setSaving(true)
+    const cid = await ensureCharge()
+    if (!cid) {
+      setSaving(false)
+      toast.error('No se pudo crear el cargo del mes')
+      return
+    }
+    const c = payingRow.contract
+    const { methodEnum, paymentMethodEs } = mapPaymentMethod(payForm.method)
+    const { error } = await supabase.from('payment_receipts').insert({
+      org_id: orgId,
+      payment_id: cid,
+      contract_id: c.id,
+      amount: payForm.amount_paid,
       paid_date: payForm.paid_date,
       method: methodEnum,
-      reference: payForm.reference || null,
-      confirmed_by: confirmedBy,
-      confirmed_at: new Date().toISOString(),
       payment_method: paymentMethodEs,
-    }
-
-    if (existing) {
-      // Suma el abono al renglón del periodo en vez de duplicar el cargo.
-      const prevPaid = Number(existing.amount_paid || 0)
-      const newPaid = payForm.is_partial ? Math.min(prevPaid + amountReceived, totalDue) : totalDue
-      isPartial = newPaid + 0.001 < totalDue
-      const res = await supabase
-        .from('payments')
-        .update({ ...common, amount_paid: newPaid, status: isPartial ? 'partial' : 'paid' })
-        .eq('id', existing.id)
-        .select()
-        .single()
-      paymentData = res.data
-      error = res.error
-    } else {
-      isPartial = amountReceived + 0.001 < totalDue
-      const res = await supabase
-        .from('payments')
-        .insert({
-          ...common,
-          org_id: orgId,
-          contract_id: c.id,
-          due_date: dueDate,
-          amount_paid: amountReceived,
-          status: isPartial ? 'partial' : 'paid',
-        })
-        .select()
-        .single()
-      paymentData = res.data
-      error = res.error
-    }
-
-    if (paymentData && !error) {
-      // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza).
-      fetch(`/api/payments/${paymentData.id}/receipt`, { method: 'POST' }).catch(() => {})
-      // Asiento en el ledger.
-      await supabase.from('payment_ledger').insert({
-        org_id: orgId,
-        payment_id: paymentData.id,
-        contract_id: c.id,
-        unit_id: c.unit_id,
-        tenant_name: c.occupant?.name || null,
-        amount: payForm.rent_amount,
-        water_fee: payForm.water_fee,
-        total: amountReceived,
-        payment_method: paymentMethodEs,
-        confirmed_by: confirmedBy,
-        notes: isPartial
-          ? `Pago parcial${payForm.reference ? ` · ${payForm.reference}` : ''}`
-          : payForm.reference || null,
-      })
-    }
-
-    setPayingRow(null)
-    setSaving(false)
+      reference: payForm.reference || null,
+      payer_occupant_id: payer?.id ?? null,
+      confirmed_by: confirmedBy,
+    })
     if (error) {
-      toast.error(`Error al guardar: ${error.message}`)
-    } else {
-      toast.success(isPartial ? 'Pago parcial registrado' : 'Pago registrado correctamente')
+      setSaving(false)
+      toast.error(`No se pudo registrar el abono: ${error.message}`)
+      return
     }
+    await recomputeCharge(cid)
+    // Bitácora inmutable (auditoría): un asiento por abono.
+    await supabase.from('payment_ledger').insert({
+      org_id: orgId,
+      payment_id: cid,
+      contract_id: c.id,
+      unit_id: c.unit_id,
+      tenant_name: c.occupant?.name || null,
+      amount: payForm.rent_amount,
+      water_fee: payForm.water_fee,
+      total: payForm.amount_paid,
+      payment_method: paymentMethodEs,
+      confirmed_by: confirmedBy,
+      notes: payForm.reference || null,
+    })
+    await loadReceipts(cid)
+    // Prepara el siguiente abono: limpia monto/quién/referencia.
+    setPayer(null)
+    setPayForm((f) => ({ ...f, amount_paid: 0, reference: '' }))
+    setSaving(false)
+    toast.success('Abono registrado')
+    fetchBilling()
+  }
+
+  async function removeReceipt(id: string) {
+    if (!chargeId) return
+    const { error } = await supabase.from('payment_receipts').delete().eq('id', id)
+    if (error) {
+      toast.error('No se pudo eliminar el abono')
+      return
+    }
+    await recomputeCharge(chargeId)
+    await loadReceipts(chargeId)
     fetchBilling()
   }
 
@@ -458,6 +529,9 @@ export default function CobrosPage() {
   const modalDaysLate = payingRow
     ? Math.max(0, dayDiff(new Date(`${payingRow.dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)))
     : 0
+  const chargeTotal = payForm.rent_amount + payForm.water_fee + payForm.late_fee
+  const totalReceipts = receipts.reduce((s, r) => s + r.amount, 0)
+  const remainingDue = Math.max(0, chargeTotal - totalReceipts)
 
   return (
     <div className="space-y-6">
@@ -685,35 +759,27 @@ export default function CobrosPage() {
               <span className="capitalize">{monthLabel(payingRow.month)}</span> · vence {payingRow.dueDate}
             </p>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta</label>
-                <input
-                  type="number"
-                  value={payForm.rent_amount}
-                  onChange={(e) =>
-                    setPayForm((f) => ({
-                      ...f,
-                      rent_amount: Number(e.target.value),
-                      amount_paid: f.is_partial ? f.amount_paid : Number(e.target.value) + f.water_fee + f.late_fee,
-                    }))
-                  }
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
-                <input
-                  type="number"
-                  value={payForm.water_fee}
-                  onChange={(e) =>
-                    setPayForm((f) => ({
-                      ...f,
-                      water_fee: Number(e.target.value),
-                      amount_paid: f.is_partial ? f.amount_paid : f.rent_amount + Number(e.target.value) + f.late_fee,
-                    }))
-                  }
-                  className="input-field w-full"
-                />
+              {/* ── Cargo del mes (renta + agua + mora) ── */}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cargo del mes</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta</label>
+                  <input
+                    type="number"
+                    value={payForm.rent_amount}
+                    onChange={(e) => setPayForm((f) => ({ ...f, rent_amount: Number(e.target.value) }))}
+                    className="input-field w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
+                  <input
+                    type="number"
+                    value={payForm.water_fee}
+                    onChange={(e) => setPayForm((f) => ({ ...f, water_fee: Number(e.target.value) }))}
+                    className="input-field w-full"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
@@ -725,80 +791,109 @@ export default function CobrosPage() {
                 <input
                   type="number"
                   value={payForm.late_fee}
-                  onChange={(e) =>
-                    setPayForm((f) => ({
-                      ...f,
-                      late_fee: Number(e.target.value),
-                      amount_paid: f.is_partial ? f.amount_paid : f.rent_amount + f.water_fee + Number(e.target.value),
-                    }))
-                  }
+                  onChange={(e) => setPayForm((f) => ({ ...f, late_fee: Number(e.target.value) }))}
                   className="input-field w-full"
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  Recargo calculado por días entre el vencimiento y la fecha de pago. Ponlo en 0 para condonarlo.
-                </p>
+                <p className="text-xs text-gray-400 mt-1">Ponlo en 0 para condonarlo.</p>
               </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Total a cobrar</label>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(payForm.rent_amount + payForm.water_fee + payForm.late_fee)}
-                </p>
+              <div className="flex justify-between border-t border-gray-100 dark:border-gray-800 pt-2 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Total del mes</span>
+                <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(chargeTotal)}</span>
               </div>
-              <div>
-                <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={payForm.is_partial}
-                    onChange={(e) =>
-                      setPayForm((f) => ({
-                        ...f,
-                        is_partial: e.target.checked,
-                        amount_paid: e.target.checked ? f.amount_paid : f.rent_amount + f.water_fee + f.late_fee,
-                      }))
-                    }
-                    className="rounded border-gray-300"
-                  />
-                  Pago parcial (fuera de fecha)
-                </label>
-              </div>
-              {payForm.is_partial && (
-                <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto recibido</label>
-                  <input
-                    type="number"
-                    value={payForm.amount_paid}
-                    onChange={(e) => setPayForm((f) => ({ ...f, amount_paid: Number(e.target.value) }))}
-                    className="input-field w-full"
-                  />
-                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                    Restante:{' '}
-                    {formatCurrency(
-                      Math.max(0, payForm.rent_amount + payForm.water_fee + payForm.late_fee - payForm.amount_paid),
-                    )}{' '}
-                    · queda vivo en el estado de cuenta hasta cubrirse
+
+              {/* ── Abonos ya registrados ── */}
+              {(loadingReceipts || receipts.length > 0) && (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-2.5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                    Abonos registrados
                   </p>
+                  {loadingReceipts ? (
+                    <p className="text-xs text-gray-400">Cargando…</p>
+                  ) : (
+                    <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                      {receipts.map((r) => (
+                        <li key={r.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+                          <div className="min-w-0">
+                            <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(r.amount)}</span>
+                            <span className="text-xs text-gray-400">
+                              {' · '}
+                              {r.paid_date}
+                              {r.payerName ? ` · ${r.payerName}` : ''}
+                              {r.reference ? ` · ${r.reference}` : ''}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeReceipt(r.id)}
+                            title="Eliminar abono"
+                            className="shrink-0 p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5 mt-1 text-xs">
+                    <span className="text-gray-500 dark:text-gray-400">Abonado</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {formatCurrency(totalReceipts)} · resta {formatCurrency(remainingDue)}
+                    </span>
+                  </div>
                 </div>
               )}
+
+              {/* ── Nuevo abono (un movimiento) ── */}
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Nuevo abono</p>
               <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método</label>
-                <select
-                  value={payForm.method}
-                  onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto recibido</label>
+                <input
+                  type="number"
+                  value={payForm.amount_paid}
+                  onChange={(e) => setPayForm((f) => ({ ...f, amount_paid: Number(e.target.value) }))}
                   className="input-field w-full"
-                >
-                  <option value="Transferencia">Transferencia</option>
-                  <option value="Efectivo">Efectivo</option>
-                  <option value="Deposito">Depósito</option>
-                </select>
+                />
               </div>
               <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Pagó (quién)</label>
+                <PersonPicker
+                  orgId={orgId}
+                  value={payer}
+                  onChange={setPayer}
+                  newType="both"
+                  placeholder="Buscar quién pagó (opcional)…"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método</label>
+                  <select
+                    value={payForm.method}
+                    onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
+                    className="input-field w-full"
+                  >
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Deposito">Depósito</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de pago</label>
+                  <input
+                    type="date"
+                    value={payForm.paid_date}
+                    onChange={(e) => onPaidDateChange(e.target.value)}
+                    className="input-field w-full"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia / comprobante</label>
                 <input
                   type="text"
                   value={payForm.reference}
                   onChange={(e) => setPayForm((f) => ({ ...f, reference: e.target.value }))}
                   className="input-field w-full"
-                  placeholder="Número de referencia"
+                  placeholder="Ej. SPEI 00169, Foto 00071…"
                 />
               </div>
               <div>
@@ -814,29 +909,20 @@ export default function CobrosPage() {
                   <option value="system">Sistema</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de pago</label>
-                <input
-                  type="date"
-                  value={payForm.paid_date}
-                  onChange={(e) => onPaidDateChange(e.target.value)}
-                  className="input-field w-full"
-                />
-              </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   onClick={() => setPayingRow(null)}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
                 >
-                  Cancelar
+                  Cerrar
                 </button>
                 <button
-                  onClick={handleMarkPaid}
-                  disabled={saving}
+                  onClick={addReceipt}
+                  disabled={saving || payForm.amount_paid <= 0}
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
-                  {payForm.is_partial ? 'Guardar pago parcial' : 'Guardar pago'}
+                  Guardar abono
                 </button>
               </div>
             </div>
