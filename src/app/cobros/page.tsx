@@ -612,7 +612,7 @@ export default function CobrosPage() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
                           >
                             <Check className="w-3 h-3" />
-                            Marcar pagado
+                            Registrar pago
                           </button>
                         ) : (
                           <div className="flex items-center justify-center gap-2">
