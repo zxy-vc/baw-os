@@ -21,6 +21,7 @@ interface ContractRow {
   payment_day: number
   status: string
   start_date: string | null
+  billing_start_date: string | null
   unit: { number: string } | null
   occupant: { name: string } | null
 }
@@ -178,7 +179,7 @@ export default function CobrosPage() {
     const contractsRes = await supabase
       .from('contracts')
       .select(
-        'id, unit_id, occupant_id, monthly_amount, payment_day, status, start_date, unit:units(number), occupant:occupants(name)',
+        'id, unit_id, occupant_id, monthly_amount, payment_day, status, start_date, billing_start_date, unit:units(number), occupant:occupants(name)',
       )
       .in('status', ['active', 'en_renovacion'])
       .eq('org_id', orgId)
@@ -212,7 +213,7 @@ export default function CobrosPage() {
     const billingRows: BillingRow[] = []
     for (const c of contracts) {
       const day = c.payment_day || 1
-      for (const month of scheduleMonths(c.start_date, selectedMonth)) {
+      for (const month of scheduleMonths(c.billing_start_date ?? c.start_date, selectedMonth)) {
         const dueDate = `${month}-${pad2(day)}`
         const payment = paymentByKey.get(`${c.id}|${month}`) || null
 
