@@ -15,7 +15,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, UserPlus, X, AlertTriangle, Check } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { OccupantType } from '@/types'
+import type { OccupantType, OccupantKind } from '@/types'
 
 export type PickedPerson = {
   id: string
@@ -76,7 +76,7 @@ export default function PersonPicker({
 
   // Panel de "crear persona"
   const [createOpen, setCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState({ name: '', phone: '', email: '' })
+  const [createForm, setCreateForm] = useState({ name: '', phone: '', email: '', kind: 'persona' as OccupantKind })
   const [creating, setCreating] = useState(false)
   const [dup, setDup] = useState<PickedPerson | null>(null)
   const [createErr, setCreateErr] = useState<string | null>(null)
@@ -157,7 +157,7 @@ export default function PersonPicker({
   }
 
   function openCreate() {
-    setCreateForm({ name: query.trim(), phone: '', email: '' })
+    setCreateForm({ name: query.trim(), phone: '', email: '', kind: 'persona' })
     setDup(null)
     setCreateErr(null)
     setCreateOpen(true)
@@ -194,6 +194,7 @@ export default function PersonPicker({
         phone: createForm.phone.trim() || null,
         email: createForm.email.trim() || null,
         type: newType,
+        kind: createForm.kind,
       })
       .select('id, name, phone, email')
       .single()
@@ -312,13 +313,29 @@ export default function PersonPicker({
       {createOpen && (
         <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 space-y-3">
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Nueva persona
+            {createForm.kind === 'empresa' ? 'Nueva empresa' : 'Nueva persona'}
           </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {(['persona', 'empresa'] as OccupantKind[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setCreateForm({ ...createForm, kind: k })}
+                className={`px-2 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                  createForm.kind === k
+                    ? 'bg-indigo-600 border-indigo-600 text-white'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                {k === 'persona' ? 'Persona' : 'Empresa'}
+              </button>
+            ))}
+          </div>
           <input
             type="text"
             value={createForm.name}
             onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-            placeholder="Nombre completo"
+            placeholder={createForm.kind === 'empresa' ? 'Razón social / Nombre' : 'Nombre completo'}
             className="input-field w-full"
             autoFocus
           />
