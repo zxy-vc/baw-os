@@ -105,11 +105,13 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     placement: 'top',
     routes: ['/contacts', '/estancias', '/contracts', '/applications', '/clientes'],
     subNav: [
+      // Grupo "gente" (uso diario): directorio → ocupación → relación comercial.
       { href: '/contacts', label: 'Contactos' },
       { href: '/estancias', label: 'Estancias' },
+      { href: '/clientes', label: 'CRM', matchPrefix: '/clientes' },
+      // Grupo "papeleo": acuerdos firmados → filtro de aprobación.
       { href: '/contracts', label: 'Contratos' },
       { href: '/applications', label: 'Expedientes' },
-      { href: '/clientes', label: 'CRM', matchPrefix: '/clientes' },
     ],
   },
   {
