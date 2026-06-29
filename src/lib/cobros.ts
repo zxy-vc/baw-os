@@ -32,3 +32,39 @@ export function referenceFor(unitNumber: string | null | undefined, month: strin
   const depto = (unitNumber || '').trim().replace(/\s+/g, '') || 'SN'
   return `${depto}-${month}`
 }
+
+/** Tarifa de un servicio (agua, luz…) por edificio, con fecha de vigencia. */
+export type ServiceRate = {
+  building_id: string | null
+  service: string
+  amount: number
+  effective_from: string // 'YYYY-MM-DD'
+}
+
+/**
+ * Resuelve la tarifa vigente de un servicio para un edificio y mes dados.
+ * Prefiere la tarifa específica del edificio sobre la de toda la org, y dentro
+ * de eso la de fecha de vigencia más reciente (≤ el mes). Devuelve null si no
+ * hay ninguna aplicable (el caller usa su fallback).
+ */
+export function resolveServiceRate(
+  rates: ServiceRate[],
+  service: string,
+  buildingId: string | null,
+  month: string, // 'YYYY-MM'
+): number | null {
+  const applicable = rates.filter(
+    (r) =>
+      r.service === service &&
+      r.effective_from.slice(0, 7) <= month &&
+      (r.building_id === buildingId || r.building_id === null),
+  )
+  if (!applicable.length) return null
+  applicable.sort((a, b) => {
+    const aSpecific = a.building_id === buildingId ? 1 : 0
+    const bSpecific = b.building_id === buildingId ? 1 : 0
+    if (aSpecific !== bSpecific) return bSpecific - aSpecific
+    return b.effective_from.localeCompare(a.effective_from)
+  })
+  return applicable[0].amount
+}
