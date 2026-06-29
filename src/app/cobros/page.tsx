@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Receipt, X, Save, Check, FileText } from 'lucide-react'
+import { Receipt, X, Save, Check, FileText, Zap } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
@@ -166,6 +166,7 @@ export default function CobrosPage() {
   const [receipts, setReceipts] = useState<ReceiptRow[]>([])
   const [loadingReceipts, setLoadingReceipts] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [quickId, setQuickId] = useState<string | null>(null)
   const [confirmedBy, setConfirmedBy] = useState('alicia')
   const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
   const [invoicingRow, setInvoicingRow] = useState<BillingRow | null>(null)
@@ -464,6 +465,74 @@ export default function CobrosPage() {
     fetchBilling()
   }
 
+  // Pago rápido: marca el mes pagado completo en 1 clic (renta + agua, sin mora,
+  // fecha = vencimiento, ref "histórico"). Para inquilinos al corriente.
+  async function quickPay(row: BillingRow) {
+    const c = row.contract
+    const key = `${c.id}|${row.month}`
+    setQuickId(key)
+    const rent = row.payment?.rent_amount ?? c.monthly_amount
+    const water = row.payment?.water_fee ?? WATER_FEE_DEFAULT
+    const charge = {
+      amount: rent + water,
+      rent_amount: rent,
+      water_fee: water,
+      late_fee_amount: 0,
+      late_fee_level: null,
+    }
+    let cid = row.payment?.id ?? null
+    if (cid) {
+      await supabase.from('payments').update(charge).eq('id', cid)
+    } else {
+      const { data, error } = await supabase
+        .from('payments')
+        .insert({ ...charge, org_id: orgId, contract_id: c.id, due_date: row.dueDate, amount_paid: 0, status: 'pending' })
+        .select('id')
+        .single()
+      if (error || !data) {
+        setQuickId(null)
+        toast.error('No se pudo crear el cargo del mes')
+        return
+      }
+      cid = data.id
+    }
+    const { methodEnum, paymentMethodEs } = mapPaymentMethod('Transferencia')
+    const { error } = await supabase.from('payment_receipts').insert({
+      org_id: orgId,
+      payment_id: cid,
+      contract_id: c.id,
+      amount: rent + water,
+      paid_date: row.dueDate,
+      method: methodEnum,
+      payment_method: paymentMethodEs,
+      reference: 'Histórico (pago rápido)',
+      payer_occupant_id: null,
+      confirmed_by: confirmedBy,
+    })
+    if (error) {
+      setQuickId(null)
+      toast.error(`No se pudo registrar: ${error.message}`)
+      return
+    }
+    await recomputeCharge(cid as string)
+    await supabase.from('payment_ledger').insert({
+      org_id: orgId,
+      payment_id: cid,
+      contract_id: c.id,
+      unit_id: c.unit_id,
+      tenant_name: c.occupant?.name || null,
+      amount: rent,
+      water_fee: water,
+      total: rent + water,
+      payment_method: paymentMethodEs,
+      confirmed_by: confirmedBy,
+      notes: 'Pago rápido (histórico)',
+    })
+    setQuickId(null)
+    toast.success('Mes marcado pagado')
+    fetchBilling()
+  }
+
   async function removeReceipt(id: string) {
     if (!chargeId) return
     const { error } = await supabase.from('payment_receipts').delete().eq('id', id)
@@ -682,13 +751,24 @@ export default function CobrosPage() {
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         {row.status !== 'pagado' ? (
-                          <button
-                            onClick={() => openPayModal(row)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
-                          >
-                            <Check className="w-3 h-3" />
-                            Registrar pago
-                          </button>
+                          <>
+                            <button
+                              onClick={() => openPayModal(row)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+                            >
+                              <Check className="w-3 h-3" />
+                              Registrar pago
+                            </button>
+                            <button
+                              onClick={() => quickPay(row)}
+                              disabled={quickId === `${row.contract.id}|${row.month}`}
+                              title="Marcar el mes pagado completo (renta + agua, sin mora)"
+                              className="inline-flex items-center gap-1 px-2 py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                            >
+                              <Zap className="w-3 h-3" />
+                              Rápido
+                            </button>
+                          </>
                         ) : (
                           <div className="flex items-center justify-center gap-2">
                             {row.payment?.method === 'stripe' ? (
