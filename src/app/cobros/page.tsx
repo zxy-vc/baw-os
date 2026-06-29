@@ -694,7 +694,7 @@ export default function CobrosPage() {
       <div className="flex flex-wrap items-center gap-2">
         {[
           { key: 'all', label: 'Todos' },
-          { key: 'pendientes', label: 'Pendientes' },
+          { key: 'pendientes', label: 'Por vencer' },
           { key: 'vencidos', label: 'Vencidos' },
           { key: 'pagados', label: 'Pagados' },
         ].map((f) => (
@@ -811,8 +811,16 @@ export default function CobrosPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No hay meses por cobrar en este rango"
-          description="Los cobros se generan mes a mes desde el inicio de cada contrato activo"
+          title={
+            filter === 'pendientes'
+              ? 'No hay meses por vencer en este rango'
+              : 'No hay meses por cobrar en este rango'
+          }
+          description={
+            filter === 'pendientes'
+              ? 'Son los meses futuros aún no vencidos. Sube “Hasta” a un mes adelante (ej. dic 2026) para ver los próximos cargos.'
+              : 'Los cobros se generan mes a mes desde el inicio de cada contrato activo'
+          }
         />
       ) : (
         <div className="card overflow-x-auto p-0">
