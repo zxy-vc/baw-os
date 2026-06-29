@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { calcMoraSurcharge } from '@/lib/mora-engine'
 import { mapPaymentMethod, referenceFor, resolveServiceRate, type ServiceRate } from '@/lib/cobros'
+import { scheduleMonths, computeMonthStatus, rankPayment, type BillingStatus } from '@/lib/billing'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
@@ -53,8 +54,6 @@ interface ReceiptRow {
   payerName: string | null
 }
 
-type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
-
 interface BillingRow {
   contract: ContractRow
   payment: PaymentRow | null
@@ -67,7 +66,6 @@ interface BillingRow {
 }
 
 const WATER_FEE_DEFAULT = 250
-const MAX_MONTHS_BACK = 24
 const MONTH_NAMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 function pad2(n: number) {
@@ -96,40 +94,8 @@ function monthLabel(month: string): string {
   return `${MONTH_NAMES[m - 1]} ${y}`
 }
 
-// Meses 'YYYY-MM' desde el inicio del contrato hasta el mes de corte (inclusive),
-// acotado a los últimos MAX_MONTHS_BACK meses para no generar listas gigantes.
-function scheduleMonths(startISO: string | null, cutoff: string): string[] {
-  const [cy, cm] = cutoff.split('-').map(Number)
-  let y: number
-  let m: number
-  if (startISO) {
-    // Derivar el mes directo del string 'YYYY-MM-DD' para no desfasar por zona
-    // horaria (new Date('2026-02-01') retrocede a ene 31 en husos UTC negativos).
-    const [sy, sm] = startISO.slice(0, 7).split('-').map(Number)
-    y = sy
-    m = sm
-  } else {
-    y = cy
-    m = cm
-  }
-  const out: string[] = []
-  while (y < cy || (y === cy && m <= cm)) {
-    out.push(`${y}-${pad2(m)}`)
-    m++
-    if (m > 12) {
-      m = 1
-      y++
-    }
-  }
-  return out.slice(-MAX_MONTHS_BACK)
-}
-
-// Prioridad de pago cuando hay más de un registro en el mismo mes.
-function rankPayment(p: PaymentRow): number {
-  if (p.status === 'paid') return 3
-  if (p.status === 'partial') return 2
-  return 1
-}
+// scheduleMonths, rankPayment y computeMonthStatus viven en @/lib/billing
+// (fuente única que comparten Cobros, Mission Control y Morosidad).
 
 // Mora sugerida al registrar: respeta una mora ya guardada; si no, la calcula por
 // los días entre el vencimiento y la fecha de pago.
@@ -218,11 +184,10 @@ export default function CobrosPage() {
     for (const p of payments) {
       const key = `${p.contract_id}|${p.due_date.slice(0, 7)}`
       const prev = paymentByKey.get(key)
-      if (!prev || rankPayment(p) > rankPayment(prev)) paymentByKey.set(key, p)
+      if (!prev || rankPayment(p.status) > rankPayment(prev.status)) paymentByKey.set(key, p)
     }
 
     const today = new Date()
-    const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate())
 
     const billingRows: BillingRow[] = []
     for (const c of contracts) {
@@ -234,36 +199,15 @@ export default function CobrosPage() {
         // Cuota de agua: tarifa del edificio vigente para el mes (fallback $250).
         const waterFee =
           resolveServiceRate(waterRates, 'agua', c.unit?.building_id ?? null, month) ?? WATER_FEE_DEFAULT
-        const base = payment?.amount ?? c.monthly_amount + waterFee
-        const fee = Number(payment?.late_fee_amount || 0)
-        const paid = Number(payment?.amount_paid || 0)
-        const hasCollection = payment != null && (payment.status === 'paid' || payment.status === 'partial')
-
-        let status: BillingStatus = 'pendiente'
-        let moraAmount = 0
-        let remaining = 0
-
-        if (hasCollection) {
-          remaining = Math.max(0, base + fee - paid)
-          status = remaining > 0.001 ? 'parcial' : 'pagado'
-        } else if (!c.payment_day) {
-          status = 'verbal'
-        } else {
-          const due = new Date(`${dueDate}T00:00:00`)
-          if (todayMid < due) {
-            status = 'pendiente'
-          } else {
-            // Recargo escalonado (motor de mora): 0% gracia (1-5d), 5% (6-15d), 10% (16+).
-            const daysPastDue = dayDiff(due, todayMid)
-            const { amount: surcharge } = calcMoraSurcharge(c.monthly_amount, daysPastDue)
-            if (surcharge > 0) {
-              status = 'mora'
-              moraAmount = surcharge
-            } else {
-              status = 'vencido'
-            }
-          }
-        }
+        // Estatus/mora/saldo: lógica compartida con el dashboard (@/lib/billing).
+        const { status, moraAmount, remaining } = computeMonthStatus({
+          monthlyAmount: c.monthly_amount,
+          paymentDay: c.payment_day,
+          dueDate,
+          waterFee,
+          payment,
+          today,
+        })
 
         billingRows.push({ contract: c, payment, month, dueDate, status, moraAmount, remaining, waterFee })
       }
