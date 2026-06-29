@@ -169,6 +169,7 @@ export default function CobrosPage() {
   const [saving, setSaving] = useState(false)
   const [quickId, setQuickId] = useState<string | null>(null)
   const [nameFilter, setNameFilter] = useState('')
+  const [period, setPeriod] = useState<'all' | 'month' | 'year' | '12m'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkRunning, setBulkRunning] = useState(false)
   const [confirmedBy, setConfirmedBy] = useState('alicia')
@@ -581,10 +582,22 @@ export default function CobrosPage() {
   }
 
   const nameQuery = nameFilter.trim().toLowerCase()
+  // Límite inferior del periodo (relativo al mes de corte "Hasta").
+  const periodFrom = (() => {
+    if (period === 'all') return ''
+    const [y, m] = selectedMonth.split('-').map(Number)
+    if (period === 'month') return selectedMonth
+    if (period === 'year') return `${y}-01`
+    // últimos 12 meses
+    const fromM = m === 12 ? 1 : m + 1
+    const fromY = m === 12 ? y : y - 1
+    return `${fromY}-${pad2(fromM)}`
+  })()
   const filtered = rows.filter((r) => {
     if (filter === 'pendientes' && r.status !== 'pendiente') return false
     if (filter === 'vencidos' && !(r.status === 'vencido' || r.status === 'mora' || r.status === 'parcial')) return false
     if (filter === 'pagados' && r.status !== 'pagado') return false
+    if (periodFrom && r.month < periodFrom) return false
     if (nameQuery) {
       const name = (r.contract.occupant?.name || '').toLowerCase()
       const unit = (r.contract.unit?.number || '').toLowerCase()
@@ -712,6 +725,32 @@ export default function CobrosPage() {
           placeholder="Filtrar por inquilino o depto…"
           className="input-field text-sm py-1.5 flex-1 min-w-[200px]"
         />
+      </div>
+
+      {/* Filtro de periodo (relativo al mes "Hasta") */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-gray-400 mr-1">Periodo:</span>
+        {[
+          { key: 'all', label: 'Todo' },
+          { key: 'month', label: 'Solo el mes' },
+          { key: 'year', label: 'Año en curso' },
+          { key: '12m', label: 'Últimos 12 meses' },
+        ].map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setPeriod(p.key as typeof period)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              period === p.key
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+        <span className="text-xs text-gray-400">
+          {period !== 'all' && `(${filtered.length} renglón/es)`}
+        </span>
       </div>
 
       {/* Barra de acción en lote */}
