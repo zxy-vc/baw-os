@@ -25,6 +25,7 @@ export default function ContractsPage() {
     rent_type: 'LTR' as 'LTR' | 'MTR' | 'STR',
     notes: '',
     start_date: '',
+    billing_start_date: '',
     end_date: '',
     drive_link: '',
     aval: '',
@@ -81,6 +82,7 @@ export default function ContractsPage() {
       rent_type: (contract.rent_type as 'LTR' | 'MTR' | 'STR') || 'LTR',
       notes: contract.notes?.replace(/\n?📎 https?:\/\/\S+/, '').trim() || '',
       start_date: contract.start_date || '',
+      billing_start_date: contract.billing_start_date || '',
       end_date: contract.end_date || '',
       drive_link: existingLink,
       aval: contract.aval || '',
@@ -103,6 +105,7 @@ export default function ContractsPage() {
         status: editForm.status,
         rent_type: editForm.rent_type,
         start_date: editForm.start_date || null,
+        billing_start_date: editForm.billing_start_date || null,
         notes: editForm.notes || null,
         end_date: editForm.end_date || null,
         aval: editForm.aval || null,
@@ -501,7 +504,7 @@ export default function ContractsPage() {
                   onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
                   className="input-field w-full"
                 />
-                <p className="text-xs text-gray-400 mt-1">Determina desde qué mes se generan los cobros.</p>
+                <p className="text-xs text-gray-400 mt-1">Fecha real del contrato (historial). Para cobros usa &quot;Facturar desde&quot;.</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha fin</label>
@@ -511,6 +514,20 @@ export default function ContractsPage() {
                   onChange={(e) => setEditForm({ ...editForm, end_date: e.target.value })}
                   className="input-field w-full"
                 />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  Facturar desde <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={editForm.billing_start_date}
+                  onChange={(e) => setEditForm({ ...editForm, billing_start_date: e.target.value })}
+                  className="input-field w-full"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Mes desde el que Cobros genera cargos. Vacío = desde la fecha de inicio.
+                </p>
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Notas</label>
