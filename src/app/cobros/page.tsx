@@ -135,7 +135,7 @@ export default function CobrosPage() {
   const [saving, setSaving] = useState(false)
   const [quickId, setQuickId] = useState<string | null>(null)
   const [nameFilter, setNameFilter] = useState('')
-  const [period, setPeriod] = useState<'all' | 'month' | 'year' | '12m'>('all')
+  const [fromMonth, setFromMonth] = useState('') // 'YYYY-MM' · '' = sin límite (Todo)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkRunning, setBulkRunning] = useState(false)
   const [userLabel, setUserLabel] = useState('')
@@ -542,17 +542,15 @@ export default function CobrosPage() {
   }
 
   const nameQuery = nameFilter.trim().toLowerCase()
-  // Límite inferior del periodo (relativo al mes de corte "Hasta").
-  const periodFrom = (() => {
-    if (period === 'all') return ''
-    const [y, m] = selectedMonth.split('-').map(Number)
-    if (period === 'month') return selectedMonth
-    if (period === 'year') return `${y}-01`
-    // últimos 12 meses
-    const fromM = m === 12 ? 1 : m + 1
-    const fromY = m === 12 ? y : y - 1
-    return `${fromY}-${pad2(fromM)}`
-  })()
+  // "Desde" = límite inferior del rango (fromMonth). Atajos relativos a "Hasta".
+  const [cutY, cutM] = selectedMonth.split('-').map(Number)
+  const fromShortcuts: { key: string; label: string; value: string }[] = [
+    { key: 'todo', label: 'Todo', value: '' },
+    { key: 'mes', label: 'Solo el mes', value: selectedMonth },
+    { key: 'ano', label: 'Año en curso', value: `${cutY}-01` },
+    { key: 'doce', label: 'Últimos 12 meses', value: `${cutM === 12 ? cutY : cutY - 1}-${pad2(cutM === 12 ? 1 : cutM + 1)}` },
+  ]
+  const periodFrom = fromMonth
   const filtered = rows.filter((r) => {
     if (filter === 'pendientes' && r.status !== 'pendiente') return false
     if (filter === 'vencidos' && !(r.status === 'vencido' || r.status === 'mora' || r.status === 'parcial')) return false
@@ -680,6 +678,14 @@ export default function CobrosPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-500 dark:text-gray-400">Desde</label>
+          <input
+            type="month"
+            value={fromMonth}
+            max={selectedMonth}
+            onChange={(e) => setFromMonth(e.target.value)}
+            className="input-field w-auto"
+          />
           <label className="text-sm text-gray-500 dark:text-gray-400">Hasta</label>
           <input
             type="month"
@@ -694,7 +700,7 @@ export default function CobrosPage() {
       <div className="flex flex-wrap items-center gap-2">
         {[
           { key: 'all', label: 'Todos' },
-          { key: 'pendientes', label: 'Pendientes' },
+          { key: 'pendientes', label: 'Por vencer' },
           { key: 'vencidos', label: 'Vencidos' },
           { key: 'pagados', label: 'Pagados' },
         ].map((f) => (
@@ -719,20 +725,15 @@ export default function CobrosPage() {
         />
       </div>
 
-      {/* Filtro de periodo (relativo al mes "Hasta") */}
+      {/* Atajos de "Desde" (ajustan el rango relativo a "Hasta") */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-gray-400 mr-1">Periodo:</span>
-        {[
-          { key: 'all', label: 'Todo' },
-          { key: 'month', label: 'Solo el mes' },
-          { key: 'year', label: 'Año en curso' },
-          { key: '12m', label: 'Últimos 12 meses' },
-        ].map((p) => (
+        <span className="text-xs text-gray-400 mr-1">Atajos:</span>
+        {fromShortcuts.map((p) => (
           <button
             key={p.key}
-            onClick={() => setPeriod(p.key as typeof period)}
+            onClick={() => setFromMonth(p.value)}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              period === p.key
+              fromMonth === p.value
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
             }`}
@@ -741,7 +742,7 @@ export default function CobrosPage() {
           </button>
         ))}
         <span className="text-xs text-gray-400">
-          {period !== 'all' && `(${filtered.length} renglón/es)`}
+          {fromMonth && `(${filtered.length} renglón/es)`}
         </span>
       </div>
 
@@ -811,8 +812,16 @@ export default function CobrosPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No hay meses por cobrar en este rango"
-          description="Los cobros se generan mes a mes desde el inicio de cada contrato activo"
+          title={
+            filter === 'pendientes'
+              ? 'No hay meses por vencer en este rango'
+              : 'No hay meses por cobrar en este rango'
+          }
+          description={
+            filter === 'pendientes'
+              ? 'Son los meses futuros aún no vencidos. Sube “Hasta” a un mes adelante (ej. dic 2026) para ver los próximos cargos.'
+              : 'Los cobros se generan mes a mes desde el inicio de cada contrato activo'
+          }
         />
       ) : (
         <div className="card overflow-x-auto p-0">
