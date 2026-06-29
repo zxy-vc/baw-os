@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Receipt, X, Save, Check, FileText, Zap } from 'lucide-react'
+import { Receipt, X, Save, Check, FileText, Zap, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
@@ -138,7 +138,11 @@ export default function CobrosPage() {
   const [period, setPeriod] = useState<'all' | 'month' | 'year' | '12m'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkRunning, setBulkRunning] = useState(false)
+  const [userLabel, setUserLabel] = useState('')
   const [confirmedBy, setConfirmedBy] = useState('alicia')
+  // Ordenamiento de la tabla (encabezados clicables).
+  const [sortKey, setSortKey] = useState<'depto' | 'mes' | 'inquilino' | 'total' | 'status'>('depto')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
   const [invoicingRow, setInvoicingRow] = useState<BillingRow | null>(null)
 
@@ -245,6 +249,18 @@ export default function CobrosPage() {
     fetchBilling()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, orgId])
+
+  // "Confirmado por" arranca con el usuario logueado (no Alicia).
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user
+      if (!u) return
+      const meta = u.user_metadata as { full_name?: string; name?: string } | undefined
+      const label = meta?.full_name || meta?.name || (u.email ? u.email.split('@')[0] : '') || 'Usuario'
+      setUserLabel(label)
+      setConfirmedBy(label)
+    })
+  }, [])
 
   function openPayModal(row: BillingRow) {
     const c = row.contract
@@ -610,6 +626,38 @@ export default function CobrosPage() {
     }
   }
 
+  // Orden de la tabla según el encabezado elegido.
+  const STATUS_ORDER: Record<BillingStatus, number> = {
+    mora: 0, vencido: 1, parcial: 2, pendiente: 3, verbal: 4, pagado: 5,
+  }
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0
+    if (sortKey === 'depto') {
+      cmp = (a.contract.unit?.number || '').localeCompare(b.contract.unit?.number || '')
+      if (cmp === 0) cmp = a.month.localeCompare(b.month)
+    } else if (sortKey === 'mes') {
+      cmp = a.month.localeCompare(b.month)
+    } else if (sortKey === 'inquilino') {
+      cmp = (a.contract.occupant?.name || '').localeCompare(b.contract.occupant?.name || '')
+    } else if (sortKey === 'total') {
+      const at = (a.payment?.amount ?? a.contract.monthly_amount + a.waterFee)
+      const bt = (b.payment?.amount ?? b.contract.monthly_amount + b.waterFee)
+      cmp = at - bt
+    } else if (sortKey === 'status') {
+      cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+    }
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+  const sortArrow = (key: typeof sortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '')
+
   // Días de atraso del pago que se está registrando (para el hint de mora).
   const modalDaysLate = payingRow
     ? Math.max(0, dayDiff(new Date(`${payingRow.dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)))
@@ -780,20 +828,30 @@ export default function CobrosPage() {
                     className="rounded border-gray-300"
                   />
                 </th>
-                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Depto</th>
-                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Mes</th>
-                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Inquilino</th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
+                  <button onClick={() => toggleSort('depto')} className="hover:text-gray-900 dark:hover:text-white">Depto{sortArrow('depto')}</button>
+                </th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
+                  <button onClick={() => toggleSort('mes')} className="hover:text-gray-900 dark:hover:text-white">Mes{sortArrow('mes')}</button>
+                </th>
+                <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
+                  <button onClick={() => toggleSort('inquilino')} className="hover:text-gray-900 dark:hover:text-white">Inquilino{sortArrow('inquilino')}</button>
+                </th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Renta</th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Agua</th>
-                <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Total</th>
+                <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
+                  <button onClick={() => toggleSort('total')} className="hover:text-gray-900 dark:hover:text-white">Total{sortArrow('total')}</button>
+                </th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Vence</th>
-                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Status</th>
+                <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
+                  <button onClick={() => toggleSort('status')} className="hover:text-gray-900 dark:hover:text-white">Status{sortArrow('status')}</button>
+                </th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Confirmó</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Acción</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => {
+              {sorted.map((row) => {
                 const waterFee = row.payment?.water_fee ?? row.waterFee
                 const rentAmt = row.payment?.rent_amount ?? row.contract.monthly_amount
                 const total = row.payment ? row.payment.amount : row.contract.monthly_amount + row.waterFee
@@ -881,6 +939,14 @@ export default function CobrosPage() {
                                 Facturar
                               </button>
                             )}
+                            <button
+                              onClick={() => openPayModal(row)}
+                              title="Ver / editar abonos de este mes"
+                              className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              Editar
+                            </button>
                           </div>
                         )}
                         <a
@@ -1077,6 +1143,7 @@ export default function CobrosPage() {
                   onChange={(e) => setConfirmedBy(e.target.value)}
                   className="input-field w-full"
                 >
+                  {userLabel && <option value={userLabel}>{userLabel} (tú)</option>}
                   <option value="alicia">Alicia</option>
                   <option value="enrique">Enrique</option>
                   <option value="fran">Fran</option>
