@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/status'
 import ContractAlertsBanner from '@/components/ContractAlertsBanner'
 import { useActiveContext, ALL_BUILDINGS } from '@/lib/useActiveContext'
+import { scheduleMonths, computeMonthStatus, rankPayment, pad2 } from '@/lib/billing'
+import { resolveServiceRate, type ServiceRate } from '@/lib/cobros'
 
 // S9 hotfix: Mission Control ahora espera el contexto activo y filtra todas
 // las queries por activeOrgId. Antes confiaba 100% en RLS y, cuando una sola
@@ -102,11 +104,8 @@ export default function MissionControl() {
         // Selects: con filtro de edificio usamos !inner para poder filtrar por
         // la columna anidada; sin filtro, embeds normales (no excluir filas).
         const contractsSel = bId
-          ? 'id, unit_id, monthly_amount, end_date, status, unit:units!inner(number, building_id), occupant:occupants(name)'
-          : 'id, unit_id, monthly_amount, end_date, status, unit:units(number), occupant:occupants(name)'
-        const paymentsSel = bId
-          ? 'id, amount, due_date, status, contract:contracts!inner(unit:units!inner(number, building_id), occupant:occupants(name))'
-          : 'id, amount, due_date, status, contract:contracts(unit:units(number), occupant:occupants(name))'
+          ? 'id, unit_id, monthly_amount, payment_day, start_date, billing_start_date, end_date, status, unit:units!inner(number, building_id), occupant:occupants(name)'
+          : 'id, unit_id, monthly_amount, payment_day, start_date, billing_start_date, end_date, status, unit:units(number, building_id), occupant:occupants(name)'
         const incidentsSel = bId
           ? 'id, status, created_at, description, unit:units!inner(number, building_id)'
           : 'id, status, created_at, description, unit:units(number)'
@@ -124,14 +123,6 @@ export default function MissionControl() {
           .in('status', ['active', 'en_renovacion'])
         if (bId) contractsQ = contractsQ.eq('unit.building_id', bId)
 
-        let paymentsQ = supabase
-          .from('payments')
-          .select(paymentsSel)
-          .eq('org_id', activeOrgId)
-          .in('status', ['pending', 'late'])
-        if (bId) paymentsQ = paymentsQ.eq('contract.unit.building_id', bId)
-        const paymentsFinal = paymentsQ.order('due_date', { ascending: true })
-
         let incidentsQ = supabase
           .from('incidents')
           .select(incidentsSel)
@@ -142,17 +133,73 @@ export default function MissionControl() {
           .order('created_at', { ascending: false })
           .limit(5)
 
-        const [unitsRes, contractsRes, paymentsRes, maintRes] = await Promise.all([
+        const [unitsRes, contractsRes, maintRes] = await Promise.all([
           unitsFinal,
           contractsQ,
-          paymentsFinal,
           incidentsFinal,
         ])
 
         const units = unitsRes.data || []
-        const contracts = contractsRes.data || []
-        const payments = paymentsRes.data || []
+        const contracts = (contractsRes.data || []) as Record<string, unknown>[]
         const tickets = maintRes.data || []
+
+        // Pagos (todos) de esos contratos + tarifas de agua, para PROYECTAR el
+        // adeudo igual que Cobros (fuente única @/lib/billing). Antes el dashboard
+        // contaba solo filas con status 'late' y subcontaba la morosidad real.
+        const contractIds = contracts.map((c) => c.id as string)
+        const [allPaymentsRes, ratesRes] = await Promise.all([
+          contractIds.length
+            ? supabase
+                .from('payments')
+                .select('contract_id, due_date, status, amount, amount_paid, late_fee_amount')
+                .in('contract_id', contractIds)
+            : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+          supabase
+            .from('service_rates')
+            .select('building_id, service, amount, effective_from')
+            .eq('org_id', activeOrgId)
+            .eq('service', 'agua'),
+        ])
+        const allPayments = (allPaymentsRes.data || []) as Record<string, unknown>[]
+        const waterRates = (ratesRes.data || []) as ServiceRate[]
+
+        const paymentByKey = new Map<string, Record<string, unknown>>()
+        for (const p of allPayments) {
+          const key = `${p.contract_id}|${String(p.due_date).slice(0, 7)}`
+          const prev = paymentByKey.get(key)
+          if (!prev || rankPayment(p.status as string) > rankPayment(prev.status as string)) paymentByKey.set(key, p)
+        }
+
+        const cutoff = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`
+        type OverdueRow = { contract: Record<string, unknown>; dueDate: string; owed: number }
+        const overdueRows: OverdueRow[] = []
+        for (const c of contracts) {
+          const unitRel = c.unit as { building_id?: string | null } | { building_id?: string | null }[] | null
+          const buildingId = (Array.isArray(unitRel) ? unitRel[0]?.building_id : unitRel?.building_id) ?? null
+          const months = scheduleMonths(
+            (c.billing_start_date as string | null) ?? (c.start_date as string | null),
+            cutoff,
+          )
+          for (const month of months) {
+            const dueDate = `${month}-${pad2(Number(c.payment_day) || 1)}`
+            const payment = (paymentByKey.get(`${c.id}|${month}`) || null) as
+              | { status: string; amount: number | null; amount_paid: number | null; late_fee_amount: number | null }
+              | null
+            const waterFee = resolveServiceRate(waterRates, 'agua', buildingId, month) ?? 250
+            const r = computeMonthStatus({
+              monthlyAmount: Number(c.monthly_amount || 0),
+              paymentDay: (c.payment_day as number) ?? null,
+              dueDate,
+              waterFee,
+              payment,
+              today: now,
+            })
+            if (r.status === 'mora' || r.status === 'vencido' || r.status === 'parcial') {
+              overdueRows.push({ contract: c, dueDate, owed: r.owed })
+            }
+          }
+        }
+        overdueRows.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
         // S9: empty state honesto — si la org existe pero no tiene units ni
         // contracts, mostrar dashboard vacío (no onboarding) porque el user
@@ -170,21 +217,14 @@ export default function MissionControl() {
           (u: { status: string }) => u.status === 'available'
         ).length
         const monthlyRevenue = contracts.reduce(
-          (sum: number, c: { monthly_amount: number | null }) =>
-            sum + Number(c.monthly_amount || 0),
+          (sum: number, c) => sum + Number((c.monthly_amount as number) || 0),
           0
         )
-        const overdue = payments.filter(
-          (p: { status: string }) => p.status === 'late'
-        )
-        const overdueAmount = overdue.reduce(
-          (sum: number, p: { amount: number | null }) =>
-            sum + Number(p.amount || 0),
-          0
-        )
+        // Morosidad = adeudo proyectado (vencido/mora/parcial), igual que Cobros.
+        const overdueAmount = overdueRows.reduce((sum, r) => sum + r.owed, 0)
+        const overdueCount = overdueRows.length
         const expiringCount = contracts.filter(
-          (c: { end_date: string | null }) =>
-            c.end_date && daysUntil(c.end_date) <= 60
+          (c) => c.end_date && daysUntil(c.end_date as string) <= 60
         ).length
 
         setMetrics({
@@ -193,29 +233,29 @@ export default function MissionControl() {
           availableUnits,
           monthlyRevenue,
           overdueAmount,
-          overdueCount: overdue.length,
+          overdueCount,
           expiringCount,
         })
 
+        const unitNumber = (c: Record<string, unknown>): string => {
+          const u = c.unit as { number?: string } | { number?: string }[] | null
+          return (Array.isArray(u) ? u[0]?.number : u?.number) || '—'
+        }
+        const occupantName = (c: Record<string, unknown>): string => {
+          const o = c.occupant as { name?: string } | { name?: string }[] | null
+          return (Array.isArray(o) ? o[0]?.name : o?.name) || 'Sin ocupante'
+        }
+
         setCollections(
-          payments.slice(0, 5).map((p: any) => ({
-            id: p.id,
-            unit:
-              p.contract?.[0]?.unit?.[0]?.number ||
-              p.contract?.unit?.number ||
-              '—',
-            tenant:
-              p.contract?.[0]?.occupant?.[0]?.name ||
-              p.contract?.occupant?.name ||
-              'Sin ocupante',
-            amount: Number(p.amount || 0),
-            status: p.status === 'late' ? 'late' : 'pending',
+          overdueRows.slice(0, 5).map((r, i) => ({
+            id: `${r.contract.id}-${r.dueDate}-${i}`,
+            unit: unitNumber(r.contract),
+            tenant: occupantName(r.contract),
+            amount: r.owed,
+            status: 'late' as const,
             daysOverdue: Math.max(
               0,
-              Math.floor(
-                (now.getTime() - new Date(p.due_date).getTime()) /
-                  (1000 * 60 * 60 * 24)
-              )
+              Math.floor((now.getTime() - new Date(r.dueDate).getTime()) / (1000 * 60 * 60 * 24))
             ),
           }))
         )
