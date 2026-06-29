@@ -7,7 +7,7 @@ import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { calcMoraSurcharge } from '@/lib/mora-engine'
-import { mapPaymentMethod, referenceFor } from '@/lib/cobros'
+import { mapPaymentMethod, referenceFor, resolveServiceRate, type ServiceRate } from '@/lib/cobros'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
@@ -22,7 +22,7 @@ interface ContractRow {
   status: string
   start_date: string | null
   billing_start_date: string | null
-  unit: { number: string } | null
+  unit: { number: string; building_id: string | null } | null
   occupant: { name: string } | null
 }
 
@@ -63,6 +63,7 @@ interface BillingRow {
   status: BillingStatus
   moraAmount: number
   remaining: number
+  waterFee: number // cuota de agua resuelta (tarifa del edificio o fallback)
 }
 
 const WATER_FEE_DEFAULT = 250
@@ -183,7 +184,7 @@ export default function CobrosPage() {
     const contractsRes = await supabase
       .from('contracts')
       .select(
-        'id, unit_id, occupant_id, monthly_amount, payment_day, status, start_date, billing_start_date, unit:units(number), occupant:occupants(name)',
+        'id, unit_id, occupant_id, monthly_amount, payment_day, status, start_date, billing_start_date, unit:units(number, building_id), occupant:occupants(name)',
       )
       .in('status', ['active', 'en_renovacion'])
       .eq('org_id', orgId)
@@ -203,6 +204,14 @@ export default function CobrosPage() {
 
     const payments = (paymentsRes.data || []) as PaymentRow[]
 
+    // Tarifas de agua vigentes (Fase 1 servicios). Se resuelven por edificio/mes.
+    const ratesRes = await supabase
+      .from('service_rates')
+      .select('building_id, service, amount, effective_from')
+      .eq('org_id', orgId)
+      .eq('service', 'agua')
+    const waterRates = (ratesRes.data || []) as ServiceRate[]
+
     // Indexa pagos por contrato+mes (mes tomado del due_date).
     const paymentByKey = new Map<string, PaymentRow>()
     for (const p of payments) {
@@ -221,7 +230,10 @@ export default function CobrosPage() {
         const dueDate = `${month}-${pad2(day)}`
         const payment = paymentByKey.get(`${c.id}|${month}`) || null
 
-        const base = payment?.amount ?? c.monthly_amount + WATER_FEE_DEFAULT
+        // Cuota de agua: tarifa del edificio vigente para el mes (fallback $250).
+        const waterFee =
+          resolveServiceRate(waterRates, 'agua', c.unit?.building_id ?? null, month) ?? WATER_FEE_DEFAULT
+        const base = payment?.amount ?? c.monthly_amount + waterFee
         const fee = Number(payment?.late_fee_amount || 0)
         const paid = Number(payment?.amount_paid || 0)
         const hasCollection = payment != null && (payment.status === 'paid' || payment.status === 'partial')
@@ -252,7 +264,7 @@ export default function CobrosPage() {
           }
         }
 
-        billingRows.push({ contract: c, payment, month, dueDate, status, moraAmount, remaining })
+        billingRows.push({ contract: c, payment, month, dueDate, status, moraAmount, remaining, waterFee })
       }
     }
 
@@ -293,7 +305,7 @@ export default function CobrosPage() {
     const c = row.contract
     const today = new Date().toISOString().split('T')[0]
     const rent = row.payment?.rent_amount ?? c.monthly_amount
-    const water = row.payment?.water_fee ?? WATER_FEE_DEFAULT
+    const water = row.payment?.water_fee ?? row.waterFee
     const lateFee = suggestedMora(rent, row.dueDate, today, row.payment)
     const cid = row.payment?.id ?? null
     const total = rent + water + lateFee
@@ -474,7 +486,7 @@ export default function CobrosPage() {
   async function quickPayCore(row: BillingRow): Promise<boolean> {
     const c = row.contract
     const rent = row.payment?.rent_amount ?? c.monthly_amount
-    const water = row.payment?.water_fee ?? WATER_FEE_DEFAULT
+    const water = row.payment?.water_fee ?? row.waterFee
     const charge = {
       amount: rent + water,
       rent_amount: rent,
@@ -605,7 +617,7 @@ export default function CobrosPage() {
   let totalExpected = 0
   let totalCollected = 0
   for (const r of rows) {
-    const rowBase = r.payment?.amount ?? r.contract.monthly_amount + WATER_FEE_DEFAULT
+    const rowBase = r.payment?.amount ?? r.contract.monthly_amount + r.waterFee
     const rowFee = r.status === 'mora' ? r.moraAmount : Number(r.payment?.late_fee_amount || 0)
     totalExpected += rowBase + rowFee
     totalCollected += Number(r.payment?.amount_paid || 0)
@@ -799,9 +811,9 @@ export default function CobrosPage() {
             </thead>
             <tbody>
               {filtered.map((row) => {
-                const waterFee = row.payment?.water_fee ?? WATER_FEE_DEFAULT
+                const waterFee = row.payment?.water_fee ?? row.waterFee
                 const rentAmt = row.payment?.rent_amount ?? row.contract.monthly_amount
-                const total = row.payment ? row.payment.amount : row.contract.monthly_amount + WATER_FEE_DEFAULT
+                const total = row.payment ? row.payment.amount : row.contract.monthly_amount + row.waterFee
                 const rowKey = `${row.contract.id}|${row.month}`
 
                 return (

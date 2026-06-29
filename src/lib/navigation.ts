@@ -130,6 +130,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       '/reportes',
       '/quotes',
       '/pricing',
+      '/servicios',
       '/ancillary-charges',
     ],
     subNav: [
@@ -140,6 +141,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       { href: '/ledger', label: 'Bitácora' },
       { href: '/reportes', label: 'Reportes' },
       { href: '/pricing', label: 'Precios' },
+      { href: '/servicios', label: 'Servicios' },
       { href: '/quotes', label: 'Cotizador' },
       { href: '/ancillary-charges', label: 'Cargos adicionales' },
     ],
