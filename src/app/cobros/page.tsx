@@ -829,22 +829,22 @@ export default function CobrosPage() {
                   />
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  <button onClick={() => toggleSort('depto')} className="hover:text-gray-900 dark:hover:text-white">Depto{sortArrow('depto')}</button>
+                  <button onClick={() => toggleSort('depto')} className="whitespace-nowrap hover:text-gray-900 dark:hover:text-white">Depto{sortArrow('depto')}</button>
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  <button onClick={() => toggleSort('mes')} className="hover:text-gray-900 dark:hover:text-white">Mes{sortArrow('mes')}</button>
+                  <button onClick={() => toggleSort('mes')} className="whitespace-nowrap hover:text-gray-900 dark:hover:text-white">Mes{sortArrow('mes')}</button>
                 </th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  <button onClick={() => toggleSort('inquilino')} className="hover:text-gray-900 dark:hover:text-white">Inquilino{sortArrow('inquilino')}</button>
+                  <button onClick={() => toggleSort('inquilino')} className="whitespace-nowrap hover:text-gray-900 dark:hover:text-white">Inquilino{sortArrow('inquilino')}</button>
                 </th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Renta</th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Agua</th>
                 <th className="text-right px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  <button onClick={() => toggleSort('total')} className="hover:text-gray-900 dark:hover:text-white">Total{sortArrow('total')}</button>
+                  <button onClick={() => toggleSort('total')} className="whitespace-nowrap hover:text-gray-900 dark:hover:text-white">Total{sortArrow('total')}</button>
                 </th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Vence</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">
-                  <button onClick={() => toggleSort('status')} className="hover:text-gray-900 dark:hover:text-white">Status{sortArrow('status')}</button>
+                  <button onClick={() => toggleSort('status')} className="whitespace-nowrap hover:text-gray-900 dark:hover:text-white">Status{sortArrow('status')}</button>
                 </th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Confirmó</th>
                 <th className="text-center px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Acción</th>
@@ -886,7 +886,7 @@ export default function CobrosPage() {
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 capitalize whitespace-nowrap">
                       {monthLabel(row.month)}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       {row.contract.occupant?.name || 'Sin inquilino'}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(rentAmt)}</td>
