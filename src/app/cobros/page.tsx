@@ -167,6 +167,9 @@ export default function CobrosPage() {
   const [loadingReceipts, setLoadingReceipts] = useState(false)
   const [saving, setSaving] = useState(false)
   const [quickId, setQuickId] = useState<string | null>(null)
+  const [nameFilter, setNameFilter] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkRunning, setBulkRunning] = useState(false)
   const [confirmedBy, setConfirmedBy] = useState('alicia')
   const [chronicDebtors, setChronicDebtors] = useState<{ name: string; count: number }[]>([])
   const [invoicingRow, setInvoicingRow] = useState<BillingRow | null>(null)
@@ -465,12 +468,11 @@ export default function CobrosPage() {
     fetchBilling()
   }
 
-  // Pago rápido: marca el mes pagado completo en 1 clic (renta + agua, sin mora,
-  // fecha = vencimiento, ref "histórico"). Para inquilinos al corriente.
-  async function quickPay(row: BillingRow) {
+  // Núcleo del pago rápido: marca el mes pagado completo (renta + agua, sin mora,
+  // fecha = vencimiento, ref "histórico"). SIN refrescar ni toast — para poder
+  // encadenarlo en lote. Devuelve true si quedó.
+  async function quickPayCore(row: BillingRow): Promise<boolean> {
     const c = row.contract
-    const key = `${c.id}|${row.month}`
-    setQuickId(key)
     const rent = row.payment?.rent_amount ?? c.monthly_amount
     const water = row.payment?.water_fee ?? WATER_FEE_DEFAULT
     const charge = {
@@ -489,11 +491,7 @@ export default function CobrosPage() {
         .insert({ ...charge, org_id: orgId, contract_id: c.id, due_date: row.dueDate, amount_paid: 0, status: 'pending' })
         .select('id')
         .single()
-      if (error || !data) {
-        setQuickId(null)
-        toast.error('No se pudo crear el cargo del mes')
-        return
-      }
+      if (error || !data) return false
       cid = data.id
     }
     const { methodEnum, paymentMethodEs } = mapPaymentMethod('Transferencia')
@@ -509,11 +507,7 @@ export default function CobrosPage() {
       payer_occupant_id: null,
       confirmed_by: confirmedBy,
     })
-    if (error) {
-      setQuickId(null)
-      toast.error(`No se pudo registrar: ${error.message}`)
-      return
-    }
+    if (error) return false
     await recomputeCharge(cid as string)
     await supabase.from('payment_ledger').insert({
       org_id: orgId,
@@ -528,8 +522,37 @@ export default function CobrosPage() {
       confirmed_by: confirmedBy,
       notes: 'Pago rápido (histórico)',
     })
+    return true
+  }
+
+  // Pago rápido de un solo mes (con refresco y toast).
+  async function quickPay(row: BillingRow) {
+    const key = `${row.contract.id}|${row.month}`
+    setQuickId(key)
+    const ok = await quickPayCore(row)
     setQuickId(null)
-    toast.success('Mes marcado pagado')
+    if (ok) {
+      toast.success('Mes marcado pagado')
+      fetchBilling()
+    } else {
+      toast.error('No se pudo registrar el pago')
+    }
+  }
+
+  // Pago rápido en LOTE: marca todos los meses seleccionados; un solo refresco.
+  async function bulkQuickPay() {
+    const targets = filtered.filter(
+      (r) => r.status !== 'pagado' && selected.has(`${r.contract.id}|${r.month}`),
+    )
+    if (!targets.length) return
+    setBulkRunning(true)
+    let ok = 0
+    for (const row of targets) {
+      if (await quickPayCore(row)) ok++
+    }
+    setBulkRunning(false)
+    setSelected(new Set())
+    toast.success(`${ok} mes(es) marcados pagados`)
     fetchBilling()
   }
 
@@ -545,15 +568,38 @@ export default function CobrosPage() {
     fetchBilling()
   }
 
-  const filtered =
-    filter === 'all'
-      ? rows
-      : rows.filter((r) => {
-          if (filter === 'pendientes') return r.status === 'pendiente'
-          if (filter === 'vencidos') return r.status === 'vencido' || r.status === 'mora' || r.status === 'parcial'
-          if (filter === 'pagados') return r.status === 'pagado'
-          return true
-        })
+  const nameQuery = nameFilter.trim().toLowerCase()
+  const filtered = rows.filter((r) => {
+    if (filter === 'pendientes' && r.status !== 'pendiente') return false
+    if (filter === 'vencidos' && !(r.status === 'vencido' || r.status === 'mora' || r.status === 'parcial')) return false
+    if (filter === 'pagados' && r.status !== 'pagado') return false
+    if (nameQuery) {
+      const name = (r.contract.occupant?.name || '').toLowerCase()
+      const unit = (r.contract.unit?.number || '').toLowerCase()
+      if (!name.includes(nameQuery) && !unit.includes(nameQuery)) return false
+    }
+    return true
+  })
+
+  // Filas seleccionables (no pagadas) dentro de lo filtrado, y su estado de selección.
+  const selectableKeys = filtered.filter((r) => r.status !== 'pagado').map((r) => `${r.contract.id}|${r.month}`)
+  const allSelected = selectableKeys.length > 0 && selectableKeys.every((k) => selected.has(k))
+
+  function toggleRow(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setSelected((prev) => {
+      if (selectableKeys.every((k) => prev.has(k))) return new Set()
+      return new Set(selectableKeys)
+    })
+  }
 
   // Totales sobre TODO el backlog mostrado (todos los meses).
   let totalExpected = 0
@@ -647,7 +693,39 @@ export default function CobrosPage() {
             {f.label}
           </button>
         ))}
+        <input
+          type="text"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          placeholder="Filtrar por inquilino o depto…"
+          className="input-field text-sm py-1.5 flex-1 min-w-[200px]"
+        />
       </div>
+
+      {/* Barra de acción en lote */}
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2.5">
+          <span className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+            {selected.size} mes(es) seleccionado(s)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelected(new Set())}
+              className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              Limpiar
+            </button>
+            <button
+              onClick={bulkQuickPay}
+              disabled={bulkRunning}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <Zap className="w-4 h-4" />
+              {bulkRunning ? 'Registrando…' : `Marcar ${selected.size} pagados (rápido)`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -698,6 +776,15 @@ export default function CobrosPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
+                <th className="px-4 py-3 text-center w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    title="Seleccionar todos los pendientes visibles"
+                    className="rounded border-gray-300"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Depto</th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Mes</th>
                 <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Inquilino</th>
@@ -715,12 +802,23 @@ export default function CobrosPage() {
                 const waterFee = row.payment?.water_fee ?? WATER_FEE_DEFAULT
                 const rentAmt = row.payment?.rent_amount ?? row.contract.monthly_amount
                 const total = row.payment ? row.payment.amount : row.contract.monthly_amount + WATER_FEE_DEFAULT
+                const rowKey = `${row.contract.id}|${row.month}`
 
                 return (
                   <tr
                     key={`${row.contract.id}-${row.month}`}
                     className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800/30"
                   >
+                    <td className="px-4 py-3 text-center">
+                      {row.status !== 'pagado' && (
+                        <input
+                          type="checkbox"
+                          checked={selected.has(rowKey)}
+                          onChange={() => toggleRow(rowKey)}
+                          className="rounded border-gray-300"
+                        />
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
                       {row.contract.unit?.number || '—'}
                       {row.contract.status === 'en_renovacion' && (
