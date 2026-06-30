@@ -7,6 +7,16 @@
 //   - Sprints recorridos → GitHub PRs mergeados
 //   - Deuda activa → GitHub issues abiertos
 //
+// AUDITORÍA 2026-06-30 (Claude Code): el snapshot llevaba 2 meses congelado en el
+// cierre de Sprint 4 (2026-05-01). Se verificó contra `git log --merges` (PRs
+// #28-#131) cuáles items de la deuda Sprint 5 quedaron resueltos, y se agregaron
+// los Sprints 6-8 que nunca se registraron aquí (agentes terceros, lifecycle,
+// chat, y el bloque más grande: el modelo de Personas/CRM/Estancias + la
+// revisión de Finanzas/Cobros). Las Tiers T1-T5 vienen de la taxonomía original
+// de Notion; se actualizaron done/backlog donde se verificó el cambio real, sin
+// inventar precisión que no se puede verificar para trabajo nuevo no catalogado
+// ahí — ese trabajo se registra en los Sprints (fuente más confiable: PRs).
+//
 // Por ahora servimos el snapshot canónico para que el dashboard exista.
 // El snapshot es editable por L0 vía este archivo hasta que llegue v2.
 
@@ -63,8 +73,8 @@ export interface RoadmapSnapshot {
 }
 
 export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
-  asOf: '2026-05-01 · Cierre Sprint 4',
-  totals: { total: 100, done: 47, doing: 1, backlog: 47, discarded: 5 },
+  asOf: '2026-06-30 · Auditoría post Sprint 8 (CRM/Personas + Finanzas)',
+  totals: { total: 102, done: 55, doing: 1, backlog: 41, discarded: 5 },
 
   sprints: [
     {
@@ -98,30 +108,63 @@ export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
       ],
     },
     {
-      name: 'Sprint 5', status: 'next', statusLabel: 'Siguiente',
+      name: 'Sprint 5', status: 'done', statusLabel: 'Done · deuda Sprint 4 cerrada',
       items: [
-        { num: 'Deuda', text: '#20 conserje /[orgSlug]' },
-        { num: 'Deuda', text: '#22 webhooks getOrgIdAsync' },
-        { num: 'Deuda', text: '#25 owners legacy OWNER_TOKEN' },
-        { num: 'Deuda', text: '#19 /admin → /login' },
-        { num: 'Deuda', text: '#24 206+ HEX → tokens BaW' },
+        { num: '#20', text: 'conserje /[orgSlug] — multi-tenant real (antes UUID hardcoded)' },
+        { num: '#22', text: 'webhooks externos → resolveOrgIdForWebhook() (reemplaza shim getOrgIdAsync)' },
+        { num: '#25', text: 'deprecar OWNER_TOKEN legacy compartido' },
+        { num: '#19', text: '/admin redirige a /login (no a /)' },
+        { num: '#21', text: '/apply public_prefix con ruta correcta' },
+        { num: '#24', text: 'migrar HEX/rgba hardcoded → tokens BaW (queda HEX solo donde es técnicamente necesario: PDFs, OG images)' },
       ],
     },
     {
-      name: 'Sprint 6+', status: 'future', statusLabel: 'Planeado',
+      name: 'Sprint 6', status: 'done', statusLabel: 'Done · Agentes terceros + Booking público',
       items: [
-        { num: 'Agents', text: '10+1 agentes (5 más)' },
-        { num: 'Agents', text: 'Handoff UI · Decision trees · Escalation' },
-        { num: 'Comercial', text: 'WhatsApp → ticket · Unified Inbox' },
-        { num: 'Comercial', text: 'Pre-contrato /apply · INPC · SPEI' },
-        { num: 'SaaS', text: 'Billing Stripe · Demo mode · Multi-property dashboard' },
+        { num: 'Agents', text: 'Agent Platform v1 API (bearer auth, scopes, idempotencia, paginación)' },
+        { num: 'Agents', text: 'Alicia + Hugo conectados vía Discord (pivote: terceros sobre OpenClaw, no el catálogo nativo 10+1 originalmente planeado)' },
+        { num: 'Booking', text: 'Sitio público 809 + reservaciones online (ADR-019/020, brand 809)' },
+        { num: 'Infra', text: 'CI GitHub Actions + fix submodule design tokens en Vercel' },
+      ],
+    },
+    {
+      name: 'Sprint 7', status: 'done', statusLabel: 'Done · Lifecycle + Chat',
+      items: [
+        { num: 'Lifecycle', text: 'Archivar/Restaurar/Eliminar uniforme + force-delete (edificios, unidades, contratos, inquilinos, agentes)' },
+        { num: 'Chat', text: 'Chat in-app con agentes conectados (dock lateral, identidad de agente, reusa agent_interactions)' },
+        { num: 'Agents', text: 'Catálogo de agentes editable en self-servicio (Platform Admin)' },
+        { num: 'Nav', text: 'Reorden navegación (Hoy, Portafolio, Inquilinos) + quitar toggle Human/Agent confuso' },
+      ],
+    },
+    {
+      name: 'Sprint 8', status: 'done', statusLabel: 'Done · 19 PRs (#112-#131) · el más grande hasta hoy',
+      items: [
+        { num: 'CRM', text: 'Unificar directorio CRM↔Contactos (Party único = occupants, sync automático por trigger)' },
+        { num: 'CRM', text: 'PersonPicker "buscar antes de crear" en contratos/reservas/ocupantes/pagador (mata el duplicado en el origen)' },
+        { num: 'CRM', text: 'Persona/Empresa + pagador ≠ ocupante en contratos (caso corporativo/institucional)' },
+        { num: 'Estancias', text: 'Vista unificada Estancias (contratos+reservas) + rotación de ocupantes (stay_occupants)' },
+        { num: 'Finanzas', text: 'Libro de abonos por movimiento (payment_receipts) — reemplaza "1 pago = 1 mes" que perdía detalle de pagos parciales/divididos' },
+        { num: 'Finanzas', text: 'Servicios: cuota de agua por edificio con historial (prorrateo o cuota fija, ya no $250 hardcoded)' },
+        { num: 'Finanzas', text: '"Facturar desde" — separa la fecha real del contrato de cuándo arranca a cobrar (clave para dar de alta contratos viejos sin generar adeudo falso)' },
+        { num: 'Fix', text: 'lib/billing compartida: Cobros, Mission Control y el Portal del inquilino ahora proyectan el mismo adeudo (antes el dashboard subcontaba)' },
+        { num: 'Fix', text: 'Bug crítico: editar contrato no guardaba (columna contract_url inexistente, error tragado en silencio)' },
+        { num: 'Cobros UX', text: 'Pago rápido (individual y en lote) · filtro por inquilino/depto · rango Desde-Hasta · ordenar por columna · editar pagos ya registrados · "confirmado por" = usuario logueado' },
+      ],
+    },
+    {
+      name: 'Sprint 9', status: 'next', statusLabel: 'Siguiente',
+      items: [
+        { num: 'Finanzas', text: 'Cuenta combinada / Engagement: agrupar contratos (ej. D102+D202+D201) bajo una cuenta con saldo pooled — estado de cuenta conciliable contra WhatsApp' },
+        { num: 'CRM', text: 'D303 multi-inquilino: contratos independientes por sub-ocupante' },
+        { num: 'Deuda', text: '#23 eliminar enum legacy member_role (roles owner/admin vs pm_*) — sospechoso en bugs de permisos' },
+        { num: 'Roadmap', text: 'Tablero real Now/Next/Later votable, reemplaza este snapshot estático' },
       ],
     },
   ],
 
   kanban: [
     {
-      name: 'Done', emoji: '✅', count: 47,
+      name: 'Done', emoji: '✅', count: 55,
       cards: [
         { tier: 't1', tierLabel: 'T1 MVP', text: 'Sprint 4 completo (#14-#18)' },
         { tier: 't1', tierLabel: 'T1 MVP', text: 'Channel Manager Channex' },
@@ -130,26 +173,27 @@ export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
         { tier: 't1', tierLabel: 'T1 MVP', text: 'Owner Portal v2 con login' },
         { tier: 't1', tierLabel: 'T1 MVP', text: 'Vista Conserje PWA' },
         { tier: 't1', tierLabel: 'T1 MVP', text: 'Cotizador STR + Bulk CSV import' },
+        { tier: 't1', tierLabel: 'T1 MVP', text: 'Modelo de Personas/CRM/Estancias + Finanzas (Sprint 8 completo)' },
         { tier: 't2', tierLabel: 'T2 Core', text: 'Webhooks + Notificaciones in-app' },
         { tier: 't25', tierLabel: 'T2.5 Agent', text: 'Audit log con actor field' },
+        { tier: 't25', tierLabel: 'T2.5 Agent', text: 'Agente Cobranza v1 + Alicia/Hugo conectados (Discord)' },
         { tier: 't4', tierLabel: 'T4 Comercial', text: 'Self check-in digital · Onboarding wizard' },
       ],
-      footer: '+ 37 features más',
+      footer: '+ deuda Sprint 4-5 cerrada (#19-#25) + ~100 PRs más, ver Sprints 6-8 arriba',
     },
     {
       name: 'En desarrollo', emoji: '🔨', count: 1,
       cards: [
-        { tier: 't25', tierLabel: 'T2.5 Agent', text: 'S4-3 · Agente Cobranza v1 + infra común agentes (10+1)' },
+        { tier: 't1', tierLabel: 'T1 MVP', text: 'Diseño de Cuenta combinada (engagement): saldo pooled para D102+D202+D201, conciliable contra el WhatsApp de cobranza' },
       ],
-      footer: 'Próximo a entrar: Hardening de deuda Sprint 4 (#19-#25) antes de abrir Sprint 5 funcional.',
+      footer: 'Próximo: D303 multi-inquilino, deuda #23 (enum legacy), y reconstruir este roadmap como tablero votable Now/Next/Later.',
     },
     {
-      name: 'Backlog', emoji: '📋', count: 47,
+      name: 'Backlog', emoji: '📋', count: 41,
       cards: [
-        { tier: 't1', tierLabel: 'T1 MVP · 4', text: 'Deuda Sprint 4: #19, #20, #22, #25' },
-        { tier: 't2', tierLabel: 'T2 Core · 1', text: '#24 · Migrar 206+ HEX a tokens' },
+        { tier: 't1', tierLabel: 'T1 MVP · 1', text: 'Cuenta combinada (engagement) + D303 multi-inquilino' },
         { tier: 't25', tierLabel: 'T2.5 Agent · 5', text: 'Handoff UI · Decision trees · Escalation rules' },
-        { tier: 't3', tierLabel: 'T3 Backlog · 7', text: 'BaW Public website · Booking engine STR' },
+        { tier: 't3', tierLabel: 'T3 Backlog · 6', text: 'Deuda #23 (enum legacy) · BaW Public website · Booking engine STR' },
         { tier: 't4', tierLabel: 'T4 Comercial · 19', text: 'WhatsApp ticket · Pre-contrato · SPEI · INPC · Billing SaaS' },
         { tier: 't5', tierLabel: 'T5 Escala · 11', text: '3D Viewer · Smart locks · Community · Compliance' },
       ],
@@ -158,28 +202,27 @@ export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
 
   tiers: [
     {
-      tier: 't1', name: 'Tier 1 — MVP', total: 22, done: 18, backlog: 4,
+      tier: 't1', name: 'Tier 1 — MVP', total: 24, done: 23, doing: 1, backlog: 0,
       items: [
         { text: 'Sprint 4 entero (S4-0 a S4-3)', status: 'done' },
         { text: '+ 14 features Tier 1 anteriores', status: 'done' },
-        { text: 'Deuda #20 · /[orgSlug]/conserje (multi-tenant verdadero)' },
-        { text: 'Deuda #22 · Webhooks externos getOrgIdAsync' },
-        { text: 'Deuda #25 · Migrar owners legacy OWNER_TOKEN' },
-        { text: 'Bug #19 · /admin redirige a /login' },
+        { text: 'Deuda #20, #22, #25, #19, #21 (conserje, webhooks, owner token, admin login, apply)', status: 'done' },
+        { text: 'Modelo de Personas/CRM/Estancias + Finanzas (Sprint 8, ver detalle arriba)', status: 'done' },
+        { text: 'Cuenta combinada (engagement) — saldo pooled multi-contrato', status: 'doing' },
       ],
     },
     {
-      tier: 't2', name: 'Tier 2 — Core', total: 14, done: 13, backlog: 1,
+      tier: 't2', name: 'Tier 2 — Core', total: 14, done: 14, backlog: 0,
       items: [
         { text: 'UX Polish · Webhooks · API Docs · Sidebar v2 · multi-tenant', status: 'done' },
-        { text: 'Deuda #24 · Migrar 206+ HEX/rgba a tokens BaW' },
+        { text: 'Deuda #24 · Migrar 206+ HEX/rgba a tokens BaW', status: 'done' },
       ],
     },
     {
-      tier: 't25', name: 'Tier 2.5 — Agent Ready', total: 10, done: 4, doing: 1, backlog: 5,
+      tier: 't25', name: 'Tier 2.5 — Agent Ready', total: 10, done: 5, backlog: 5,
       items: [
         { text: 'Audit log + actor field · Task creation API · Onboarding wizard · Conserje PWA', status: 'done' },
-        { text: 'S4-3 · Agente Cobranza v1 (en review)', status: 'doing' },
+        { text: 'Agente Cobranza v1 + Alicia/Hugo (Discord, terceros)', status: 'done' },
         { text: 'Agent handoff UI (botón "Automatizar esto")' },
         { text: 'Agent decision trees (occupancy/pricing)' },
         { text: 'Automated escalation rules (if X then Y)' },
@@ -188,10 +231,10 @@ export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
       ],
     },
     {
-      tier: 't3', name: 'Tier 3 — Backlog', total: 8, done: 1, backlog: 7,
+      tier: 't3', name: 'Tier 3 — Backlog', total: 8, done: 2, backlog: 6,
       items: [
-        { text: 'Bug #21 · /apply public_prefix sin ruta' },
-        { text: 'Deuda #23 · Eliminar enum legacy member_role' },
+        { text: 'Bug #21 · /apply public_prefix sin ruta', status: 'done' },
+        { text: 'Deuda #23 · Eliminar enum legacy member_role (sospechoso en bugs de permisos)' },
         { text: 'BaW Public — SEO + mobile-first' },
         { text: 'BaW Public — Galería deptos LTR' },
         { text: 'BaW Public — Formulario interés LTR' },
@@ -223,11 +266,10 @@ export const ROADMAP_SNAPSHOT: RoadmapSnapshot = {
   ],
 
   nextUp: [
-    { id: 'Deuda #20', text: '/(public)/conserje UUID hardcoded → /[orgSlug]/conserje', reason: 'Bloquea producción multi-tenant verdadera.' },
-    { id: 'Deuda #22', text: 'Webhooks externos siguen usando shim getOrgIdAsync', reason: 'Bug si hay 2+ tenants.' },
-    { id: 'Deuda #25', text: 'Migrar owners legacy del OWNER_TOKEN compartido', reason: 'Security: token único compartido.' },
-    { id: 'Bug #19', text: '/admin redirige a / en lugar de /login', reason: 'UX confusa.' },
-    { id: 'Cierre #18', text: 'Mergear Agente Cobranza v1 (en review) + abrir 5 agentes restantes del 10+1', reason: '' },
+    { id: 'Finanzas', text: 'Cuenta combinada (engagement): contracts agrupados con saldo pooled, estado de cuenta conciliable contra WhatsApp', reason: 'Es lo que más le importa a Fran ahora mismo: control real de D102+D202+D201.' },
+    { id: 'CRM', text: 'D303 multi-inquilino: un contrato por sub-ocupante (Ángel, Marlen, Xitlali...)', reason: 'Caso real sin resolver — pagos ya entrando, sin contrato que los reciba.' },
+    { id: 'Deuda #23', text: 'Eliminar enum legacy member_role (roles owner/admin vs pm_*)', reason: 'Confusión real de permisos; fue la primera hipótesis (descartada) del bug de editar contratos.' },
+    { id: 'Roadmap', text: 'Reconstruir este roadmap como tablero Now/Next/Later votable (con appetite tipo Shape Up)', reason: 'El snapshot estático se queda viejo — ya pasó una vez.' },
   ],
 }
 
@@ -246,5 +288,3 @@ export const TIER_TOKENS: Record<Tier, { fg: string; bg: string }> = {
   t4:  { fg: 'var(--baw-orange-fg)',  bg: 'var(--baw-orange-bg-soft)' },
   t5:  { fg: 'var(--baw-danger-fg)',  bg: 'var(--baw-danger-bg-soft)' },
 }
-
-
