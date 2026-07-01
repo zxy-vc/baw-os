@@ -5,7 +5,7 @@
 // de "primera org por created_at". Configurar Channex para incluir el org
 // del tenant en la URL del webhook (e.g. `/api/channex/webhook?org=baw-operations`).
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/api-auth'
+import { createServiceClient, timingSafeEqualStr } from '@/lib/api-auth'
 import { resolveOrgIdForWebhook } from '@/lib/org-context'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const token =
       request.nextUrl.searchParams.get('token') ??
       request.headers.get('x-channex-token')
-    if (token !== secret) {
+    if (!token || !timingSafeEqualStr(token, secret)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 },
