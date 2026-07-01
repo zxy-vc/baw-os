@@ -45,11 +45,11 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const todayStr = now.toISOString().split('T')[0]
 
-    // Sprint 5 / fix #22: filtro multi-tenant opcional. Si el caller pasa
-    // ?org_id=<uuid> solo se devuelven datos de ese tenant. Si no se pasa,
-    // se devuelven datos cross-tenant (legacy behavior, solo seguro mientras
-    // hay 1 tenant en el sistema).
-    const orgIdParam = request.nextUrl.searchParams.get('org_id')
+    // Filtro multi-tenant. Con credencial de agente real, el org SIEMPRE es el de
+    // la credencial (no se confía en el ?org_id del query — eso daba mora
+    // cross-tenant). El caller legacy (key global) sí debe declarar ?org_id
+    // (validado arriba).
+    const orgIdParam = auth.ok ? auth.orgId : request.nextUrl.searchParams.get('org_id')
 
     // 1. Fetch overdue unconfirmed payments
     let paymentsQuery = supabase
