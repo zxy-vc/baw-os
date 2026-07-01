@@ -1,11 +1,16 @@
 // BaW OS — CRUD de aplicaciones de inquilinos (vista interna Maribel)
 import { NextRequest } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   try {
+    // Guard: solo miembros de la org. Antes NO había auth y expedientes (PII de
+    // aplicantes: nombre, aval, ingresos) quedaban expuestos a internet.
+    const auth = await requireMemberCaller()
+    if (!auth.ok) return apiError(auth.message, auth.status)
+
     const supabase = createServiceClient()
-    const orgId = getOrgId()
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const unitId = searchParams.get('unit_id')
@@ -13,7 +18,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('tenant_applications')
       .select('*, unit:units(id, number, floor, type)')
-      .eq('org_id', orgId)
+      .eq('org_id', auth.orgId)
 
     if (status) query = query.eq('status', status)
     if (unitId) query = query.eq('unit_id', unitId)
@@ -28,14 +33,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireMemberCaller()
+    if (!auth.ok) return apiError(auth.message, auth.status)
+
     const supabase = createServiceClient()
-    const orgId = getOrgId()
     const body = await request.json()
 
     const { data, error } = await supabase
       .from('tenant_applications')
       .insert({
-        org_id: orgId,
+        org_id: auth.orgId,
         unit_id: body.unit_id || null,
         contract_type: body.contract_type || null,
       })
