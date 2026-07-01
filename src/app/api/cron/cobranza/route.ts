@@ -9,12 +9,14 @@ import { createServiceClient } from '@/lib/supabase'
 import { cobranzaRunner } from '@/lib/agents/cobranza'
 import { executeAgentRun } from '@/lib/agents/runner'
 import { cobranzaWhatsAppEnabled } from '@/lib/whatsapp'
+import { timingSafeEqualStr } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET || ''
+  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/, '')
+  if (!cronSecret || !timingSafeEqualStr(token, cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

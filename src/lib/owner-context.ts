@@ -58,11 +58,23 @@ export async function resolveOwnerContext(): Promise<OwnerContext> {
 
   const service = createServiceClient()
 
-  // 1. property_owners enlazados al user_id O matching por email (fallback)
-  const { data: owners } = await service
-    .from('property_owners')
-    .select('id, full_name, org_id, organizations(name, slug)')
-    .or(`user_id.eq.${user.id},email.ilike.${user.email}`)
+  // 1. property_owners del user. Match primario por user_id (enlace explícito y
+  //    seguro). Fallback por email SOLO si el email está confirmado — antes se
+  //    matcheaba por email no verificado e interpolado crudo en .or(), lo que
+  //    permitía que otra org registrara tu email y te diera acceso a sus
+  //    finanzas. La query por email va parametrizada (.ilike), no interpolada.
+  const sel = 'id, full_name, org_id, organizations(name, slug)'
+  const { data: byUser } = await service.from('property_owners').select(sel).eq('user_id', user.id)
+  const owners = [...(byUser || [])]
+
+  const emailConfirmed = !!((user as { email_confirmed_at?: string }).email_confirmed_at || user.confirmed_at)
+  if (emailConfirmed && user.email) {
+    const { data: byEmail } = await service.from('property_owners').select(sel).ilike('email', user.email)
+    const seen = new Set(owners.map((o) => o.id))
+    for (const o of byEmail || []) {
+      if (!seen.has(o.id)) owners.push(o)
+    }
+  }
 
   if (!owners || owners.length === 0) {
     throw new OwnerContextError(

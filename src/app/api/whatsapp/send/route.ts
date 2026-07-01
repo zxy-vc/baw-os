@@ -1,7 +1,7 @@
 // BaW OS — WhatsApp Send Message API
 import { NextRequest } from 'next/server'
-import { validateApiKey, unauthorized, apiError, apiOk, createServiceClient, getOrgId } from '@/lib/api-auth'
-import { createSupabaseServer } from '@/lib/supabase-server'
+import { validateApiKey, apiError, apiOk, createServiceClient, getOrgId } from '@/lib/api-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 
 interface SendBody {
   to: string
@@ -11,15 +11,16 @@ interface SendBody {
 }
 
 export async function POST(request: NextRequest) {
-  // Audit 2026-06-12: la UI mandaba un API key hardcodeado en el JS del
-  // cliente (comprometido — rotar BAWOS_API_KEY). Ahora una sesión válida
-  // también autoriza, y la UI ya no embebe secretos.
-  if (!validateApiKey(request)) {
-    const supabase = createSupabaseServer()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return unauthorized()
+  // Endpoint sensible: usa el WHATSAPP_ACCESS_TOKEN del sistema para enviar a
+  // cualquier número. Antes autorizaba a CUALQUIER sesión (cualquier rol/tenant).
+  // Ahora exige admin de la org (pm_owner/pm_admin); el API key legacy sigue
+  // como fallback para llamadas internas (timing-safe en validateApiKey).
+  let auditOrgId = getOrgId()
+  const auth = await requireAdminCaller()
+  if (auth.ok) {
+    auditOrgId = auth.orgId
+  } else if (!validateApiKey(request)) {
+    return apiError(auth.message, auth.status)
   }
 
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
   // Audit log
   const supabase = createServiceClient()
   await supabase.from('audit_log').insert({
-    org_id: getOrgId(),
+    org_id: auditOrgId,
     actor_type: 'agent',
     actor_id: 'whatsapp-bot',
     action: 'whatsapp.message.sent',

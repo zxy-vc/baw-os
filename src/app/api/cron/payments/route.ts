@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { timingSafeEqualStr } from '@/lib/api-auth'
 
 // NOTE: CRON_SECRET and SUPABASE_SERVICE_ROLE_KEY must be set as env vars in Vercel dashboard.
 // CRON_SECRET: a random string to authenticate cron requests
@@ -29,9 +30,10 @@ interface AncillaryCharge {
 // This route is called by Vercel Cron on day 1 of each month
 // Vercel cron config goes in vercel.json
 export async function GET(request: Request) {
-  // Verify cron secret to prevent unauthorized calls
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Verify cron secret to prevent unauthorized calls (timing-safe)
+  const cronSecret = process.env.CRON_SECRET || ''
+  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/, '')
+  if (!cronSecret || !timingSafeEqualStr(token, cronSecret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

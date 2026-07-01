@@ -2,6 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+/** Comparación en tiempo constante (evita canal lateral por tiempo). */
+export function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
+}
+
 export function createServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,8 +63,8 @@ export function apiOk<T>(data: T) {
 export function validateApiKey(request: NextRequest): boolean {
   const apiKey = request.headers.get('x-api-key')
   const expected = process.env.BAWOS_API_KEY
-  if (!expected) return false
-  return apiKey === expected
+  if (!expected || !apiKey) return false
+  return timingSafeEqualStr(apiKey, expected)
 }
 
 /**

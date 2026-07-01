@@ -1,21 +1,24 @@
 // BaW OS — Expediente individual de aplicación (vista interna)
 import { NextRequest } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireMemberCaller()
+    if (!auth.ok) return apiError(auth.message, auth.status)
+
     const { id } = await params
     const supabase = createServiceClient()
-    const orgId = getOrgId()
 
     const { data, error } = await supabase
       .from('tenant_applications')
       .select('*, unit:units(id, number, floor, type)')
       .eq('id', id)
-      .eq('org_id', orgId)
+      .eq('org_id', auth.orgId)
       .single()
 
     if (error || !data) return apiError('Aplicación no encontrada', 404)
@@ -30,19 +33,21 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireMemberCaller()
+    if (!auth.ok) return apiError(auth.message, auth.status)
+
     const { id } = await params
     const supabase = createServiceClient()
-    const orgId = getOrgId()
     const body = await request.json()
 
-    // Solo permitir actualizar status y notas
+    // Solo permitir actualizar status y notas (whitelist)
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
     if (body.status) {
       updates.status = body.status
       if (body.status === 'approved' || body.status === 'rejected') {
         updates.reviewed_at = new Date().toISOString()
-        updates.reviewed_by = body.reviewed_by || 'admin'
+        updates.reviewed_by = body.reviewed_by || auth.userId
       }
     }
     if (body.notes !== undefined) updates.notes = body.notes
@@ -51,7 +56,7 @@ export async function PATCH(
       .from('tenant_applications')
       .update(updates)
       .eq('id', id)
-      .eq('org_id', orgId)
+      .eq('org_id', auth.orgId)
       .select('*, unit:units(id, number, floor, type)')
       .single()
 

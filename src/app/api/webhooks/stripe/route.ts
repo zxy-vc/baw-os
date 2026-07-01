@@ -30,10 +30,26 @@ export async function POST(request: NextRequest) {
 
     if (paymentId) {
       const supabase = createServiceClient()
+
+      // Leer el cargo primero para: (1) derivar org_id del PROPIO pago (no de la
+      // metadata, que puede faltar → ledger con org_id null), y (2) setear
+      // amount_paid = total del cargo (renta+agua+mora). Antes solo se ponía
+      // status='paid' sin amount_paid, y billing.ts (fuente única) lo contaba mal.
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('org_id, contract_id, amount, water_fee, late_fee_amount, contract:contracts(unit_id, occupant:occupants(name))')
+        .eq('id', paymentId)
+        .single()
+
+      const totalDue = payment
+        ? Number(payment.amount || 0) + Number(payment.late_fee_amount || 0)
+        : null
+
       await supabase
         .from('payments')
         .update({
           status: 'paid',
+          amount_paid: totalDue,
           paid_date: new Date().toISOString().split('T')[0],
           method: 'stripe',
           reference: paymentIntent.id,
@@ -43,17 +59,10 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', paymentId)
 
-      // Also create ledger entry
-      const { data: payment } = await supabase
-        .from('payments')
-        .select('contract_id, amount, water_fee, contract:contracts(unit_id, occupant:occupants(name))')
-        .eq('id', paymentId)
-        .single()
-
       if (payment) {
         const contract = payment.contract as unknown as { unit_id: string; occupant: { name: string } | null } | null
         await supabase.from('payment_ledger').insert({
-          org_id: paymentIntent.metadata?.org_id || null,
+          org_id: payment.org_id || paymentIntent.metadata?.org_id || null,
           payment_id: paymentId,
           contract_id: payment.contract_id,
           unit_id: contract?.unit_id || null,
