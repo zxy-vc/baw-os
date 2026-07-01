@@ -1,10 +1,23 @@
 import { NextRequest } from "next/server"
-import { createServiceClient, apiError, apiOk } from "@/lib/api-auth"
+import { createServiceClient, apiError, apiOk, timingSafeEqualStr } from "@/lib/api-auth"
 
 export const dynamic = "force-dynamic"
 
 export async function POST(request: NextRequest) {
   try {
+    // Guard: antes CUALQUIERA podía POSTear {document_id, status:'signed'} y
+    // marcar un contrato como firmado (integridad legal). Ahora se exige un
+    // secreto compartido que Fran configura en la URL del webhook de Mifiel
+    // (?secret=<valor> o header x-webhook-secret).
+    const expected = process.env.MIFIEL_WEBHOOK_SECRET
+    const provided =
+      request.headers.get('x-webhook-secret') ||
+      new URL(request.url).searchParams.get('secret') ||
+      ''
+    if (!expected || !provided || !timingSafeEqualStr(provided, expected)) {
+      return apiError('Unauthorized', 401)
+    }
+
     const body = await request.json()
     const documentId = body.document_id || body.id
 

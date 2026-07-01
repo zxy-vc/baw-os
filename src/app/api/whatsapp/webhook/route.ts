@@ -1,7 +1,18 @@
 // BaW OS — WhatsApp Webhook (Meta Cloud API)
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'node:crypto'
 import { createServiceClient } from '@/lib/api-auth'
 import { resolveOrgIdForWebhook } from '@/lib/org-context'
+
+// Verifica X-Hub-Signature-256 = sha256=HMAC_SHA256(appSecret, rawBody) de Meta.
+function verifyMetaSignature(raw: string, header: string | null, secret: string): boolean {
+  if (!header || !header.startsWith('sha256=')) return false
+  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex')
+  const provided = header.slice('sha256='.length)
+  const a = Buffer.from(expected, 'hex')
+  const b = Buffer.from(provided, 'hex')
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
 
 const FAQS: Record<string, string> = {
   FAQ: 'Hola 👋 Soy el asistente de BaW. Para pagos usa la referencia de tu contrato. Para reportar una incidencia responde INCIDENCIA. Para hablar con un asesor responde ASESOR.',
@@ -33,7 +44,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const payload = await request.json()
+    // Verificar firma de Meta ANTES de procesar. Sin firma válida no se procesa
+    // (antes cualquiera podía POSTear con ?org=<slug> e inyectar incidents/audit
+    // y disparar envíos). Se devuelve 200 para que Meta no deshabilite el webhook.
+    const rawBody = await request.text()
+    const appSecret = process.env.WHATSAPP_APP_SECRET
+    if (!appSecret || !verifyMetaSignature(rawBody, request.headers.get('x-hub-signature-256'), appSecret)) {
+      console.error('[whatsapp] firma inválida o WHATSAPP_APP_SECRET sin configurar — no se procesa')
+      return NextResponse.json({ status: 'ok' })
+    }
+    const payload = JSON.parse(rawBody)
     const entry = payload?.entry?.[0]
     const change = entry?.changes?.[0]?.value
     if (!change?.messages?.[0]) {
