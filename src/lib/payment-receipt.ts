@@ -18,19 +18,24 @@ export interface ReceiptResult {
   reason?: string
 }
 
-/** Envía el comprobante del pago indicado. No lanza; seguro como fire-and-forget. */
-export async function sendPaymentReceipt(paymentId: string): Promise<ReceiptResult> {
+/**
+ * Envía el comprobante del pago indicado. No lanza; seguro como fire-and-forget.
+ * `orgId` (opcional pero recomendado): si se pasa, el pago debe pertenecer a esa
+ * org — evita IDOR (un caller que itera payment ids de otro tenant).
+ */
+export async function sendPaymentReceipt(paymentId: string, orgId?: string): Promise<ReceiptResult> {
   try {
     if (!whatsAppConfigured() || !cobranzaWhatsAppEnabled()) {
       return { ok: false, reason: 'whatsapp_disabled' }
     }
     const supabase = createServiceClient()
 
-    const { data: payment } = await supabase
+    let paymentQuery = supabase
       .from('payments')
       .select('id, org_id, contract_id, amount, amount_paid, paid_date, method, reference, late_fee_amount')
       .eq('id', paymentId)
-      .maybeSingle()
+    if (orgId) paymentQuery = paymentQuery.eq('org_id', orgId)
+    const { data: payment } = await paymentQuery.maybeSingle()
     if (!payment || !payment.contract_id) return { ok: false, reason: 'payment_not_found' }
 
     const { data: contract } = await supabase
