@@ -13,12 +13,17 @@ export const GET = v1Read({
     const fromDate = req.nextUrl.searchParams.get('from_date')
     const supabase = createServiceClient()
 
+    // OJO: reservations usa organization_id (no org_id como el resto de tablas)
+    // y sus columnas reales vienen de 20260329_reservations.sql. El select
+    // anterior pedía columnas fantasma de docs/schema.sql (aspiracional, nunca
+    // migrado) — org_id/guest_id/nights/nightly_rate/total_amount/cleaning_fee
+    // no existen y todo GET devolvía 500.
     let q = supabase
       .from('reservations')
       .select(
-        'id, org_id, unit_id, guest_id, check_in, check_out, nights, guests_count, nightly_rate, total_amount, cleaning_fee, status, created_at'
+        'id, organization_id, unit_id, guest_name, check_in, check_out, guests_count, price_per_night, total_price, status, payment_status, channel, external_id, created_at'
       )
-      .eq('org_id', auth.orgId)
+      .eq('organization_id', auth.orgId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(limit + 1)
