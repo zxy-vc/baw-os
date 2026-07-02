@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
+import { WATER_FEE_DEFAULT } from '@/lib/cobros'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import Link from 'next/link'
 
@@ -18,7 +19,7 @@ interface ContractWithDetails {
 const initialForm = {
   contract_id: '',
   rent_amount: '',
-  water_fee: '250',
+  water_fee: String(WATER_FEE_DEFAULT),
   amount_paid: '',
   due_date: new Date().toISOString().split('T')[0],
   paid_date: new Date().toISOString().split('T')[0],
@@ -54,7 +55,7 @@ export default function NewPaymentPage() {
       ...form,
       contract_id: contractId,
       rent_amount: contract ? String(contract.monthly_amount) : '',
-      amount_paid: contract ? String(contract.monthly_amount + 250) : '',
+      amount_paid: contract ? String(contract.monthly_amount + (Number(form.water_fee) || WATER_FEE_DEFAULT)) : '',
     })
   }
 
