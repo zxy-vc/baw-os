@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
+import { timingSafeEqualStr } from '@/lib/api-auth'
 import type { AgentId } from './types'
 
 const KEY_PREFIX_LIVE = 'sk_live_'
@@ -228,8 +229,8 @@ export function agentAuthErrorResponse(failure: AgentAuthFailure): NextResponse 
 export function validateLegacyApiKey(req: NextRequest): boolean {
   const apiKey = req.headers.get('x-api-key')
   const expected = process.env.BAWOS_API_KEY
-  if (!expected) return false
-  return apiKey === expected
+  if (!expected || !apiKey) return false
+  return timingSafeEqualStr(apiKey, expected)
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
+import { WATER_FEE_DEFAULT } from '@/lib/cobros'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 
@@ -86,7 +87,7 @@ export default function LedgerPage() {
   const [form, setForm] = useState({
     contract_id: '',
     amount: 0,
-    water_fee: 250,
+    water_fee: WATER_FEE_DEFAULT,
     payment_method: 'efectivo',
     confirmed_by: 'alicia',
     notes: '',
@@ -170,7 +171,7 @@ export default function LedgerPage() {
     setForm({
       contract_id: first?.id || '',
       amount: first?.monthly_amount || 0,
-      water_fee: 250,
+      water_fee: WATER_FEE_DEFAULT,
       payment_method: 'efectivo',
       confirmed_by: 'alicia',
       notes: '',

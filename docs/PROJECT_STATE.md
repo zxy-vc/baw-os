@@ -1,7 +1,18 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-06-11 (Sprint 5A simplificado a MVP: Alicia + Hugo third-party, nativos fuera de UI).
+> **Última actualización:** 2026-07-02 (post-merge PR #134 seguridad; ver §0.bis para lo que aterrizó desde el 06-11).
+
+---
+
+## 0.bis · Qué aterrizó entre 2026-06-11 y 2026-07-02
+
+- **Reencuadre estratégico (Fran, 2026-07-01):** BaW OS es a corto plazo la **herramienta interna de DuVa ReEs** (family office Durán Vargas: edificios 809 y 2020), no el producto SaaS a comercializar. La apuesta comercial de ZXY se mueve a **Engrane AI**. La productización de BaW OS queda en pausa, no cancelada.
+- **Hugo (MK2) NO se conecta a BaW OS** — decisión 2026-06-21, ver `docs/runbooks/hugo-cos-connect.md` (marcado LEGACY). La sección de Sprint 5A abajo refleja el plan original; el conectado real del MVP es solo Alicia.
+- **PR #134 (seguridad, mergeado 2026-07-01):** auth en `/api/applications`, admin guard en whatsapp/send + receipt, firma de Meta en webhook WhatsApp, secreto en Mifiel, comparaciones timing-safe, whitelist en payments PATCH, fix cross-tenant en owner-context, `amount_paid` en webhook Stripe. **Pendiente de Fran en Vercel: `WHATSAPP_APP_SECRET` (sin esto el webhook de WhatsApp NO procesa), `MIFIEL_WEBHOOK_SECRET`, y rotar `BAWOS_API_KEY`.**
+- **PRs #128-#133:** `src/lib/billing.ts` como fuente única de estatus de cobros (dashboard + portal + cobros proyectan igual), libro de abonos `payment_receipts` con pago rápido histórico (PR #131), pagador ≠ ocupante (`payer_occupant_id`), `stay_occupants` (multi-inquilino con rotación), `service_rates` (agua por edificio), CRM occupants sync, chat de agentes in-app, snapshot del roadmap re-auditado al 2026-06-30.
+- **Migraciones nuevas** (¡confirmar aplicadas en Supabase prod!): `20260617_crm*`, `20260622_archive_lifecycle`, `20260623_agent_chat`, `20260625_crm_occupant_sync`, `20260627_party_kind_payer`, `20260627_stay_occupants`, `20260628_contracts_billing_start`, `20260628_payment_receipts`, `20260629_service_rates`.
+- **Deuda cerrada en este ciclo:** backend Python muerto eliminado (`_python_app/`, `api_backend/`), `GET /v1/reservations` reparado (columnas fantasma → schema real), cron mensual respeta `service_rates` y `billing_start_date`, recompute de cargos movido a server (`POST /api/payments/[id]/recompute`).
 
 ---
 

@@ -33,6 +33,12 @@ export function referenceFor(unitNumber: string | null | undefined, month: strin
   return `${depto}-${month}`
 }
 
+/**
+ * Fallback de cuota de agua cuando no hay tarifa en service_rates para el
+ * edificio/mes. Única definición — no re-hardcodear 250 en páginas o APIs.
+ */
+export const WATER_FEE_DEFAULT = 250
+
 /** Tarifa de un servicio (agua, luz…) por edificio, con fecha de vigencia. */
 export type ServiceRate = {
   building_id: string | null

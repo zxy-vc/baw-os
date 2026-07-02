@@ -7,7 +7,7 @@ import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { calcMoraSurcharge } from '@/lib/mora-engine'
-import { mapPaymentMethod, referenceFor, resolveServiceRate, type ServiceRate } from '@/lib/cobros'
+import { mapPaymentMethod, referenceFor, resolveServiceRate, WATER_FEE_DEFAULT, type ServiceRate } from '@/lib/cobros'
 import { scheduleMonths, computeMonthStatus, rankPayment, type BillingStatus } from '@/lib/billing'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
@@ -65,7 +65,6 @@ interface BillingRow {
   waterFee: number // cuota de agua resuelta (tarifa del edificio o fallback)
 }
 
-const WATER_FEE_DEFAULT = 250
 const MONTH_NAMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 function pad2(n: number) {
@@ -355,37 +354,13 @@ export default function CobrosPage() {
     return data.id
   }
 
-  // Recalcula amount_paid + status del cargo a partir de la suma de sus abonos,
-  // y estampa los metadatos del último abono (método/confirmó/fecha) para que el
-  // grid los muestre como hasta ahora.
+  // Recalcula amount_paid + status del cargo en el SERVER a partir de la suma
+  // de sus abonos (POST /api/payments/[id]/recompute — fuente única). El
+  // cálculo ya no vive en el cliente: aunque el browser muera a media
+  // secuencia, reintentar el recompute deja el cargo consistente.
   async function recomputeCharge(paymentId: string) {
-    const { data: rs } = await supabase
-      .from('payment_receipts')
-      .select('amount, paid_date, method, payment_method, confirmed_by')
-      .eq('payment_id', paymentId)
-      .order('paid_date', { ascending: true })
-    const list = rs ?? []
-    const sum = list.reduce((s, r) => s + Number(r.amount), 0)
-    const last = list[list.length - 1]
-    const { data: ch } = await supabase
-      .from('payments')
-      .select('amount, late_fee_amount')
-      .eq('id', paymentId)
-      .single()
-    const total = Number(ch?.amount ?? 0) + Number(ch?.late_fee_amount ?? 0)
-    const status = total > 0 && sum + 0.001 >= total ? 'paid' : sum > 0 ? 'partial' : 'pending'
-    await supabase
-      .from('payments')
-      .update({
-        amount_paid: sum,
-        status,
-        paid_date: last?.paid_date ?? null,
-        method: last?.method ?? null,
-        payment_method: last?.payment_method ?? null,
-        confirmed_by: last?.confirmed_by ?? null,
-        confirmed_at: last ? new Date().toISOString() : null,
-      })
-      .eq('id', paymentId)
+    const res = await fetch(`/api/payments/${paymentId}/recompute`, { method: 'POST' })
+    if (!res.ok) toast.error('No se pudo recalcular el cargo del mes')
   }
 
   // Registra UN abono (movimiento). El mes acumula y deriva su estatus.
