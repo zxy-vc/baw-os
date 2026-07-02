@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { resolveOrgIdForWebhook } from '@/lib/org-context'
+import { timingSafeEqualStr } from '@/lib/api-auth'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const OWNER_TOKEN = process.env.OWNER_TOKEN!
+const OWNER_TOKEN = process.env.OWNER_TOKEN || ''
 
 // Sprint 5 / fix #25: este endpoint legacy queda detrás de un feature flag.
 // Solo responde si `OWNER_LEGACY_TOKEN_ENABLED=true` está explicitamente seteado.
@@ -41,7 +42,7 @@ export async function GET(
 
   const { token } = params
 
-  if (token !== OWNER_TOKEN) {
+  if (!OWNER_TOKEN || !timingSafeEqualStr(token, OWNER_TOKEN)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
 
