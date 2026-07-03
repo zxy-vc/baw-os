@@ -202,6 +202,7 @@ export interface Contract {
   unit_id?: string | null // NULL = contrato independiente (standalone)
   occupant_id: string
   payer_occupant_id?: string | null // quién paga si ≠ inquilino (Fase 2b); NULL = el inquilino
+  engagement_id?: string | null // cuenta combinada a la que pertenece (pool); NULL = individual
   start_date: string
   billing_start_date?: string | null // Cobros factura desde aquí; NULL = desde start_date
   end_date?: string
@@ -230,6 +231,22 @@ export interface Contract {
   // Relations (joined)
   unit?: Unit
   occupant?: Occupant
+}
+
+/** Cuenta combinada: agrupa N contratos bajo un mismo pagador (spec §6). */
+export interface Engagement {
+  id: string
+  org_id: string
+  name: string
+  payer_occupant_id?: string | null
+  billing_mode: 'consolidated' | 'per_unit'
+  status: 'active' | 'closed'
+  notes?: string | null
+  created_at: string
+  updated_at: string
+  // Relations (joined)
+  payer?: Occupant
+  contracts?: Contract[]
 }
 
 export interface Payment {
