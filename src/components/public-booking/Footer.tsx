@@ -4,7 +4,20 @@ import { Logo809Lockup } from './Logo809'
 
 const YEAR = new Date().getFullYear()
 
-export default function Footer() {
+export default function Footer({
+  buildingSlug,
+  buildingName,
+  description,
+  addressLines,
+  tagline,
+}: {
+  buildingSlug: string
+  buildingName: string
+  description?: string | null
+  addressLines?: string[]
+  tagline?: string | null
+}) {
+  const basePath = `/edificios/${buildingSlug}`
   return (
     <footer
       id="contacto"
@@ -26,28 +39,43 @@ export default function Footer() {
           {/* Brand column */}
           <div>
             <div style={{ color: 'var(--ink)' }}>
-              <Logo809Lockup size={56} />
+              {buildingSlug === 'mateos-809' ? (
+                <Logo809Lockup size={56} />
+              ) : (
+                <span
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 32,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  {buildingName}
+                </span>
+              )}
             </div>
-            <p style={{ marginTop: 20, fontSize: 14, lineHeight: 1.6, maxWidth: 280 }}>
-              Doce departamentos amueblados de estancia corta en una sola dirección de León, Guanajuato.
-            </p>
+            {description && (
+              <p style={{ marginTop: 20, fontSize: 14, lineHeight: 1.6, maxWidth: 280 }}>
+                {description}
+              </p>
+            )}
           </div>
 
           {/* Address */}
-          <div>
-            <MonoLabel as="div" style={{ marginBottom: 14 }}>
-              Dirección
-            </MonoLabel>
-            <address style={{ fontStyle: 'normal', fontSize: 14, lineHeight: 1.7, color: 'var(--ink)' }}>
-              Mateos 809
-              <br />
-              Colonia Centro
-              <br />
-              León, Guanajuato
-              <br />
-              México
-            </address>
-          </div>
+          {addressLines && addressLines.length > 0 && (
+            <div>
+              <MonoLabel as="div" style={{ marginBottom: 14 }}>
+                Dirección
+              </MonoLabel>
+              <address style={{ fontStyle: 'normal', fontSize: 14, lineHeight: 1.7, color: 'var(--ink)' }}>
+                {addressLines.map((line, i) => (
+                  <span key={i}>
+                    {line}
+                    {i < addressLines.length - 1 && <br />}
+                  </span>
+                ))}
+              </address>
+            </div>
+          )}
 
           {/* Contact */}
           <div>
@@ -80,17 +108,17 @@ export default function Footer() {
             </MonoLabel>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: 14, lineHeight: 1.9 }}>
               <li>
-                <Link href="/mateos-809/legal/terminos" style={{ color: 'var(--ink)' }}>
+                <Link href={`${basePath}/legal/terminos`} style={{ color: 'var(--ink)' }}>
                   Términos
                 </Link>
               </li>
               <li>
-                <Link href="/mateos-809/legal/privacidad" style={{ color: 'var(--ink)' }}>
+                <Link href={`${basePath}/legal/privacidad`} style={{ color: 'var(--ink)' }}>
                   Privacidad
                 </Link>
               </li>
               <li>
-                <Link href="/mateos-809/legal/cancelacion" style={{ color: 'var(--ink)' }}>
+                <Link href={`${basePath}/legal/cancelacion`} style={{ color: 'var(--ink)' }}>
                   Política de cancelación
                 </Link>
               </li>
@@ -113,11 +141,13 @@ export default function Footer() {
           }}
         >
           <p style={{ margin: 0 }}>
-            © {YEAR} Mateos 809 · Operado por <strong style={{ color: 'var(--ink-2)', fontWeight: 500 }}>BaW</strong>, sistema de gestión inmobiliaria — ADR-017
+            © {YEAR} {buildingName} · Operado por <strong style={{ color: 'var(--ink-2)', fontWeight: 500 }}>BaW</strong>, sistema de gestión inmobiliaria — ADR-017
           </p>
-          <p style={{ margin: 0, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: 10 }}>
-            12 estancias · 1 dirección
-          </p>
+          {tagline && (
+            <p style={{ margin: 0, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: 10 }}>
+              {tagline}
+            </p>
+          )}
         </div>
       </div>
     </footer>

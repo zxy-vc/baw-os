@@ -10,10 +10,12 @@ import type { PublicUnit } from '@/lib/public-booking/schemas'
 type SortKey = 'price-asc' | 'price-desc' | 'capacity-desc'
 
 export default function UnitsClient({
+  buildingSlug,
   initialFrom,
   initialTo,
   initialGuests,
 }: {
+  buildingSlug: string
   initialFrom?: string
   initialTo?: string
   initialGuests?: number
@@ -41,7 +43,7 @@ export default function UnitsClient({
     let cancelled = false
     setLoading(true)
     setError(null)
-    listBuildingUnits('mateos-809', { from, to, guests: minGuests })
+    listBuildingUnits(buildingSlug, { from, to, guests: minGuests })
       .then((res) => {
         if (cancelled) return
         if (res.error) {
@@ -61,7 +63,7 @@ export default function UnitsClient({
     return () => {
       cancelled = true
     }
-  }, [from, to, minGuests])
+  }, [buildingSlug, from, to, minGuests])
 
   const sorted = useMemo(() => {
     if (!units) return []
@@ -133,7 +135,13 @@ export default function UnitsClient({
           }}
         >
           {sorted.map((u, i) => (
-            <UnitCard key={u.id ?? u.slug} unit={u} searchQuery={queryStr} index={i} />
+            <UnitCard
+              key={u.id ?? u.slug}
+              unit={u}
+              buildingSlug={buildingSlug}
+              searchQuery={queryStr}
+              index={i}
+            />
           ))}
         </div>
       )}

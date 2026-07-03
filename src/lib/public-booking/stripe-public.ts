@@ -20,6 +20,7 @@ export function getStripePublic(): Stripe {
 
 export interface CreateCheckoutSessionParams {
   unitName: string
+  buildingSlug: string
   nights: number
   from: string
   to: string
@@ -35,12 +36,16 @@ export async function createCheckoutSession(
   const stripe = getStripePublic()
   const totalCents = Math.round(params.totalMxn * 100)
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baw.mx'
+  const basePath = `${siteUrl}/edificios/${params.buildingSlug}`
+  const holdId = params.metadata.hold_id ?? ''
+
   const successUrl =
-    process.env.PUBLIC_BOOKING_SUCCESS_URL?.replace('{HOLD_ID}', params.metadata.hold_id ?? '') ??
-    'https://809.mx/confirmacion/{HOLD_ID}'
+    process.env.PUBLIC_BOOKING_SUCCESS_URL?.replace('{HOLD_ID}', holdId) ??
+    `${basePath}/confirmacion/${holdId}`
 
   const cancelUrl =
-    process.env.PUBLIC_BOOKING_CANCEL_URL ?? 'https://809.mx/reservar'
+    process.env.PUBLIC_BOOKING_CANCEL_URL ?? `${basePath}/unidades`
 
   return stripe.checkout.sessions.create(
     {

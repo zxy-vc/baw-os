@@ -10,12 +10,26 @@ import MonoLabel from './MonoLabel'
  */
 export default function BuildingHero({
   heroUrl,
-  unitsCount = 12,
+  unitsCount,
   basePriceMxn,
+  buildingName = 'el edificio',
+  locationLabel,
+  title,
+  titleAccent,
+  intro,
+  priceSuffix = '/noche',
 }: {
   heroUrl?: string | null
   unitsCount?: number
   basePriceMxn?: number | null
+  buildingName?: string
+  locationLabel?: string | null
+  /** Primera línea del headline; default: nombre del edificio */
+  title?: string
+  /** Segunda línea (itálica) del headline */
+  titleAccent?: string | null
+  intro?: string | null
+  priceSuffix?: string
 }) {
   // Placeholder: interior arquitectónico minimalista (Unsplash).
   // Reemplazar al recibir fotos reales del shoot.
@@ -34,9 +48,11 @@ export default function BuildingHero({
         <div className="pb-hero-grid">
           {/* Text column */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <MonoLabel as="div" style={{ marginBottom: 24 }}>
-              León · Guanajuato · México
-            </MonoLabel>
+            {locationLabel && (
+              <MonoLabel as="div" style={{ marginBottom: 24 }}>
+                {locationLabel}
+              </MonoLabel>
+            )}
 
             <h1
               className="t-display"
@@ -47,29 +63,33 @@ export default function BuildingHero({
                 marginBottom: 24,
               }}
             >
-              Doce estancias.
-              <br />
-              <span className="t-italic" style={{ fontStyle: 'italic', color: 'var(--ink-2)' }}>
-                Una dirección.
-              </span>
+              {title ?? buildingName}
+              {titleAccent && (
+                <>
+                  <br />
+                  <span className="t-italic" style={{ fontStyle: 'italic', color: 'var(--ink-2)' }}>
+                    {titleAccent}
+                  </span>
+                </>
+              )}
             </h1>
 
-            <p
-              className="t-italic"
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontStyle: 'italic',
-                fontSize: 20,
-                lineHeight: 1.45,
-                color: 'var(--ink-2)',
-                maxWidth: 480,
-                marginBottom: 40,
-              }}
-            >
-              Un edificio de departamentos amueblados pensado para estancias
-              de unos días o unas semanas en el corazón de León. Equipado,
-              tranquilo, listo para llegar y vivir.
-            </p>
+            {intro && (
+              <p
+                className="t-italic"
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontStyle: 'italic',
+                  fontSize: 20,
+                  lineHeight: 1.45,
+                  color: 'var(--ink-2)',
+                  maxWidth: 480,
+                  marginBottom: 40,
+                }}
+              >
+                {intro}
+              </p>
+            )}
 
             {/* Data grid */}
             <dl
@@ -82,39 +102,43 @@ export default function BuildingHero({
                 maxWidth: 520,
               }}
             >
-              <div>
-                <MonoLabel as="dt">Unidades</MonoLabel>
-                <dd
-                  style={{
-                    margin: '6px 0 0',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 32,
-                    fontWeight: 400,
-                    letterSpacing: '-0.02em',
-                    color: 'var(--ink)',
-                  }}
-                >
-                  {unitsCount}
-                </dd>
-              </div>
-              <div>
-                <MonoLabel as="dt">Desde</MonoLabel>
-                <dd
-                  style={{
-                    margin: '6px 0 0',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 32,
-                    fontWeight: 400,
-                    letterSpacing: '-0.02em',
-                    color: 'var(--ink)',
-                  }}
-                >
-                  {basePriceMxn ? `$${basePriceMxn.toLocaleString('es-MX')}` : '$1,800'}
-                  <span style={{ fontSize: 14, color: 'var(--ink-3)', fontFamily: 'var(--font-body)', marginLeft: 4 }}>
-                    /noche
-                  </span>
-                </dd>
-              </div>
+              {typeof unitsCount === 'number' && unitsCount > 0 && (
+                <div>
+                  <MonoLabel as="dt">Unidades</MonoLabel>
+                  <dd
+                    style={{
+                      margin: '6px 0 0',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 32,
+                      fontWeight: 400,
+                      letterSpacing: '-0.02em',
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    {unitsCount}
+                  </dd>
+                </div>
+              )}
+              {basePriceMxn != null && basePriceMxn > 0 && (
+                <div>
+                  <MonoLabel as="dt">Desde</MonoLabel>
+                  <dd
+                    style={{
+                      margin: '6px 0 0',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 32,
+                      fontWeight: 400,
+                      letterSpacing: '-0.02em',
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    {`$${basePriceMxn.toLocaleString('es-MX')}`}
+                    <span style={{ fontSize: 14, color: 'var(--ink-3)', fontFamily: 'var(--font-body)', marginLeft: 4 }}>
+                      {priceSuffix}
+                    </span>
+                  </dd>
+                </div>
+              )}
               <div>
                 <MonoLabel as="dt">Reserva</MonoLabel>
                 <dd
@@ -145,7 +169,7 @@ export default function BuildingHero({
           >
             <Image
               src={img}
-              alt="Interior arquitectónico de Mateos 809"
+              alt={`Interior arquitectónico de ${buildingName}`}
               fill
               priority
               sizes="(max-width: 1024px) 100vw, 50vw"

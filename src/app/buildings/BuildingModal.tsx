@@ -28,6 +28,10 @@ export default function BuildingModal({
     country: building?.country || 'MX',
     postal_code: building?.postal_code || '',
     notes: building?.notes || '',
+    slug: building?.slug || '',
+    public_name: building?.public_name || '',
+    public_description: building?.public_description || '',
+    is_public_listed: Boolean(building?.is_public_listed),
   })
 
   function handleSubmit(e: React.FormEvent) {
@@ -40,6 +44,11 @@ export default function BuildingModal({
       country: form.country.trim() || 'MX',
       postal_code: form.postal_code.trim() || null,
       notes: form.notes.trim() || null,
+      slug: form.slug.trim() || null,
+      public_name: form.public_name.trim() || null,
+      public_description: form.public_description.trim() || null,
+      // Sin slug no hay URL pública — el flag no puede quedar prendido.
+      is_public_listed: form.is_public_listed && Boolean(form.slug.trim()),
     })
   }
 
@@ -151,6 +160,70 @@ export default function BuildingModal({
               placeholder="Tipo de operación, particularidades del edificio…"
             />
           </div>
+
+          {/* Publicación — listing público (/edificios/[slug]) */}
+          <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              Publicación (sitio público)
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  Slug (URL)
+                </label>
+                <input
+                  type="text"
+                  value={form.slug}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                    })
+                  }
+                  className="input-field"
+                  placeholder="mateos-809"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                  Nombre público
+                </label>
+                <input
+                  type="text"
+                  value={form.public_name}
+                  onChange={(e) => setForm({ ...form, public_name: e.target.value })}
+                  className="input-field"
+                  placeholder="Como aparece a huéspedes"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                Descripción pública
+              </label>
+              <textarea
+                value={form.public_description}
+                onChange={(e) =>
+                  setForm({ ...form, public_description: e.target.value })
+                }
+                rows={2}
+                className="input-field"
+                placeholder="Texto que ve el huésped en la landing del edificio"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_public_listed}
+                onChange={(e) =>
+                  setForm({ ...form, is_public_listed: e.target.checked })
+                }
+                disabled={!form.slug.trim()}
+              />
+              Listado públicamente en /edificios/{form.slug || '…'}
+            </label>
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             {building && onDelete && (
               <button

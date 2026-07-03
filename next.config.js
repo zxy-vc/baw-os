@@ -10,6 +10,23 @@ const nextConfig = {
       '/api/contracts/[id]/estado-cuenta': ['./src/lib/pdf/fonts/**'],
     },
   },
+  async redirects() {
+    return [
+      // Fase 1 Public Listing: /mateos-809 vivía en la raíz; ahora todos los
+      // edificios públicos cuelgan de /edificios/[buildingSlug]. 308 preserva
+      // SEO y links compartidos.
+      {
+        source: '/mateos-809',
+        destination: '/edificios/mateos-809',
+        permanent: true,
+      },
+      {
+        source: '/mateos-809/:path*',
+        destination: '/edificios/mateos-809/:path*',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

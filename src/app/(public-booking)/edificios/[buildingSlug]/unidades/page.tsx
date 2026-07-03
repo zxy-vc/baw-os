@@ -1,19 +1,31 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import UnitsClient from './UnitsClient'
-
-export const metadata: Metadata = {
-  title: 'Unidades disponibles · Mateos 809',
-  description:
-    'Doce departamentos amueblados de estancia corta en Mateos 809, León. Filtra por fechas y huéspedes.',
-  alternates: { canonical: '/mateos-809/unidades' },
-}
+import { getPublicBuilding } from '@/lib/public-booking/server-data'
 
 export const dynamic = 'force-dynamic'
 
+export async function generateMetadata({
+  params,
+}: {
+  params: { buildingSlug: string }
+}): Promise<Metadata> {
+  const building = await getPublicBuilding(params.buildingSlug)
+  const name = building?.name ?? params.buildingSlug
+  return {
+    title: `Unidades disponibles · ${name}`,
+    description:
+      building?.description ??
+      `Departamentos amueblados en ${name}. Filtra por fechas y huéspedes.`,
+    alternates: { canonical: `/edificios/${params.buildingSlug}/unidades` },
+  }
+}
+
 export default function UnidadesPage({
+  params,
   searchParams,
 }: {
+  params: { buildingSlug: string }
   searchParams?: { from?: string; to?: string; guests?: string }
 }) {
   const from = searchParams?.from
@@ -34,12 +46,17 @@ export default function UnidadesPage({
             Unidades
           </h1>
           <p style={{ fontSize: 17, color: 'var(--ink-2)', maxWidth: 640 }}>
-            Doce departamentos amueblados en Mateos 809. Tarifas por noche, sin tarifas ocultas.
+            Departamentos amueblados con tarifas claras, sin cargos ocultos.
           </p>
         </header>
 
         <Suspense fallback={<UnitsSkeleton />}>
-          <UnitsClient initialFrom={from} initialTo={to} initialGuests={guests} />
+          <UnitsClient
+            buildingSlug={params.buildingSlug}
+            initialFrom={from}
+            initialTo={to}
+            initialGuests={guests}
+          />
         </Suspense>
       </div>
     </section>

@@ -26,9 +26,11 @@ interface SessionPayload {
  */
 export default function ConfirmacionClient({
   holdId,
+  buildingSlug,
   sessionId,
 }: {
   holdId: string
+  buildingSlug: string
   sessionId?: string
 }) {
   const [data, setData] = useState<SessionPayload | null>(null)
@@ -156,7 +158,7 @@ export default function ConfirmacionClient({
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 40, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/mateos-809" className="pb-btn pb-btn-ghost">
+          <Link href={`/edificios/${buildingSlug}`} className="pb-btn pb-btn-ghost">
             Volver al inicio
           </Link>
           <a href="mailto:hola@baw.mx" className="pb-btn pb-btn-primary">

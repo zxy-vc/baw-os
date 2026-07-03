@@ -21,6 +21,7 @@ import GuestSelector from '@/components/public-booking/GuestSelector'
 import PriceBreakdown from '@/components/public-booking/PriceBreakdown'
 import MonoLabel from '@/components/public-booking/MonoLabel'
 import AmenityGrid, { UNIT_AMENITIES } from '@/components/public-booking/AmenityGrid'
+import LeadForm from '@/components/public-booking/LeadForm'
 
 // Placeholders Unsplash arquitectónicos minimalistas.
 // Reemplazar al recibir el shoot real por unidad (WS-4).
@@ -35,16 +36,21 @@ const FALLBACK_GALLERY = [
 
 export default function UnitDetailClient({
   unit,
+  buildingSlug,
+  buildingName,
   initialFrom,
   initialTo,
   initialGuests,
 }: {
   unit: PublicUnit
+  buildingSlug: string
+  buildingName: string
   initialFrom?: string
   initialTo?: string
   initialGuests?: number
 }) {
   const router = useRouter()
+  const isBookable = unit.rent_type === 'STR' || !unit.rent_type
   const [from, setFrom] = useState(initialFrom ?? plusDaysISO(7))
   const [to, setTo] = useState(initialTo ?? plusDaysISO(9))
   const [guests, setGuests] = useState(initialGuests ?? Math.min(2, unit.max_guests))
@@ -53,16 +59,19 @@ export default function UnitDetailClient({
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [quoteError, setQuoteError] = useState<string | null>(null)
 
-  // Gallery
+  // Galería: fotos públicas reales (media_assets) → hero → placeholders.
   const heroImages = useMemo(() => {
+    const real = (unit.gallery ?? []).map((g) => g.file_url).filter(Boolean)
+    if (real.length > 0) return real
     if (unit.hero_url) {
       return [unit.hero_url, ...FALLBACK_GALLERY.slice(0, 5)]
     }
     return FALLBACK_GALLERY
-  }, [unit.hero_url])
+  }, [unit.gallery, unit.hero_url])
 
-  // Fetch availability (today → +90d)
+  // Fetch availability (today → +90d) — solo aplica a estancia corta.
   useEffect(() => {
+    if (!isBookable) return
     let cancelled = false
     const today = todayISO()
     const end = plusDaysISO(90)
@@ -73,10 +82,11 @@ export default function UnitDetailClient({
     return () => {
       cancelled = true
     }
-  }, [unit.slug])
+  }, [unit.slug, isBookable])
 
-  // Quote refresh (debounce 300ms)
+  // Quote refresh (debounce 300ms) — solo estancia corta.
   useEffect(() => {
+    if (!isBookable) return
     if (!from || !to) return
     const nights = diffNights(from, to)
     if (nights <= 0) {
@@ -101,7 +111,7 @@ export default function UnitDetailClient({
       cancelled = true
       clearTimeout(handle)
     }
-  }, [unit.slug, from, to, guests])
+  }, [unit.slug, from, to, guests, isBookable])
 
   const nights = diffNights(from, to)
   const tooFew = nights < unit.min_nights
@@ -109,7 +119,7 @@ export default function UnitDetailClient({
 
   const goReserve = () => {
     const q = new URLSearchParams({ from, to, guests: String(guests) })
-    router.push(`/mateos-809/reservar/${unit.slug}?${q.toString()}`)
+    router.push(`/edificios/${buildingSlug}/reservar/${unit.slug}?${q.toString()}`)
   }
 
   return (
@@ -117,7 +127,7 @@ export default function UnitDetailClient({
       <div className="pb-container">
         <header style={{ marginBottom: 32 }}>
           <MonoLabel as="div" style={{ marginBottom: 8 }}>
-            Mateos 809 · Unidad {unit.slug}
+            {buildingName} · Unidad {unit.slug}
           </MonoLabel>
           <h1 style={{ fontSize: 'clamp(36px, 5vw, 64px)', letterSpacing: '-0.025em', lineHeight: 1.05, marginBottom: 12 }}>
             {unit.name ?? `Unidad ${unit.slug}`}
@@ -141,9 +151,13 @@ export default function UnitDetailClient({
                 }}
               >
                 <Spec label="Huéspedes" value={`${unit.max_guests} máx`} />
-                <Spec label="Min noches" value={`${unit.min_nights}`} />
+                {isBookable ? (
+                  <Spec label="Min noches" value={`${unit.min_nights}`} />
+                ) : (
+                  <Spec label="Renta" value={unit.rent_type === 'MTR' ? 'Media' : 'Larga'} />
+                )}
                 <Spec label="Categoría" value="Amueblada" />
-                <Spec label="Limpieza" value="Incluida" />
+                {isBookable && <Spec label="Limpieza" value="Incluida" />}
               </dl>
             </section>
 
@@ -160,7 +174,7 @@ export default function UnitDetailClient({
             <AmenityGrid eyebrow="Equipamiento" title="Amenidades de la unidad" items={UNIT_AMENITIES} />
           </div>
 
-          {/* Right column: booking widget (sticky) */}
+          {/* Right column: booking widget STR o lead form MTR/LTR (sticky) */}
           <aside className="pb-detail-aside">
             <div
               style={{
@@ -174,52 +188,58 @@ export default function UnitDetailClient({
                 gap: 20,
               }}
             >
-              <div>
-                <MonoLabel as="div" style={{ marginBottom: 6 }}>Disponibilidad</MonoLabel>
-                <p style={{ fontSize: 13, color: 'var(--ink-3)' }}>
-                  Días en gris no disponibles.
-                </p>
-              </div>
+              {!isBookable ? (
+                <LeadForm unit={unit} />
+              ) : (
+                <>
+                  <div>
+                    <MonoLabel as="div" style={{ marginBottom: 6 }}>Disponibilidad</MonoLabel>
+                    <p style={{ fontSize: 13, color: 'var(--ink-3)' }}>
+                      Días en gris no disponibles.
+                    </p>
+                  </div>
 
-              <BookingCalendar
-                from={from}
-                to={to}
-                blocked={blocked}
-                onChange={(range) => {
-                  if (range.from) setFrom(range.from)
-                  if (range.to) setTo(range.to)
-                }}
-              />
+                  <BookingCalendar
+                    from={from}
+                    to={to}
+                    blocked={blocked}
+                    onChange={(range) => {
+                      if (range.from) setFrom(range.from)
+                      if (range.to) setTo(range.to)
+                    }}
+                  />
 
-              <GuestSelector value={guests} onChange={setGuests} max={unit.max_guests} />
+                  <GuestSelector value={guests} onChange={setGuests} max={unit.max_guests} />
 
-              {tooFew && (
-                <div
-                  role="alert"
-                  style={{
-                    padding: 12,
-                    background: 'rgba(156, 115, 33, 0.08)',
-                    border: '1px solid rgba(156, 115, 33, 0.2)',
-                    borderRadius: 'var(--r-2)',
-                    fontSize: 13,
-                    color: 'var(--warning)',
-                  }}
-                >
-                  Mínimo {unit.min_nights} noches para esta unidad.
-                </div>
+                  {tooFew && (
+                    <div
+                      role="alert"
+                      style={{
+                        padding: 12,
+                        background: 'rgba(156, 115, 33, 0.08)',
+                        border: '1px solid rgba(156, 115, 33, 0.2)',
+                        borderRadius: 'var(--r-2)',
+                        fontSize: 13,
+                        color: 'var(--warning)',
+                      }}
+                    >
+                      Mínimo {unit.min_nights} noches para esta unidad.
+                    </div>
+                  )}
+
+                  <PriceBreakdown quote={quote} loading={quoteLoading} error={quoteError} />
+
+                  <button
+                    type="button"
+                    className="pb-btn pb-btn-primary"
+                    onClick={goReserve}
+                    disabled={!canBook}
+                    style={{ width: '100%', padding: '14px 24px', fontSize: 15 }}
+                  >
+                    Reservar {nights > 0 && !tooFew ? `· ${formatDate(from, 'short')} – ${formatDate(to, 'short')}` : ''}
+                  </button>
+                </>
               )}
-
-              <PriceBreakdown quote={quote} loading={quoteLoading} error={quoteError} />
-
-              <button
-                type="button"
-                className="pb-btn pb-btn-primary"
-                onClick={goReserve}
-                disabled={!canBook}
-                style={{ width: '100%', padding: '14px 24px', fontSize: 15 }}
-              >
-                Reservar {nights > 0 && !tooFew ? `· ${formatDate(from, 'short')} – ${formatDate(to, 'short')}` : ''}
-              </button>
             </div>
           </aside>
         </div>

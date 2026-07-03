@@ -3,13 +3,14 @@ import { EB_Garamond, Inter, JetBrains_Mono } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import './globals.css'
 import BrandActivator from '@/components/public-booking/BrandActivator'
-import Header from '@/components/public-booking/Header'
-import Footer from '@/components/public-booking/Footer'
 
-// Sprint 5B / WS-2 — Layout aislado para el grupo `(public-booking)`.
-// Activa `data-brand="809"` en <html>, carga fuentes editoriales y monta
-// header/footer minimal. NO usa AppShell (AppShell skipea /mateos-809 via
-// PUBLIC_PREFIXES). Respeta feature flag NEXT_PUBLIC_PUBLIC_BOOKING_ENABLED.
+// Sprint 5B / WS-2 + Fase 1 Public Listing — Layout aislado del grupo
+// `(public-booking)`. Activa `data-brand="809"` en <html> (tema editorial
+// compartido por todos los edificios hasta que exista theming por edificio)
+// y carga fuentes. Header/Footer viven en `edificios/[buildingSlug]/layout.tsx`
+// porque necesitan slug y nombre del edificio. NO usa AppShell (AppShell
+// skipea `/edificios` via PUBLIC_PREFIXES). Respeta el feature flag
+// NEXT_PUBLIC_PUBLIC_BOOKING_ENABLED.
 
 const ebGaramond = EB_Garamond({
   subsets: ['latin'],
@@ -37,12 +38,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://baw.mx'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: {
-    default: 'Mateos 809 — Doce estancias. Una dirección.',
-    template: '%s · Mateos 809',
-  },
+  title: 'Estancias y rentas',
   description:
-    'Doce departamentos amueblados de estancia corta en León, Guanajuato. Diseño minimalista, equipamiento completo, reserva en línea.',
+    'Departamentos amueblados con reserva en línea, operados con BaW OS.',
   icons: {
     icon: '/themes/809/favicon.svg',
     apple: '/themes/809/favicon.svg',
@@ -50,7 +48,6 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'es_MX',
-    siteName: 'Mateos 809',
   },
   robots: {
     index: true,
@@ -82,9 +79,7 @@ export default function PublicBookingLayout({
       }}
     >
       <BrandActivator />
-      <Header />
-      <main style={{ flex: 1 }}>{children}</main>
-      <Footer />
+      {children}
     </div>
   )
 }

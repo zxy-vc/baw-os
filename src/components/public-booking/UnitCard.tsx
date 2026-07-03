@@ -15,17 +15,27 @@ const FALLBACK_IMGS = [
   'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1200&auto=format&fit=crop&q=80',
 ]
 
+const RENT_TYPE_LABEL: Record<string, string> = {
+  STR: 'Estancia corta',
+  MTR: 'Renta media',
+  LTR: 'Renta larga',
+}
+
 export default function UnitCard({
   unit,
+  buildingSlug,
   searchQuery = '',
   index = 0,
 }: {
   unit: PublicUnit
+  buildingSlug: string
   searchQuery?: string
   index?: number
 }) {
-  const href = `/mateos-809/unidades/${unit.slug}${searchQuery ? `?${searchQuery}` : ''}`
+  const href = `/edificios/${buildingSlug}/unidades/${unit.slug}${searchQuery ? `?${searchQuery}` : ''}`
   const img = unit.hero_url || FALLBACK_IMGS[index % FALLBACK_IMGS.length]
+  const isNightly = unit.rent_type === 'STR' || !unit.rent_type
+  const price = isNightly ? unit.base_rate_mxn : unit.monthly_rate_mxn
 
   return (
     <Link
@@ -78,9 +88,15 @@ export default function UnitCard({
         )}
 
         <div style={{ display: 'flex', gap: 16, fontSize: 13, color: 'var(--ink-3)', flexWrap: 'wrap' }}>
-          <span>{unit.max_guests} huésped{unit.max_guests > 1 ? 'es' : ''}</span>
-          <span aria-hidden="true">·</span>
-          <span>Min {unit.min_nights} noche{unit.min_nights > 1 ? 's' : ''}</span>
+          {isNightly ? (
+            <>
+              <span>{unit.max_guests} huésped{unit.max_guests > 1 ? 'es' : ''}</span>
+              <span aria-hidden="true">·</span>
+              <span>Min {unit.min_nights} noche{unit.min_nights > 1 ? 's' : ''}</span>
+            </>
+          ) : (
+            <span>{RENT_TYPE_LABEL[unit.rent_type] ?? unit.rent_type}</span>
+          )}
         </div>
 
         <hr className="pb-rule" style={{ marginTop: 4 }} />
@@ -89,9 +105,9 @@ export default function UnitCard({
           <div>
             <MonoLabel as="div" size={10}>Desde</MonoLabel>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: '-0.02em', color: 'var(--ink)' }}>
-              {unit.base_rate_mxn ? formatMXN(unit.base_rate_mxn) : '—'}
+              {price ? formatMXN(price) : '—'}
               <span style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-body)', marginLeft: 4, letterSpacing: 0 }}>
-                /noche
+                {isNightly ? '/noche' : '/mes'}
               </span>
             </div>
           </div>

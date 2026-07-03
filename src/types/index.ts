@@ -37,6 +37,17 @@ export interface Building {
   archived_at?: string | null
   created_at: string
   updated_at: string
+  // Campos públicos (listing público — 20260523_public_booking.sql)
+  slug?: string | null
+  public_name?: string | null
+  public_description?: string | null
+  hero_url?: string | null
+  gallery?: unknown
+  amenities_common?: unknown
+  faq?: unknown
+  location_lat?: number | null
+  location_lng?: number | null
+  is_public_listed?: boolean
 }
 
 export interface PropertyOwner {
@@ -124,6 +135,17 @@ export interface Unit {
   archived_at?: string | null
   created_at: string
   updated_at: string
+  // Campos públicos (listing público — 20260523 + 20260703)
+  building_id?: string | null
+  public_name?: string | null
+  public_description?: string | null
+  hero_url?: string | null
+  base_rate_mxn?: number | null
+  cleaning_fee_mxn?: number
+  max_guests?: number
+  min_nights?: number
+  monthly_rate_mxn?: number | null
+  is_publicly_bookable?: boolean
 }
 
 export type SpaceKind = 'bedroom' | 'bathroom' | 'kitchen' | 'living_room' | 'dining_room' | 'workspace' | 'balcony' | 'terrace' | 'laundry' | 'exterior' | 'other'

@@ -46,6 +46,19 @@ export async function GET(
     )
   }
 
-  console.log(`action=unit_detail slug=${slug} status=ok`)
-  return withCors(NextResponse.json({ data }), origin)
+  // Galería pública (media_assets con visibility='public' vía vista anon)
+  const { data: gallery } = await supabase
+    .from('v_public_unit_media')
+    .select('*')
+    .eq('unit_id', data.id)
+    .order('is_cover', { ascending: false })
+    .order('sort_order', { ascending: true })
+
+  console.log(
+    `action=unit_detail slug=${slug} gallery=${gallery?.length ?? 0} status=ok`,
+  )
+  return withCors(
+    NextResponse.json({ data: { ...data, gallery: gallery ?? [] } }),
+    origin,
+  )
 }

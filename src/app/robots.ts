@@ -15,7 +15,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/mateos-809', '/mateos-809/unidades'],
+        allow: ['/edificios'],
         disallow: [
           '/api/',
           '/admin/',
@@ -27,8 +27,8 @@ export default function robots(): MetadataRoute.Robots {
           '/login',
           '/onboarding/',
           '/me',
-          '/mateos-809/reservar/',
-          '/mateos-809/confirmacion/',
+          '/edificios/*/reservar/',
+          '/edificios/*/confirmacion/',
         ],
       },
     ],
