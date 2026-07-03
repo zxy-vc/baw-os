@@ -340,6 +340,29 @@ export function computeKpis(
   }
 }
 
+/** Noches libres de UNA unidad dentro de la ventana (para el rótulo "Nn libres"
+ *  de la fila). Igual que los KPIs: tentativas y holds no cuentan ocupado. */
+export function freeNightsInWindow(
+  stays: CalendarStay[],
+  windowStart: string,
+  days: number,
+): number {
+  const windowEnd = addDaysISO(windowStart, days)
+  const intervals: Array<[number, number]> = []
+  for (const s of stays) {
+    if (s.kind === 'hold' || s.tentative) continue
+    const end = s.endExclusive ?? windowEnd
+    if (end <= windowStart || s.start >= windowEnd) continue
+    intervals.push([
+      diffDaysISO(windowStart, s.start < windowStart ? windowStart : s.start),
+      diffDaysISO(windowStart, end > windowEnd ? windowEnd : end),
+    ])
+  }
+  let occupied = 0
+  for (const [a, b] of mergeIntervals(intervals)) occupied += b - a
+  return Math.max(0, days - occupied)
+}
+
 /* --------------------- Matriz mensual (Vista B) -------------------------- */
 
 export interface MonthCell {

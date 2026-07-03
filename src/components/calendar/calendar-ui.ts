@@ -1,38 +1,47 @@
-// BaW OS — Calendario de unidades: constantes visuales compartidas.
+// BaW OS — Calendario de unidades: helpers visuales compartidos.
 //
-// Vive en src/components (no src/lib) porque tailwind.config.ts solo escanea
-// src/app, src/components y src/pages — clases declaradas en src/lib no
-// entrarían al build JIT.
-//
-// Paleta por tipo de estancia = la misma que /estancias (TYPE_BADGE):
-// STR morado · MTR ámbar · LTR azul. Holds en gris. Temporadas en esmeralda.
+// La capa visual del calendario vive como CSS de componente en globals.css
+// (clases `tl-*` y `cal-*`, adaptación de la spec del kit UI System v1) y se
+// parametriza con los tokens de instrumento `--baw-instr-*`. Aquí solo quedan
+// los mapeos instrumento→token y los labels de estatus/canal.
 
-import type { CSSProperties } from 'react'
 import type { StayKind, StayType } from '@/lib/calendar-occupancy'
 
-export const TYPE_BADGE: Record<StayType, string> = {
-  STR: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
-  MTR: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-  LTR: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
+/** Token CSS del instrumento (se inyecta como `--bar` / `--c` inline). */
+export const INSTR_VAR: Record<StayType | 'hold' | 'season' | 'neutral', string> = {
+  STR: 'var(--baw-instr-str)',
+  MTR: 'var(--baw-instr-mtr)',
+  LTR: 'var(--baw-instr-ltr)',
+  hold: 'var(--baw-instr-hold)',
+  season: 'var(--baw-instr-season)',
+  neutral: 'var(--baw-instr-neutral)',
 }
 
-/** Barra sólida del timeline / banda del mes. key = type, o 'hold'. */
-export const BAR_CLASS: Record<StayType | 'hold', string> = {
-  STR: 'bg-purple-500/85 border-purple-400 text-white',
-  MTR: 'bg-amber-500/85 border-amber-400 text-amber-950',
-  LTR: 'bg-blue-500/85 border-blue-400 text-white',
-  hold: 'bg-gray-400/25 border-gray-400/60 text-gray-600 dark:text-gray-300',
+export function instrVarFor(kind: StayKind, type: StayType | null): string {
+  if (kind === 'hold') return INSTR_VAR.hold
+  return INSTR_VAR[type ?? 'LTR']
 }
 
-/** Rayado diagonal para holds (encima de BAR_CLASS.hold). */
-export const HOLD_STRIPES: CSSProperties = {
-  backgroundImage:
-    'repeating-linear-gradient(45deg, transparent, transparent 4px, var(--baw-border) 4px, var(--baw-border) 6px)',
+/** Token para el chip de tipo de UNIDAD (STR/MTR/LTR usan su instrumento;
+ *  RETAIL/OFFICE/COMMON caen al neutral). */
+export function unitTypeVar(type: string): string {
+  if (type === 'STR' || type === 'MTR' || type === 'LTR') return INSTR_VAR[type]
+  return INSTR_VAR.neutral
 }
 
-export function barClassFor(kind: StayKind, type: StayType | null, tentative: boolean): string {
-  const base = kind === 'hold' ? BAR_CLASS.hold : BAR_CLASS[type ?? 'LTR']
-  return tentative && kind !== 'hold' ? `${base} opacity-60 border-dashed` : base
+/** Modificadores de la barra del timeline (la clase base es `tl-bar`). */
+export function barModifiers(opts: {
+  kind: StayKind
+  tentative: boolean
+  clippedStart?: boolean
+  clippedEnd?: boolean
+}): string {
+  const mods: string[] = []
+  if (opts.kind === 'hold') mods.push('tl-bar--hold')
+  else if (opts.tentative) mods.push('tl-bar--tent')
+  if (opts.clippedStart) mods.push('tl-bar--contL')
+  if (opts.clippedEnd) mods.push('tl-bar--contR')
+  return mods.join(' ')
 }
 
 /** Chips de estatus (mismas combinaciones que /estancias). */
@@ -71,7 +80,3 @@ export const CHANNEL_LABEL: Record<string, string> = {
   direct: 'Directa',
   expedia: 'Expedia',
 }
-
-/** Franja de temporadas (esmeralda = concepto de pricing, no choca con tipos). */
-export const SEASON_CHIP =
-  'bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400'

@@ -150,6 +150,19 @@ export default function ReservationsPage() {
     loadData()
   }, [loadData])
 
+  // Prefill desde el calendario de unidades (/calendario/[unitId] →
+  // "Crear reservación"): ?unit_id=&check_in=&check_out=. Se lee de
+  // window.location para no requerir el Suspense boundary de useSearchParams.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const unit = sp.get('unit_id')
+    const ci = sp.get('check_in')
+    const co = sp.get('check_out')
+    if (unit) setUnitId(unit)
+    if (ci) setCheckIn(ci)
+    if (co) setCheckOut(co)
+  }, [])
+
   // ─── Pricing calc ───────────────────────────────────────────────
   const nights = checkIn && checkOut ? diffDays(checkIn, checkOut) : 0
   const selectedUnit = units.find((u) => u.id === unitId)
