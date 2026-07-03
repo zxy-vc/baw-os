@@ -28,6 +28,9 @@ export interface EstadoCuentaPayment {
   status: string
   ancillary_charge_id?: string | null
   notes?: string | null
+  /** Prefijo del concepto (p.ej. la unidad 'D102') en estados de cuenta que
+   *  mezclan renglones de varios contratos (cuenta combinada). */
+  conceptPrefix?: string
 }
 
 export type MovimientoKind =
@@ -106,18 +109,25 @@ function periodStartOf(periodo: string): string {
 }
 
 /** Último día del mes del periodo 'YYYY-MM' como 'YYYY-MM-DD'. */
-function periodEndOf(periodo: string): string {
+export function periodEndOf(periodo: string): string {
   const [y, m] = periodo.split('-').map(Number)
   const last = new Date(y, m, 0).getDate()
   return `${periodo}-${String(last).padStart(2, '0')}`
 }
 
 function conceptFor(p: EstadoCuentaPayment): string {
-  if (p.ancillary_charge_id) return p.notes || 'Cargo accesorio'
-  const hasWater = Number(p.water_fee || 0) > 0
-  if (Number(p.rent_amount || 0) > 0 && hasWater) return 'Renta + servicios'
-  if (hasWater && !Number(p.rent_amount || 0)) return 'Servicios'
-  return 'Renta mensual'
+  const base = (() => {
+    if (p.ancillary_charge_id) return p.notes || 'Cargo accesorio'
+    const hasWater = Number(p.water_fee || 0) > 0
+    if (Number(p.rent_amount || 0) > 0 && hasWater) return 'Renta + servicios'
+    if (hasWater && !Number(p.rent_amount || 0)) return 'Servicios'
+    return 'Renta mensual'
+  })()
+  return withPrefix(p, base)
+}
+
+function withPrefix(p: EstadoCuentaPayment, concept: string): string {
+  return p.conceptPrefix ? `${p.conceptPrefix} · ${concept}` : concept
 }
 
 // ── Núcleo: agregación pura ─────────────────────────────────────────────────
@@ -205,7 +215,7 @@ export function computeEstadoCuenta(
       const partial = paid + 0.001 < base + fee
       movimientos.push({
         date: p.paid_date || p.due_date,
-        concept: partial ? 'Pago recibido (parcial)' : 'Pago recibido',
+        concept: withPrefix(p, partial ? 'Pago recibido (parcial)' : 'Pago recibido'),
         charge: 0,
         credit: paid,
         balance,
@@ -220,7 +230,7 @@ export function computeEstadoCuenta(
       balance = round2(balance + fee)
       movimientos.push({
         date: p.due_date,
-        concept: `Recargo por mora — ${days} días`,
+        concept: withPrefix(p, `Recargo por mora — ${days} días`),
         charge: fee,
         credit: 0,
         balance,
