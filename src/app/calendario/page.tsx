@@ -5,12 +5,15 @@
 // Render según la spec «tl» del kit UI System v1: el grid es FLUIDO — las
 // columnas reparten el 100% del ancho disponible entre los días visibles
 // (nada de px fijos ni scroll horizontal), las barras usan fondo suave +
-// borde izquierdo de instrumento, y check-in/out caen a mitad de día para
-// que salida y entrada convivan en el mismo día sin conflicto visual.
-// La leyenda es un filtro interactivo (toggles por instrumento).
+// borde de instrumento, y check-in/out caen a mitad de día para que salida
+// y entrada convivan en el mismo día. La leyenda es un filtro interactivo.
 //
-// Click en barra → drawer con link al instrumento; click en la unidad →
-// /calendario/[unitId] (Vista B mensual, donde vive la edición de precios).
+// Fase 3: las barras de reservación/contrato/bloqueo son ARRASTRABLES —
+// arrastra el cuerpo para mover la estancia completa, o sus orillas para
+// extender/recortar. Al soltar se pide confirmación con las fechas nuevas y
+// se valida el solape contra las demás estancias firmes de la unidad (la DB
+// además lo garantiza con sus EXCLUDE constraints). Click simple → drawer;
+// click en la unidad → /calendario/[unitId] (edición de precios).
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
@@ -28,6 +31,7 @@ import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import { KPICard } from '@/components/ui/status'
 import StayDrawer from '@/components/calendar/StayDrawer'
+import ConfirmModal from '@/components/ConfirmModal'
 import {
   INSTR_VAR,
   instrVarFor,
@@ -43,10 +47,12 @@ import {
   contractToStay,
   reservationToStay,
   holdToStay,
+  blockToStay,
   layoutLanes,
   computeKpis,
   freeNightsInWindow,
 } from '@/lib/calendar-occupancy'
+import { formatDate } from '@/lib/utils'
 import type { UnitType } from '@/types'
 
 interface UnitRow {
@@ -79,15 +85,33 @@ const LANE_H = 28
 const ALL = '__ALL__'
 const SIN_EDIFICIO = '__NONE__'
 
-type LegendKey = 'STR' | 'MTR' | 'LTR' | 'hold' | 'tent' | 'season'
+type LegendKey = 'STR' | 'MTR' | 'LTR' | 'hold' | 'block' | 'tent' | 'season'
 const LEGEND: Array<{ key: LegendKey; label: string; bar: string }> = [
   { key: 'STR', label: 'STR', bar: INSTR_VAR.STR },
   { key: 'MTR', label: 'MTR', bar: INSTR_VAR.MTR },
   { key: 'LTR', label: 'LTR', bar: INSTR_VAR.LTR },
   { key: 'hold', label: 'Hold', bar: INSTR_VAR.hold },
+  { key: 'block', label: 'Bloqueo', bar: INSTR_VAR.block },
   { key: 'season', label: 'Temporada', bar: INSTR_VAR.season },
   { key: 'tent', label: 'Tentativa', bar: 'var(--baw-instr-tent)' },
 ]
+
+/** Cambios de fechas pendientes de confirmar tras un drag. */
+interface PendingChange {
+  stay: CalendarStay
+  newStart: string
+  newEndExclusive: string | null
+}
+
+interface DragState {
+  key: string
+  mode: 'move' | 'resize-l' | 'resize-r'
+  originX: number
+  colPx: number
+  delta: number
+  moved: boolean
+  stay: CalendarStay
+}
 
 export default function CalendarioPage() {
   const {
@@ -114,11 +138,19 @@ export default function CalendarioPage() {
     MTR: true,
     LTR: true,
     hold: true,
+    block: true,
     tent: true,
     season: true,
   })
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<CalendarStay | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+
+  // Drag & drop de barras
+  const [drag, setDrag] = useState<DragState | null>(null)
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null)
+  const [savingChange, setSavingChange] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   // Respetar el building activo del switcher como filtro inicial (patrón /units)
   useEffect(() => {
@@ -165,6 +197,13 @@ export default function CalendarioPage() {
 
         const unitRows = (unitsRes.data ?? []) as UnitRow[]
 
+        // Bloqueos operativos (fase 3). Si la migración 20260703_03 no está
+        // aplicada aún, la query falla y seguimos sin bloqueos (degradación).
+        const blocksRes = await supabase
+          .from('unit_blocks')
+          .select('id, unit_id, start_date, end_date, reason, notes')
+          .eq('org_id', orgId)
+
         // reservation_holds no tiene org_id: se acota por las unidades de la org
         let holdRows: any[] = []
         if (unitRows.length > 0) {
@@ -179,6 +218,7 @@ export default function CalendarioPage() {
         const merged: CalendarStay[] = [
           ...((contractsRes.data ?? []) as any[]).map(contractToStay),
           ...((reservationsRes.data ?? []) as any[]).map(reservationToStay),
+          ...((blocksRes.data ?? []) as any[]).map(blockToStay),
           ...holdRows.map(holdToStay),
         ].filter((s): s is CalendarStay => s !== null)
 
@@ -196,7 +236,7 @@ export default function CalendarioPage() {
     return () => {
       alive = false
     }
-  }, [ctxLoading, activeOrgId])
+  }, [ctxLoading, activeOrgId, reloadKey])
 
   const orgBuildings = useMemo(
     () => buildings.filter((b) => b.org_id === activeOrgId),
@@ -216,6 +256,7 @@ export default function CalendarioPage() {
     () =>
       stays.filter((s) => {
         if (s.kind === 'hold') return legend.hold
+        if (s.kind === 'bloqueo') return legend.block
         if (s.tentative && !legend.tent) return false
         return legend[(s.type ?? 'LTR') as LegendKey]
       }),
@@ -357,6 +398,83 @@ export default function CalendarioPage() {
     if (!u) return undefined
     const b = orgBuildings.find((x) => x.id === u.building_id)
     return `Unidad ${u.number}${b ? ` · ${b.name}` : ''}`
+  }
+
+  /* ── Drag & drop: cálculo de fechas nuevas y validación de solapes ── */
+
+  function computeNewDates(d: DragState): PendingChange | null {
+    const s = d.stay
+    let newStart = s.start
+    let newEnd = s.endExclusive
+    if (d.mode === 'move') {
+      newStart = addDaysISO(s.start, d.delta)
+      newEnd = s.endExclusive ? addDaysISO(s.endExclusive, d.delta) : null
+    } else if (d.mode === 'resize-r') {
+      if (!s.endExclusive) return null
+      newEnd = addDaysISO(s.endExclusive, d.delta)
+      if (diffDaysISO(newStart, newEnd) < 1) newEnd = addDaysISO(newStart, 1)
+    } else {
+      newStart = addDaysISO(s.start, d.delta)
+      if (s.endExclusive && diffDaysISO(newStart, s.endExclusive) < 1) {
+        newStart = addDaysISO(s.endExclusive, -1)
+      }
+    }
+    if (newStart === s.start && newEnd === s.endExclusive) return null
+    return { stay: s, newStart, newEndExclusive: newEnd }
+  }
+
+  function overlapConflict(change: PendingChange): CalendarStay | null {
+    const FAR = '9999-12-31'
+    const nEnd = change.newEndExclusive ?? FAR
+    return (
+      stays.find((o) => {
+        if (o.unitId !== change.stay.unitId || o.key === change.stay.key) return false
+        if (o.kind === 'hold' || o.tentative) return false
+        const oEnd = o.endExclusive ?? FAR
+        return change.newStart < oEnd && o.start < nEnd
+      }) ?? null
+    )
+  }
+
+  async function applyPendingChange() {
+    if (!pendingChange || savingChange) return
+    const { stay, newStart, newEndExclusive } = pendingChange
+    const id = stay.key.slice(2)
+    setSavingChange(true)
+    let error: { message: string } | null = null
+    if (stay.kind === 'reservacion') {
+      ;({ error } = await supabase
+        .from('reservations')
+        .update({ check_in: newStart, check_out: newEndExclusive })
+        .eq('id', id))
+    } else if (stay.kind === 'contrato') {
+      ;({ error } = await supabase
+        .from('contracts')
+        .update({
+          start_date: newStart,
+          end_date: newEndExclusive ? addDaysISO(newEndExclusive, -1) : null,
+        })
+        .eq('id', id))
+    } else if (stay.kind === 'bloqueo') {
+      ;({ error } = await supabase
+        .from('unit_blocks')
+        .update({
+          start_date: newStart,
+          end_date: newEndExclusive ? addDaysISO(newEndExclusive, -1) : newStart,
+        })
+        .eq('id', id))
+    }
+    setSavingChange(false)
+    setPendingChange(null)
+    if (error) setActionError(`No se pudo guardar: ${error.message}`)
+    else setReloadKey((k) => k + 1)
+  }
+
+  // "sale el" para mostrar en la confirmación: reservación usa check_out;
+  // contrato/bloqueo usan end_date (endExclusive - 1).
+  const moveOutOf = (kind: CalendarStay['kind'], endExclusive: string | null) => {
+    if (!endExclusive) return null
+    return kind === 'reservacion' ? endExclusive : addDaysISO(endExclusive, -1)
   }
 
   // Densidad de números en el header: a Trimestre solo lunes (evita colisiones)
@@ -631,16 +749,82 @@ export default function CalendarioPage() {
                             // Half-day: check-in arranca a mitad de día y
                             // check-out termina a mitad de día — salvo bordes
                             // recortados por la ventana, que van al límite.
-                            const startPos = b.clippedStart ? 0 : b.startIdx + 0.5
-                            const endPos = b.clippedEnd
+                            let startPos = b.clippedStart ? 0 : b.startIdx + 0.5
+                            let endPos = b.clippedEnd
                               ? days
                               : Math.min(days, b.startIdx + b.span + 0.5)
+                            // Ghost durante el drag: la barra sigue al puntero
+                            const dragging = drag?.key === b.stay.key ? drag : null
+                            if (dragging) {
+                              if (dragging.mode !== 'resize-r') startPos += dragging.delta
+                              if (dragging.mode !== 'resize-l') endPos += dragging.delta
+                              startPos = Math.max(0, Math.min(days - 0.4, startPos))
+                              endPos = Math.max(startPos + 0.4, Math.min(days, endPos))
+                            }
                             const len = Math.max(0.4, endPos - startPos)
                             const showText = len / days > 0.045
+                            const draggable = b.stay.kind !== 'hold'
                             return (
                               <button
                                 key={b.stay.key}
-                                onClick={() => setSelected(b.stay)}
+                                onPointerDown={(e) => {
+                                  if (!draggable) return
+                                  const track = e.currentTarget.parentElement as HTMLElement
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  const offset = e.clientX - rect.left
+                                  const edge = Math.min(12, rect.width / 4)
+                                  let mode: DragState['mode'] =
+                                    offset < edge
+                                      ? 'resize-l'
+                                      : offset > rect.width - edge
+                                      ? 'resize-r'
+                                      : 'move'
+                                  // contrato sin fecha de fin: su orilla derecha no se estira
+                                  if (mode === 'resize-r' && b.stay.endExclusive === null) mode = 'move'
+                                  e.currentTarget.setPointerCapture(e.pointerId)
+                                  setDrag({
+                                    key: b.stay.key,
+                                    mode,
+                                    originX: e.clientX,
+                                    colPx: track.clientWidth / days,
+                                    delta: 0,
+                                    moved: false,
+                                    stay: b.stay,
+                                  })
+                                }}
+                                onPointerMove={(e) => {
+                                  const x = e.clientX
+                                  setDrag((prev) => {
+                                    if (!prev || prev.key !== b.stay.key) return prev
+                                    const delta = Math.round((x - prev.originX) / prev.colPx)
+                                    const moved = prev.moved || Math.abs(x - prev.originX) > 4
+                                    if (delta === prev.delta && moved === prev.moved) return prev
+                                    return { ...prev, delta, moved }
+                                  })
+                                }}
+                                onPointerUp={() => {
+                                  const d = drag
+                                  setDrag(null)
+                                  if (!d || d.key !== b.stay.key) return
+                                  if (!d.moved || d.delta === 0) {
+                                    setSelected(b.stay)
+                                    return
+                                  }
+                                  const change = computeNewDates(d)
+                                  if (!change) return
+                                  const conflict = overlapConflict(change)
+                                  if (conflict) {
+                                    setActionError(
+                                      `No se puede mover: se encima con ${conflict.person} (${formatDate(
+                                        conflict.start,
+                                      )} → ${conflict.moveOutDay ? formatDate(conflict.moveOutDay) : 'sin fin'}).`,
+                                    )
+                                    return
+                                  }
+                                  setActionError(null)
+                                  setPendingChange(change)
+                                }}
+                                onClick={!draggable ? () => setSelected(b.stay) : undefined}
                                 className={`tl-bar ${barModifiers({
                                   kind: b.stay.kind,
                                   tentative: b.stay.tentative,
@@ -653,11 +837,17 @@ export default function CalendarioPage() {
                                     '--len': len,
                                     '--bar': instrVarFor(b.stay.kind, b.stay.type),
                                     top: 6 + b.lane * LANE_H,
+                                    cursor: draggable
+                                      ? dragging
+                                        ? 'grabbing'
+                                        : 'grab'
+                                      : 'pointer',
+                                    ...(dragging ? { opacity: 0.85, zIndex: 5 } : {}),
                                   } as CSSProperties
                                 }
                                 title={`${b.stay.person} · ${b.stay.start} → ${
                                   b.stay.moveOutDay ?? 'sin fin'
-                                }`}
+                                } · arrastra para mover, orillas para extender`}
                               >
                                 {showText && (
                                   <>
@@ -682,15 +872,71 @@ export default function CalendarioPage() {
             )}
           </div>
 
+          {actionError && (
+            <div
+              className="flex items-center justify-between gap-3 text-sm rounded-lg px-3 py-2"
+              style={{
+                color: 'var(--baw-danger-fg)',
+                backgroundColor: 'var(--baw-danger-bg)',
+                border: '1px solid var(--baw-danger-border)',
+              }}
+            >
+              <span>{actionError}</span>
+              <button onClick={() => setActionError(null)} className="text-xs underline shrink-0">
+                Cerrar
+              </button>
+            </div>
+          )}
+
           <p className="text-xs muted-text">
-            Click en una barra para ver el detalle · click en la unidad para abrir su calendario
-            mensual con precios por noche · las barras punteadas continúan fuera de la ventana
-            visible.
+            Arrastra una barra para mover la estancia (orillas para extender/recortar) — se pide
+            confirmación antes de guardar · click simple abre el detalle · click en la unidad abre
+            su calendario mensual con precios por noche.
           </p>
         </>
       )}
 
-      <StayDrawer stay={selected} unitLabel={unitLabelFor(selected)} onClose={() => setSelected(null)} />
+      <ConfirmModal
+        isOpen={pendingChange !== null}
+        onClose={() => setPendingChange(null)}
+        onConfirm={applyPendingChange}
+        title="Confirmar cambio de fechas"
+        description={
+          pendingChange
+            ? `${pendingChange.stay.person} · ${unitLabelFor(pendingChange.stay) ?? ''}: de ${formatDate(
+                pendingChange.stay.start,
+              )} → ${
+                pendingChange.stay.moveOutDay ? formatDate(pendingChange.stay.moveOutDay) : 'sin fin'
+              } a ${formatDate(pendingChange.newStart)} → ${
+                moveOutOf(pendingChange.stay.kind, pendingChange.newEndExclusive)
+                  ? formatDate(moveOutOf(pendingChange.stay.kind, pendingChange.newEndExclusive)!)
+                  : 'sin fin'
+              }`
+            : ''
+        }
+        confirmText={savingChange ? 'Guardando…' : 'Aplicar cambio'}
+        variant="default"
+      />
+
+      <StayDrawer
+        stay={selected}
+        unitLabel={unitLabelFor(selected)}
+        onClose={() => setSelected(null)}
+        onDelete={
+          selected?.kind === 'bloqueo'
+            ? async () => {
+                if (!window.confirm('¿Eliminar este bloqueo?')) return
+                const { error } = await supabase
+                  .from('unit_blocks')
+                  .delete()
+                  .eq('id', selected.key.slice(2))
+                setSelected(null)
+                if (error) setActionError(`No se pudo eliminar: ${error.message}`)
+                else setReloadKey((k) => k + 1)
+              }
+            : null
+        }
+      />
     </div>
   )
 }

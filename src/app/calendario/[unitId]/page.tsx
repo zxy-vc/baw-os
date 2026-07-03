@@ -21,7 +21,7 @@ import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import StayDrawer from '@/components/calendar/StayDrawer'
 import { INSTR_VAR, instrVarFor, unitTypeVar } from '@/components/calendar/calendar-ui'
-import type { CalendarStay, Season } from '@/lib/calendar-occupancy'
+import type { CalendarStay, Season, RateOverride } from '@/lib/calendar-occupancy'
 import {
   todayISO,
   addDaysISO,
@@ -29,7 +29,9 @@ import {
   contractToStay,
   reservationToStay,
   holdToStay,
+  blockToStay,
   seasonForDate,
+  overrideForDate,
   nightlyPrice,
   monthMatrix,
   monthLabel,
@@ -66,6 +68,7 @@ export default function UnidadCalendarioPage() {
   const [unit, setUnit] = useState<UnitDetail | null>(null)
   const [stays, setStays] = useState<CalendarStay[]>([])
   const [seasons, setSeasons] = useState<Season[]>([])
+  const [overrides, setOverrides] = useState<RateOverride[]>([])
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
   const [monthsBack, setMonthsBack] = useState(0)
@@ -115,9 +118,24 @@ export default function UnidadCalendarioPage() {
           supabase.from('str_seasons').select('*').order('start_date'),
         ])
 
+        // Fase 3: bloqueos + overrides de precio. Si la migración 20260703_03
+        // no está aplicada, estas queries fallan y degradamos sin ellas.
+        const [blocksRes, overridesRes] = await Promise.all([
+          supabase
+            .from('unit_blocks')
+            .select('id, unit_id, start_date, end_date, reason, notes')
+            .eq('unit_id', unitId),
+          supabase
+            .from('unit_rate_overrides')
+            .select('id, unit_id, start_date, end_date, nightly_rate_mxn, notes')
+            .eq('unit_id', unitId)
+            .order('start_date'),
+        ])
+
         const merged: CalendarStay[] = [
           ...((contractsRes.data ?? []) as any[]).map(contractToStay),
           ...((reservationsRes.data ?? []) as any[]).map(reservationToStay),
+          ...((blocksRes.data ?? []) as any[]).map(blockToStay),
           ...((holdsRes.data ?? []) as any[]).map(holdToStay),
         ].filter((s): s is CalendarStay => s !== null)
 
@@ -125,6 +143,7 @@ export default function UnidadCalendarioPage() {
           setUnit((unitRes.data as UnitDetail | null) ?? null)
           setStays(merged)
           setSeasons((seasonsRes.data ?? []) as Season[])
+          setOverrides((overridesRes.data ?? []) as RateOverride[])
         }
       } finally {
         if (alive) setLoading(false)
@@ -260,8 +279,9 @@ export default function UnidadCalendarioPage() {
             : ''}
         </p>
         <p className="text-xs muted-text mt-1">
-          Arrastra sobre días libres para seleccionar un rango: cotiza, crea/edita temporadas de
-          precio o crea una reservación con las fechas prellenadas.
+          Arrastra sobre días libres para seleccionar un rango: cotiza, fija precio de esta
+          unidad, crea/edita temporadas, bloquea el rango o crea una reservación con las fechas
+          prellenadas.
         </p>
       </div>
 
@@ -314,9 +334,8 @@ export default function UnidadCalendarioPage() {
                         addDaysISO(cell.iso, 1) === band.endExclusive
                       : false
                     const season = seasonForDate(seasons, cell.iso)
-                    const price = showPrices
-                      ? nightlyPrice(unit.base_rate_mxn, seasons, cell.iso)
-                      : null
+                    const override = overrideForDate(overrides, cell.iso)
+                    const price = nightlyPrice(unit.base_rate_mxn, seasons, cell.iso, overrides)
                     const isPast = cell.iso < today
                     const isToday = cell.iso === today
                     const free = !band
@@ -373,6 +392,8 @@ export default function UnidadCalendarioPage() {
                             className={`cal-band cal-band--end ${
                               ending.kind === 'hold'
                                 ? 'cal-band--hold'
+                                : ending.kind === 'bloqueo'
+                                ? 'cal-band--block'
                                 : ending.tentative
                                 ? 'cal-band--tent'
                                 : ''
@@ -395,6 +416,8 @@ export default function UnidadCalendarioPage() {
                             } ${
                               band.kind === 'hold'
                                 ? 'cal-band--hold'
+                                : band.kind === 'bloqueo'
+                                ? 'cal-band--block'
                                 : band.tentative
                                 ? 'cal-band--tent'
                                 : ''
@@ -411,14 +434,24 @@ export default function UnidadCalendarioPage() {
                           </span>
                         )}
 
-                        {/* Precio por noche (solo días sin banda, no encima) */}
+                        {/* Precio por noche (solo días sin banda, no encima).
+                            Override por unidad → indigo; temporada → esmeralda. */}
                         {price !== null && !band && (
                           <span
                             className={`absolute bottom-1 right-1 text-[10px] tabular-nums ${
-                              season
+                              override
+                                ? 'text-indigo-500 dark:text-indigo-400 font-semibold underline decoration-dotted'
+                                : season
                                 ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                                 : 'muted-text'
                             }`}
+                            title={
+                              override
+                                ? `Precio fijo de esta unidad (${override.start_date} → ${override.end_date})`
+                                : season
+                                ? `${season.name} ×${season.price_multiplier}`
+                                : undefined
+                            }
                           >
                             ${price.toLocaleString('es-MX')}
                           </span>
@@ -455,6 +488,9 @@ export default function UnidadCalendarioPage() {
         <button aria-pressed="true" style={{ '--bar': INSTR_VAR.hold } as CSSProperties} disabled>
           <i /> Hold
         </button>
+        <button aria-pressed="true" style={{ '--bar': INSTR_VAR.block } as CSSProperties} disabled>
+          <i /> Bloqueo
+        </button>
         <button aria-pressed="true" style={{ '--bar': INSTR_VAR.season } as CSSProperties} disabled>
           <i /> Temporada
         </button>
@@ -467,6 +503,7 @@ export default function UnidadCalendarioPage() {
           orgId={activeOrgId}
           selection={selection}
           seasons={seasons}
+          overrides={overrides}
           onClose={clearSelection}
           onChanged={() => setReloadKey((k) => k + 1)}
         />
@@ -476,6 +513,16 @@ export default function UnidadCalendarioPage() {
         stay={selected}
         unitLabel={`Unidad ${unit.number}${building ? ` · ${building.name}` : ''}`}
         onClose={() => setSelected(null)}
+        onDelete={
+          selected?.kind === 'bloqueo'
+            ? async () => {
+                if (!window.confirm('¿Eliminar este bloqueo?')) return
+                await supabase.from('unit_blocks').delete().eq('id', selected.key.slice(2))
+                setSelected(null)
+                setReloadKey((k) => k + 1)
+              }
+            : null
+        }
       />
     </div>
   )
@@ -488,6 +535,7 @@ function RangePanel({
   orgId,
   selection,
   seasons,
+  overrides,
   onClose,
   onChanged,
 }: {
@@ -495,6 +543,7 @@ function RangePanel({
   orgId: string
   selection: { from: string; to: string; nights: number; checkOut: string }
   seasons: Season[]
+  overrides: RateOverride[]
   onClose: () => void
   onChanged: () => void
 }) {
@@ -504,6 +553,9 @@ function RangePanel({
   const [newSeasonMult, setNewSeasonMult] = useState('1.2')
   const [baseRate, setBaseRate] = useState(unit.base_rate_mxn != null ? String(unit.base_rate_mxn) : '')
   const [seasonEdits, setSeasonEdits] = useState<Record<string, { name: string; mult: string }>>({})
+  const [newOverridePrice, setNewOverridePrice] = useState('')
+  const [overrideEdits, setOverrideEdits] = useState<Record<string, string>>({})
+  const [blockReason, setBlockReason] = useState('maintenance')
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -519,14 +571,24 @@ function RangePanel({
     [seasons, selection],
   )
 
+  const overlappingOverrides = useMemo(
+    () =>
+      overrides.filter((o) => !(o.end_date < selection.from || o.start_date > selection.to)),
+    [overrides, selection],
+  )
+
   const total = useMemo(() => {
-    if (unit.base_rate_mxn == null) return null
     let sum = 0
+    let priced = 0
     for (let iso = selection.from; iso <= selection.to; iso = addDaysISO(iso, 1)) {
-      sum += nightlyPrice(unit.base_rate_mxn, seasons, iso) ?? 0
+      const p = nightlyPrice(unit.base_rate_mxn, seasons, iso, overrides)
+      if (p !== null) {
+        sum += p
+        priced++
+      }
     }
-    return sum
-  }, [unit.base_rate_mxn, seasons, selection])
+    return priced > 0 ? sum : null
+  }, [unit.base_rate_mxn, seasons, overrides, selection])
 
   async function run(action: () => PromiseLike<{ error: { message: string } | null }>) {
     setSaving(true)
@@ -578,6 +640,56 @@ function RangePanel({
   async function saveBaseRate() {
     const value = baseRate === '' ? null : Number(baseRate)
     await run(() => supabase.from('units').update({ base_rate_mxn: value }).eq('id', unit.id))
+  }
+
+  async function createOverride() {
+    const price = Number(newOverridePrice)
+    if (!price || price <= 0) {
+      setError('Pon un precio por noche válido para el override.')
+      return
+    }
+    const ok = await run(() =>
+      supabase.from('unit_rate_overrides').insert({
+        org_id: orgId,
+        unit_id: unit.id,
+        start_date: selection.from,
+        end_date: selection.to,
+        nightly_rate_mxn: price,
+        notes: null,
+      }),
+    )
+    if (ok) setNewOverridePrice('')
+  }
+
+  async function saveOverride(o: RateOverride) {
+    const edit = overrideEdits[o.id]
+    if (edit === undefined) return
+    const price = Number(edit)
+    if (!price || price <= 0) {
+      setError('Precio de override inválido.')
+      return
+    }
+    await run(() =>
+      supabase.from('unit_rate_overrides').update({ nightly_rate_mxn: price }).eq('id', o.id),
+    )
+  }
+
+  async function deleteOverride(o: RateOverride) {
+    if (!window.confirm(`¿Quitar el precio fijo ${formatCurrency(Number(o.nightly_rate_mxn))} (${o.start_date} → ${o.end_date})?`)) return
+    await run(() => supabase.from('unit_rate_overrides').delete().eq('id', o.id))
+  }
+
+  async function createBlock() {
+    await run(() =>
+      supabase.from('unit_blocks').insert({
+        org_id: orgId,
+        unit_id: unit.id,
+        start_date: selection.from,
+        end_date: selection.to,
+        reason: blockReason,
+        notes: null,
+      }),
+    )
   }
 
   return (
@@ -650,6 +762,73 @@ function RangePanel({
           >
             Guardar
           </button>
+        </div>
+      </div>
+
+      {/* Precio fijo por unidad (override, gana sobre base × temporada) */}
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-wide muted-text">
+          Precio fijo de esta unidad ({overlappingOverrides.length})
+        </p>
+        {overlappingOverrides.map((o) => (
+          <div key={o.id} className="rounded-lg p-2.5 space-y-1.5" style={{ border: '1px solid var(--baw-border)' }}>
+            <p className="text-[10px] font-mono muted-text">
+              {o.start_date} → {o.end_date}
+            </p>
+            <div className="flex gap-2 items-center">
+              <span className="text-xs muted-text">$</span>
+              <input
+                type="number"
+                min={0}
+                value={overrideEdits[o.id] ?? String(o.nightly_rate_mxn)}
+                onChange={(e) =>
+                  setOverrideEdits((prev) => ({ ...prev, [o.id]: e.target.value }))
+                }
+                className="input-field w-28 text-sm py-1"
+              />
+              <span className="text-xs muted-text">/noche</span>
+              <button
+                onClick={() => saveOverride(o)}
+                disabled={saving || overrideEdits[o.id] === undefined}
+                className="text-xs px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+                style={{ color: 'var(--baw-text)' }}
+              >
+                Guardar
+              </button>
+              <button
+                onClick={() => deleteOverride(o)}
+                disabled={saving}
+                className="text-xs px-2 py-1 rounded-md text-red-500 hover:bg-red-500/10 inline-flex items-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="rounded-lg p-2.5 space-y-1.5" style={{ border: '1px dashed var(--baw-border)' }}>
+          <p className="text-xs muted-text">Fijar precio por noche SOLO para esta unidad en el rango</p>
+          <div className="flex gap-2 items-center">
+            <span className="text-xs muted-text">$</span>
+            <input
+              type="number"
+              min={0}
+              value={newOverridePrice}
+              onChange={(e) => setNewOverridePrice(e.target.value)}
+              placeholder="p.ej. 1800"
+              className="input-field w-28 text-sm py-1"
+            />
+            <span className="text-xs muted-text">/noche</span>
+            <button
+              onClick={createOverride}
+              disabled={saving}
+              className="text-xs px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
+            >
+              Fijar precio
+            </button>
+          </div>
+          <p className="text-[10px] muted-text">
+            Gana sobre tarifa base × temporada. Requiere la migración 20260703_03 aplicada.
+          </p>
         </div>
       </div>
 
@@ -740,6 +919,33 @@ function RangePanel({
             el cotizador).
           </p>
         </div>
+      </div>
+
+      {/* Bloqueo operativo del rango */}
+      <div className="rounded-lg p-2.5 space-y-1.5" style={{ border: '1px dashed var(--baw-border)' }}>
+        <p className="text-xs uppercase tracking-wide muted-text">Bloquear este rango</p>
+        <div className="flex gap-2 items-center">
+          <select
+            value={blockReason}
+            onChange={(e) => setBlockReason(e.target.value)}
+            className="input-field flex-1 text-sm py-1"
+          >
+            <option value="maintenance">Mantenimiento</option>
+            <option value="personal">Uso personal</option>
+            <option value="other">Otro</option>
+          </select>
+          <button
+            onClick={createBlock}
+            disabled={saving}
+            className="text-xs px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+          >
+            Bloquear
+          </button>
+        </div>
+        <p className="text-[10px] muted-text">
+          La unidad se pinta como no disponible esos días (sin tocar su status). El bloqueo se
+          puede mover/quitar desde el timeline. Requiere la migración 20260703_03.
+        </p>
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}

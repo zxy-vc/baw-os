@@ -13,7 +13,7 @@
 // INCLUSIVO en DB, por eso su endExclusive = end_date + 1 día.
 
 export type StayType = 'STR' | 'MTR' | 'LTR'
-export type StayKind = 'contrato' | 'reservacion' | 'hold'
+export type StayKind = 'contrato' | 'reservacion' | 'hold' | 'bloqueo'
 
 export interface CalendarStay {
   key: string
@@ -48,6 +48,17 @@ export interface Season {
   /** inclusive (misma semántica que /quotes: date >= start && date <= end) */
   end_date: string
   price_multiplier: number
+  notes?: string | null
+}
+
+/** Precio fijo por unidad+rango (unit_rate_overrides). Fechas inclusivas.
+ *  Gana sobre base × temporada. */
+export interface RateOverride {
+  id: string
+  unit_id: string
+  start_date: string
+  end_date: string
+  nightly_rate_mxn: number
   notes?: string | null
 }
 
@@ -178,6 +189,41 @@ export function reservationToStay(r: ReservationRow): CalendarStay | null {
   }
 }
 
+export interface BlockRow {
+  id: string
+  unit_id: string
+  start_date: string
+  end_date: string
+  reason: string
+  notes?: string | null
+}
+
+export const BLOCK_REASON_LABEL: Record<string, string> = {
+  maintenance: 'Mantenimiento',
+  personal: 'Uso personal',
+  other: 'Bloqueado',
+}
+
+/** Bloqueo operativo (unit_blocks): fechas inclusivas en DB → endExclusive+1. */
+export function blockToStay(b: BlockRow): CalendarStay {
+  return {
+    key: `b-${b.id}`,
+    kind: 'bloqueo',
+    type: null,
+    person: BLOCK_REASON_LABEL[b.reason] ?? 'Bloqueado',
+    unitId: b.unit_id,
+    start: b.start_date,
+    endExclusive: addDaysISO(b.end_date, 1),
+    moveOutDay: b.end_date,
+    status: b.reason,
+    tentative: false,
+    amount: 0,
+    amountSuffix: '',
+    href: null,
+    notes: b.notes ?? null,
+  }
+}
+
 export function holdToStay(h: HoldRow): CalendarStay {
   return {
     key: `h-${h.id}`,
@@ -204,13 +250,20 @@ export function seasonForDate(seasons: Season[], iso: string): Season | null {
   return seasons.find((s) => iso >= s.start_date && iso <= s.end_date) ?? null
 }
 
-/** Precio por noche = tarifa base de la unidad × multiplicador de temporada.
- *  null si la unidad no tiene tarifa base configurada. */
+export function overrideForDate(overrides: RateOverride[], iso: string): RateOverride | null {
+  return overrides.find((o) => iso >= o.start_date && iso <= o.end_date) ?? null
+}
+
+/** Precio por noche resuelto: override por unidad GANA; si no, tarifa base ×
+ *  multiplicador de temporada. null si no hay ni override ni tarifa base. */
 export function nightlyPrice(
   baseRate: number | null | undefined,
   seasons: Season[],
   iso: string,
+  overrides: RateOverride[] = [],
 ): number | null {
+  const ov = overrideForDate(overrides, iso)
+  if (ov) return Math.round(Number(ov.nightly_rate_mxn))
   if (baseRate == null) return null
   const s = seasonForDate(seasons, iso)
   return Math.round(baseRate * (s ? Number(s.price_multiplier) : 1))
@@ -293,7 +346,8 @@ function mergeIntervals(intervals: Array<[number, number]>): Array<[number, numb
 }
 
 /** Ocupación sobre la ventana visible. Tentativas y holds NO cuentan como
- *  noches ocupadas (no son certeza); sí cuentan checked_out/expired (historia). */
+ *  noches ocupadas (no son certeza); los bloqueos tampoco (no son ingreso);
+ *  sí cuentan checked_out/expired (historia). */
 export function computeKpis(
   unitIds: string[],
   stays: CalendarStay[],
@@ -306,7 +360,7 @@ export function computeKpis(
   const byUnit = new Map<string, Array<[number, number]>>()
 
   for (const s of stays) {
-    if (s.kind === 'hold' || s.tentative) continue
+    if (s.kind === 'hold' || s.kind === 'bloqueo' || s.tentative) continue
     if (!unitSet.has(s.unitId)) continue
     const end = s.endExclusive ?? windowEnd
     if (end <= windowStart || s.start >= windowEnd) continue
@@ -321,7 +375,9 @@ export function computeKpis(
     for (const [a, b] of mergeIntervals(byUnit.get(uid) ?? [])) occupied += b - a
   }
   const total = unitIds.length * days
-  const inScope = stays.filter((s) => s.kind !== 'hold' && unitSet.has(s.unitId))
+  const inScope = stays.filter(
+    (s) => s.kind !== 'hold' && s.kind !== 'bloqueo' && unitSet.has(s.unitId),
+  )
   const horizon = addDaysISO(today, 60)
 
   return {

@@ -16,10 +16,14 @@ export default function StayDrawer({
   stay,
   unitLabel,
   onClose,
+  onDelete,
 }: {
   stay: CalendarStay | null
   unitLabel?: string
   onClose: () => void
+  /** Acción destructiva opcional (p.ej. eliminar un bloqueo). El caller decide
+   *  para qué kinds pasarla y ejecuta el write + refetch. */
+  onDelete?: (() => void) | null
 }) {
   useEffect(() => {
     if (!stay) return
@@ -151,15 +155,25 @@ export default function StayDrawer({
           </div>
         )}
 
-        {stay.href && (
-          <Link
-            href={stay.href}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-          >
-            <ExternalLink className="w-4 h-4" />
-            {stay.kind === 'contrato' ? 'Ver contrato' : 'Ver en Reservaciones'}
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {stay.href && (
+            <Link
+              href={stay.href}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {stay.kind === 'contrato' ? 'Ver contrato' : 'Ver en Reservaciones'}
+            </Link>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-500 border border-red-500/30 hover:bg-red-500/10 transition-colors"
+            >
+              {stay.kind === 'bloqueo' ? 'Eliminar bloqueo' : 'Eliminar'}
+            </button>
+          )}
+        </div>
       </aside>
     </div>
   )

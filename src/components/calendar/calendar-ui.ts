@@ -8,17 +8,19 @@
 import type { StayKind, StayType } from '@/lib/calendar-occupancy'
 
 /** Token CSS del instrumento (se inyecta como `--bar` / `--c` inline). */
-export const INSTR_VAR: Record<StayType | 'hold' | 'season' | 'neutral', string> = {
+export const INSTR_VAR: Record<StayType | 'hold' | 'season' | 'neutral' | 'block', string> = {
   STR: 'var(--baw-instr-str)',
   MTR: 'var(--baw-instr-mtr)',
   LTR: 'var(--baw-instr-ltr)',
   hold: 'var(--baw-instr-hold)',
   season: 'var(--baw-instr-season)',
   neutral: 'var(--baw-instr-neutral)',
+  block: 'var(--baw-instr-block)',
 }
 
 export function instrVarFor(kind: StayKind, type: StayType | null): string {
   if (kind === 'hold') return INSTR_VAR.hold
+  if (kind === 'bloqueo') return INSTR_VAR.block
   return INSTR_VAR[type ?? 'LTR']
 }
 
@@ -38,6 +40,7 @@ export function barModifiers(opts: {
 }): string {
   const mods: string[] = []
   if (opts.kind === 'hold') mods.push('tl-bar--hold')
+  else if (opts.kind === 'bloqueo') mods.push('tl-bar--block')
   else if (opts.tentative) mods.push('tl-bar--tent')
   if (opts.clippedStart) mods.push('tl-bar--contL')
   if (opts.clippedEnd) mods.push('tl-bar--contR')
@@ -63,7 +66,19 @@ export const RES_STATUS: Record<string, { label: string; cls: string }> = {
   hold: { label: 'Hold (15 min)', cls: 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-400' },
 }
 
+const BLOCK_STATUS_LABEL: Record<string, string> = {
+  maintenance: 'Mantenimiento',
+  personal: 'Uso personal',
+  other: 'Bloqueado',
+}
+
 export function statusChipFor(stay: { kind: StayKind; status: string }): { label: string; cls: string } {
+  if (stay.kind === 'bloqueo') {
+    return {
+      label: BLOCK_STATUS_LABEL[stay.status] ?? 'Bloqueado',
+      cls: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+    }
+  }
   const map = stay.kind === 'contrato' ? CONTRACT_STATUS : RES_STATUS
   return map[stay.status] ?? { label: stay.status, cls: RES_STATUS.checked_out.cls }
 }
