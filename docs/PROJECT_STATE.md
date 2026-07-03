@@ -1,7 +1,27 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-02 (post-merge PR #134 seguridad; ver §0.bis para lo que aterrizó desde el 06-11).
+> **Última actualización:** 2026-07-03 (Fase 1 Public Listing: rutas públicas genéricas `/edificios/[buildingSlug]`, galería pública, leads MTR/LTR, UI de publicación).
+
+---
+
+## 0 · Fase en curso — Public Listing (aprobada por Fran 2026-07-03)
+
+Plan de 4 fases acordado en chat (rama `claude/property-listing-website-qf916r`):
+
+1. **Fase 1 (este PR)** — Sitio público de reserva directa generalizado:
+   - Rutas `(public-booking)` movidas de `/mateos-809` a `/edificios/[buildingSlug]` (redirect 308 desde las URLs viejas en `next.config.js`). Cualquier edificio con `is_public_listed=true` tiene landing + unidades + detalle. Aplica directo al portafolio DuVa ReEs (809 y 2020).
+   - **Fix de contrato cliente↔API**: los endpoints `/api/public/v1/*` envuelven en `{data}` y el cliente no lo desenvolvía; además las pages RSC hacían fetch con URL relativa (falla en Node → landing con fallbacks y detalle en 404 perpetuo). Ahora las pages leen las vistas `v_public_*` server-side (`src/lib/public-booking/server-data.ts`) y el cliente HTTP desenvuelve el envelope.
+   - **Galería pública**: vista `v_public_unit_media` (migración `20260703_public_listing_phase1.sql`) conecta `media_assets` (visibility='public') con el sitio y con `GET /api/public/v1/units/[slug]`.
+   - **Rentas por tipo**: `v_public_units` expone `rent_type` (units.type) y `monthly_rate_mxn`. STR = reserva Stripe (flujo existente); MTR/LTR = `LeadForm` → `POST /api/public/v1/leads` → crm_contact + crm_opportunity + tenant_application draft (link a `/apply/[token]`).
+   - **UI de publicación**: `/units/[id]/publicacion` (campos públicos + hero desde media pública + switch con validaciones) y sección "Publicación" en BuildingModal (slug, nombre/descripción públicos, is_public_listed).
+   - Pendiente para activar en prod: aplicar migración `20260703` en Supabase, `PUBLIC_BOOKING_ENABLED` + `NEXT_PUBLIC_PUBLIC_BOOKING_ENABLED` + `NEXT_PUBLIC_SITE_URL` en Vercel (ver `.env.example`).
+   - Follow-ups anotados: theming por edificio (hoy todos usan el tema editorial 809), copy editorial de landing como campos de DB (hoy override `BUILDING_COPY` para mateos-809), páginas legales del footer, amenidades públicas reales por unidad (hoy set estático), hardening RLS/multi-tenant de `tenant_applications` (org_id TEXT legacy).
+2. **Fase 2** — Screening → contrato (checklist en `/applications/[id]`, botón "Generar contrato" desde solicitud aprobada, envío Mifiel).
+3. **Fase 3** — Renovación vía portal del inquilino ("Mi contrato" + re-firma).
+4. **Fase 4** — Consolidación PM rentas fijas (recordatorios de vencimiento, vacancia → listing).
+
+Decisión estratégica registrada (2026-07-03): canal directo por edificio/tenant (modelo WanderOS), NO marketplace consolidado bajo marca BaW por ahora. La relación con el huésped pertenece al tenant.
 
 ---
 

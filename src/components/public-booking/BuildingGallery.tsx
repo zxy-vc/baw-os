@@ -11,7 +11,15 @@ const DEFAULT_IMAGES = [
 
 export default function BuildingGallery({
   images = DEFAULT_IMAGES,
-}: { images?: string[] }) {
+  buildingName = 'el edificio',
+  title = 'Una construcción restaurada de los años setenta, ahora vivienda corta.',
+  body = 'Doce departamentos distribuidos en tres niveles, con planta baja comercial. Restauración cuidadosa del concreto original, carpintería en madera natural y paleta neutra. Lobby con acceso biométrico, patio interior y estacionamiento subterráneo.',
+}: {
+  images?: string[]
+  buildingName?: string
+  title?: string
+  body?: string | null
+}) {
   const [a, b, c, d] = [
     images[0] ?? DEFAULT_IMAGES[0],
     images[1] ?? DEFAULT_IMAGES[1],
@@ -26,20 +34,19 @@ export default function BuildingGallery({
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <MonoLabel as="div" style={{ marginBottom: 16 }}>El edificio</MonoLabel>
             <h2 style={{ fontSize: 'clamp(36px, 5vw, 56px)', letterSpacing: '-0.025em', marginBottom: 24, lineHeight: 1.05 }}>
-              Una construcción restaurada de los años setenta, ahora vivienda corta.
+              {title}
             </h2>
-            <p style={{ fontSize: 17, lineHeight: 1.65, color: 'var(--ink-2)', maxWidth: 520 }}>
-              Doce departamentos distribuidos en tres niveles, con planta baja
-              comercial. Restauración cuidadosa del concreto original,
-              carpintería en madera natural y paleta neutra. Lobby con acceso
-              biométrico, patio interior y estacionamiento subterráneo.
-            </p>
+            {body && (
+              <p style={{ fontSize: 17, lineHeight: 1.65, color: 'var(--ink-2)', maxWidth: 520 }}>
+                {body}
+              </p>
+            )}
           </div>
 
           {/* Grid asimétrico */}
           <div className="pb-bg-grid">
             <div className="pb-bg-a" style={{ borderRadius: 'var(--r-4)', overflow: 'hidden', position: 'relative', background: 'var(--bg-2)' }}>
-              <Image src={a} alt="Fachada Mateos 809" fill sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover' }} loading="lazy" unoptimized />
+              <Image src={a} alt={`Fachada de ${buildingName}`} fill sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover' }} loading="lazy" unoptimized />
             </div>
             <div className="pb-bg-b" style={{ borderRadius: 'var(--r-4)', overflow: 'hidden', position: 'relative', background: 'var(--bg-2)' }}>
               <Image src={b} alt="Patio interior" fill sizes="(max-width: 900px) 50vw, 25vw" style={{ objectFit: 'cover' }} loading="lazy" unoptimized />

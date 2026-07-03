@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Building2, FileText, CreditCard, Wrench, Download, ExternalLink, Plus, X, Images } from 'lucide-react'
+import { ArrowLeft, Building2, FileText, CreditCard, Wrench, Download, ExternalLink, Plus, X, Images, Globe } from 'lucide-react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -203,6 +203,13 @@ export default function UnitDetailPage() {
         >
           <Images className="w-4 h-4" />
           Gestionar media y espacios
+        </Link>
+        <Link
+          href={`/units/${unit.id}/publicacion`}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900"
+        >
+          <Globe className="w-4 h-4" />
+          Publicación
         </Link>
       </div>
 

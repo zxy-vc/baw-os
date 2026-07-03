@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
   const anon = createAnonClient()
   const { data: unit, error: unitErr } = await anon
     .from('v_public_units')
-    .select('id, slug, name, base_rate_mxn, cleaning_fee_mxn, max_guests, min_nights')
+    .select('id, slug, building_slug, name, base_rate_mxn, cleaning_fee_mxn, max_guests, min_nights')
     .eq('slug', unit_slug)
     .single()
 
@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
   try {
     session = await createCheckoutSession({
       unitName: unit.name ?? unit_slug,
+      buildingSlug: unit.building_slug,
       nights: quote.nights,
       from,
       to,

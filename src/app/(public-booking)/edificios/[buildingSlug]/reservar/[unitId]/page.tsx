@@ -1,14 +1,14 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getUnit } from '@/lib/public-booking-client/api-client'
+import { getPublicUnit } from '@/lib/public-booking/server-data'
 import BookingWizard from '@/components/public-booking/BookingWizard'
 import MonoLabel from '@/components/public-booking/MonoLabel'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Reservar · Mateos 809',
-  description: 'Completa tu reserva de departamento amueblado en Mateos 809, León.',
+  title: 'Reservar',
+  description: 'Completa tu reserva de departamento amueblado.',
   robots: { index: false, follow: false },
 }
 
@@ -16,13 +16,14 @@ export default async function ReservarPage({
   params,
   searchParams,
 }: {
-  params: { unitId: string }
+  params: { buildingSlug: string; unitId: string }
   searchParams?: { from?: string; to?: string; guests?: string }
 }) {
-  const res = await getUnit(params.unitId)
-  if (res.error || !res.data) notFound()
+  const unit = await getPublicUnit(params.unitId)
+  if (!unit || unit.building_slug !== params.buildingSlug) notFound()
+  // Solo estancia corta se reserva en línea; MTR/LTR van por el lead form.
+  if (unit.rent_type && unit.rent_type !== 'STR') notFound()
 
-  const unit = res.data
   const from = searchParams?.from
   const to = searchParams?.to
   const guests = searchParams?.guests ? Number(searchParams.guests) : 2
@@ -38,7 +39,10 @@ export default async function ReservarPage({
           <p style={{ color: 'var(--ink-2)', marginBottom: 24 }}>
             Vuelve al detalle de la unidad y selecciona check-in y check-out.
           </p>
-          <a className="pb-btn pb-btn-primary" href={`/mateos-809/unidades/${unit.slug}`}>
+          <a
+            className="pb-btn pb-btn-primary"
+            href={`/edificios/${params.buildingSlug}/unidades/${unit.slug}`}
+          >
             Ver unidad
           </a>
         </div>

@@ -11,6 +11,8 @@ import type {
   PublicUnit,
   Quote,
   CheckoutResponse,
+  LeadRequestInput,
+  LeadResponse,
 } from '@/lib/public-booking/schemas'
 
 export type ApiResult<T> = { data: T; error: null } | { data: null; error: ApiError }
@@ -33,8 +35,37 @@ export interface AvailabilityResponse {
   unit_slug: string
   from: string
   to: string
-  /** Tramos bloqueados (no disponibles) */
+  /** Tramos bloqueados (no disponibles), derivados de blocked_days del endpoint */
   blocked: AvailabilityRange[]
+}
+
+/** Shape crudo que devuelve GET /units/[slug]/availability */
+interface AvailabilityApiPayload {
+  unit_slug: string
+  from: string
+  to: string
+  is_available: boolean
+  blocked_days: string[]
+}
+
+/** Agrupa días bloqueados consecutivos (YYYY-MM-DD) en rangos [from, to). */
+export function blockedDaysToRanges(days: string[]): AvailabilityRange[] {
+  const sorted = Array.from(new Set(days)).sort()
+  const ranges: AvailabilityRange[] = []
+  const nextDay = (d: string) => {
+    const dt = new Date(`${d}T00:00:00Z`)
+    dt.setUTCDate(dt.getUTCDate() + 1)
+    return dt.toISOString().slice(0, 10)
+  }
+  for (const day of sorted) {
+    const last = ranges[ranges.length - 1]
+    if (last && last.to === day) {
+      last.to = nextDay(day)
+    } else {
+      ranges.push({ from: day, to: nextDay(day), reason: 'booked' })
+    }
+  }
+  return ranges
 }
 
 const BASE = '/api/public/v1'
@@ -47,6 +78,23 @@ function joinQuery(params: Record<string, string | number | undefined>): string 
   }
   const s = usp.toString()
   return s ? `?${s}` : ''
+}
+
+/**
+ * Todos los endpoints de /api/public/v1 envuelven la respuesta en `{ data }`.
+ * Desenvuelve ese envelope; si un endpoint devolviera el payload plano, lo
+ * pasa tal cual (tolerante para no acoplar el cliente al detalle).
+ */
+function unwrapEnvelope<T>(body: unknown): T {
+  if (
+    body !== null &&
+    typeof body === 'object' &&
+    'data' in body &&
+    Object.keys(body as object).every((k) => k === 'data')
+  ) {
+    return (body as { data: T }).data
+  }
+  return body as T
 }
 
 async function parseError(res: Response): Promise<ApiError> {
@@ -81,7 +129,7 @@ async function getJson<T>(path: string, retries = 2): Promise<ApiResult<T>> {
         }
         return { data: null, error: await parseError(res) }
       }
-      const data = (await res.json()) as T
+      const data = unwrapEnvelope<T>(await res.json())
       return { data, error: null }
     } catch (e: any) {
       if (attempt < retries) {
@@ -113,7 +161,7 @@ async function postJson<T>(
       body: JSON.stringify(body),
     })
     if (!res.ok) return { data: null, error: await parseError(res) }
-    const data = (await res.json()) as T
+    const data = unwrapEnvelope<T>(await res.json())
     return { data, error: null }
   } catch (e: any) {
     return {
@@ -127,7 +175,7 @@ async function postJson<T>(
 // Public API
 // ──────────────────────────────────────────────────────────────────────────────
 
-export async function getBuilding(slug = 'mateos-809'): Promise<ApiResult<PublicBuilding>> {
+export async function getBuilding(slug: string): Promise<ApiResult<PublicBuilding>> {
   return getJson<PublicBuilding>(`/buildings/${slug}`)
 }
 
@@ -138,18 +186,13 @@ export interface UnitsListParams {
 }
 
 export async function listBuildingUnits(
-  slug = 'mateos-809',
+  slug: string,
   params: UnitsListParams = {}
 ): Promise<ApiResult<PublicUnit[]>> {
   const q = joinQuery(params as Record<string, string | number | undefined>)
-  // El endpoint puede devolver `{ units: [...] }` o un array — normalizamos.
-  const res = await getJson<PublicUnit[] | { units: PublicUnit[] }>(
-    `/buildings/${slug}/units${q}`
-  )
-  if (res.error) return res as ApiResult<PublicUnit[]>
-  const raw = res.data as unknown
-  const arr = Array.isArray(raw) ? raw : (raw as { units?: PublicUnit[] })?.units ?? []
-  return { data: arr, error: null }
+  const res = await getJson<PublicUnit[]>(`/buildings/${slug}/units${q}`)
+  if (res.error) return res
+  return { data: Array.isArray(res.data) ? res.data : [], error: null }
 }
 
 export async function getUnit(slug: string): Promise<ApiResult<PublicUnit>> {
@@ -162,7 +205,21 @@ export async function getUnitAvailability(
   to: string
 ): Promise<ApiResult<AvailabilityResponse>> {
   const q = joinQuery({ from, to })
-  return getJson<AvailabilityResponse>(`/units/${slug}/availability${q}`)
+  const res = await getJson<AvailabilityApiPayload>(`/units/${slug}/availability${q}`)
+  if (res.error) return { data: null, error: res.error }
+  return {
+    data: {
+      unit_slug: res.data.unit_slug,
+      from: res.data.from,
+      to: res.data.to,
+      blocked: blockedDaysToRanges(res.data.blocked_days ?? []),
+    },
+    error: null,
+  }
+}
+
+export async function postLead(input: LeadRequestInput): Promise<ApiResult<LeadResponse>> {
+  return postJson<LeadResponse>('/leads', input)
 }
 
 export interface QuoteInput {

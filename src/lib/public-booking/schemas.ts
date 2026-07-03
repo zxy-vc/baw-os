@@ -69,6 +69,21 @@ export interface CheckoutResponse {
   expires_at: string
 }
 
+// ── Tipo de renta (taxonomía canónica LTR/MTR/STR) ────────────────────────────
+export type RentType = 'LTR' | 'MTR' | 'STR'
+
+// ── Foto pública de unidad (row de v_public_unit_media) ───────────────────────
+export interface PublicUnitMediaItem {
+  id: string
+  unit_id: string
+  unit_slug: string
+  file_url: string
+  alt_text: string | null
+  caption: string | null
+  sort_order: number
+  is_cover: boolean
+}
+
 // ── Unit row from v_public_units ──────────────────────────────────────────────
 export interface PublicUnit {
   id: string
@@ -83,6 +98,10 @@ export interface PublicUnit {
   cleaning_fee_mxn: number
   max_guests: number
   min_nights: number
+  rent_type: RentType
+  monthly_rate_mxn: number | null
+  /** Galería pública (solo la incluye GET /units/[slug]) */
+  gallery?: PublicUnitMediaItem[]
 }
 
 // ── Building row from v_public_buildings ──────────────────────────────────────
@@ -100,6 +119,24 @@ export interface PublicBuilding {
   country: string | null
   location_lat: number | null
   location_lng: number | null
+}
+
+// ── Lead request (interés en unidades MTR/LTR desde el listing público) ───────
+export const LeadRequest = z.object({
+  unit_slug: z.string().min(1),
+  name: z.string().min(2).max(120),
+  email: z.string().email(),
+  phone: z.string().min(7).max(20).optional(),
+  message: z.string().max(1000).optional(),
+  desired_move_in: DateString.optional(),
+})
+
+export type LeadRequestInput = z.infer<typeof LeadRequest>
+
+export interface LeadResponse {
+  ok: true
+  /** Ruta relativa al formulario de solicitud pre-creado (tenant intake) */
+  apply_url: string
 }
 
 // ── Availability query params ─────────────────────────────────────────────────

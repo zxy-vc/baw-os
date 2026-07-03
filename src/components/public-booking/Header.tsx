@@ -4,14 +4,20 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import Logo809 from './Logo809'
 
-const NAV = [
-  { label: 'Edificio', href: '/mateos-809#edificio' },
-  { label: 'Unidades', href: '/mateos-809/unidades' },
-  { label: 'Ubicación', href: '/mateos-809#ubicacion' },
-  { label: 'Contacto', href: '/mateos-809#contacto' },
-]
-
-export default function Header() {
+export default function Header({
+  buildingSlug,
+  buildingName,
+}: {
+  buildingSlug: string
+  buildingName: string
+}) {
+  const basePath = `/edificios/${buildingSlug}`
+  const NAV = [
+    { label: 'Edificio', href: `${basePath}#edificio` },
+    { label: 'Unidades', href: `${basePath}/unidades` },
+    { label: 'Ubicación', href: `${basePath}#ubicacion` },
+    { label: 'Contacto', href: `${basePath}#contacto` },
+  ]
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -52,8 +58,20 @@ export default function Header() {
           height: 72,
         }}
       >
-        <Link href="/mateos-809" aria-label="Mateos 809 — Inicio" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--ink)' }}>
-          <Logo809 size={28} />
+        <Link href={basePath} aria-label={`${buildingName} — Inicio`} style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--ink)' }}>
+          {buildingSlug === 'mateos-809' ? (
+            <Logo809 size={28} />
+          ) : (
+            <span
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 22,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {buildingName}
+            </span>
+          )}
         </Link>
 
         {/* Desktop nav */}
@@ -80,7 +98,7 @@ export default function Header() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Link
-            href="/mateos-809/unidades"
+            href={`${basePath}/unidades`}
             className="pb-btn pb-btn-primary"
             style={{ display: 'inline-flex' }}
           >
@@ -161,7 +179,7 @@ export default function Header() {
             </Link>
           ))}
           <Link
-            href="/mateos-809/unidades"
+            href={`${basePath}/unidades`}
             onClick={() => setOpen(false)}
             className="pb-btn pb-btn-primary"
             style={{ marginTop: 32, padding: '16px 24px', fontSize: 16 }}

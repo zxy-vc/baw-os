@@ -7,14 +7,18 @@ import MonoLabel from './MonoLabel'
 
 /**
  * Barra de búsqueda — fechas + huéspedes. Usa `<input type="date">` para v1.
- * Navega a `/mateos-809/unidades?from&to&guests`.
+ * Navega a `/edificios/[buildingSlug]/unidades?from&to&guests`.
  */
 export default function SearchBar({
+  buildingSlug,
+  locationLabel,
   variant = 'card',
   initialFrom,
   initialTo,
   initialGuests,
 }: {
+  buildingSlug: string
+  locationLabel: string
   variant?: 'card' | 'inline'
   initialFrom?: string
   initialTo?: string
@@ -37,7 +41,7 @@ export default function SearchBar({
       to,
       guests: String(guests),
     })
-    router.push(`/mateos-809/unidades?${params.toString()}`)
+    router.push(`/edificios/${buildingSlug}/unidades?${params.toString()}`)
   }
 
   const isCard = variant === 'card'
@@ -65,7 +69,7 @@ export default function SearchBar({
           <input
             id="sb-location"
             className="pb-input"
-            value="Mateos 809, León"
+            value={locationLabel}
             readOnly
             aria-readonly="true"
             style={{ background: 'var(--surface-2)' }}
