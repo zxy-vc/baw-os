@@ -12,11 +12,29 @@ const OG_COPY: Record<
 > = {
   'mateos-809': {
     mark: '809',
-    kicker: 'MATEOS · LEÓN · GTO',
-    line1: 'Doce estancias.',
+    kicker: 'LÓPEZ MATEOS 809 PTE · LEÓN, GTO',
+    line1: 'Dieciséis estancias.',
     line2: 'Una dirección.',
-    footer: '12 unidades · estancia corta',
+    footer: '16 unidades · estancia corta',
   },
+}
+
+// Paleta 809 (brand book): hueso / tinta / concreto / terracota
+const BONE = '#FAF9F6'
+const INK = '#1A1A1A'
+const INK2 = '#3A3A38'
+const CONCRETE = '#E4E2DC'
+const TERRACOTA = '#B0633F'
+
+function DotText({ text, size }: { text: string; size: number }) {
+  const base = text.replace(/([.?])\s*$/, '')
+  const punct = /([.?])\s*$/.exec(text)?.[1] ?? '.'
+  return (
+    <div style={{ display: 'flex', fontSize: size, lineHeight: 1, letterSpacing: '-0.04em', fontWeight: 800 }}>
+      <span>{base}</span>
+      <span style={{ color: TERRACOTA }}>{punct}</span>
+    </div>
+  )
 }
 
 function titleFromSlug(slug: string): string {
@@ -49,29 +67,25 @@ export default async function OpengraphImage({
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          background: '#F7F4EF',
+          background: BONE,
           padding: '72px',
-          color: '#1A1916',
-          fontFamily: 'Georgia, serif',
+          color: INK,
+          fontFamily: 'system-ui, sans-serif',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 28 }}>
-          <span style={{ fontWeight: 500, letterSpacing: '-0.02em' }}>{copy.mark}</span>
-          <span style={{ width: 1, height: 32, background: '#1A1916', opacity: 0.3 }} />
-          <span style={{ fontFamily: 'system-ui, sans-serif', fontSize: 14, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 500 }}>
+        {/* Header — numeral con la regla del punto */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <DotText text={copy.mark} size={36} />
+          <span style={{ width: 1, height: 32, background: INK, opacity: 0.25 }} />
+          <span style={{ fontSize: 14, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 500, color: INK2 }}>
             {copy.kicker}
           </span>
         </div>
 
         {/* Body */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ fontSize: 96, lineHeight: 1, letterSpacing: '-0.03em' }}>
-            {copy.line1}
-          </div>
-          <div style={{ fontSize: 96, lineHeight: 1, letterSpacing: '-0.03em', fontStyle: 'italic', color: '#44423D' }}>
-            {copy.line2}
-          </div>
+          <DotText text={copy.line1} size={92} />
+          <DotText text={copy.line2} size={92} />
         </div>
 
         {/* Footer */}
@@ -80,15 +94,14 @@ export default async function OpengraphImage({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            fontFamily: 'system-ui, sans-serif',
             fontSize: 16,
-            color: '#44423D',
+            color: INK2,
             paddingTop: 24,
-            borderTop: '1px solid #E2DDD3',
+            borderTop: `1px solid ${CONCRETE}`,
           }}
         >
-          <span>baw.mx/edificios/{slug}</span>
-          <span style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          <span>809.mx</span>
+          <span style={{ fontSize: 12, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
             {copy.footer}
           </span>
         </div>

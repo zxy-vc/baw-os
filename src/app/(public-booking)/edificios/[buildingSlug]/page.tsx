@@ -23,20 +23,33 @@ const LocationMap = dynamic(() => import('@/components/public-booking/LocationMa
   ),
 })
 
-// Copy editorial por edificio. El fallback genérico usa los campos públicos
-// de la DB; este override existe para que Mateos 809 conserve su headline
-// hasta que estos textos vivan como campos editables (follow-up Fase 1).
-const BUILDING_COPY: Record<
-  string,
-  { title: string; titleAccent: string; intro: string; locationLine: string }
-> = {
+// Copy editorial por edificio (diseño Claude Design · julio 2026). El
+// fallback genérico usa los campos públicos de la DB; este override existe
+// hasta que estos textos vivan como campos editables (PR C, Fase 1.5).
+interface BuildingCopy {
+  kicker: string
+  title: string
+  titleAccent: string
+  intro: string
+  locationLine: string
+  /** Trayectos a puntos de interés (estáticos hasta integrar rutas de Maps) */
+  pois: { label: string; time: string }[]
+}
+
+const BUILDING_COPY: Record<string, BuildingCopy> = {
   'mateos-809': {
-    title: 'Doce estancias.',
+    kicker: 'Residencial boutique · León, GTO',
+    title: 'Dieciséis estancias.',
     titleAccent: 'Una dirección.',
     intro:
-      'Un edificio de departamentos amueblados pensado para estancias de unos días o unas semanas en el corazón de León. Equipado, tranquilo, listo para llegar y vivir.',
+      'Departamentos amueblados sobre Adolfo López Mateos 809, pensados para estancias de unos días o unas semanas. Equipados, tranquilos, listos para llegar y vivir.',
     locationLine:
-      'A 8 minutos del centro histórico, 12 minutos del Poliforum y 25 minutos del aeropuerto. Restaurantes, café y panaderías a caminar.',
+      'Adolfo López Mateos 809 Pte. Restaurantes, café y panaderías a caminar.',
+    pois: [
+      { label: 'Centro histórico', time: '8 min' },
+      { label: 'Poliforum', time: '12 min' },
+      { label: 'Aeropuerto BJX', time: '25 min' },
+    ],
   },
 }
 
@@ -104,13 +117,13 @@ export default async function LandingPage({
         unitsCount={units.length}
         basePriceMxn={minNightly}
         buildingName={buildingName}
-        locationLabel={locationLabel || null}
+        locationLabel={copy?.kicker ?? locationLabel ?? null}
         title={copy?.title ?? buildingName}
         titleAccent={copy?.titleAccent ?? null}
         intro={copy?.intro ?? building.description}
       />
 
-      {/* Search bar */}
+      {/* Search bar + endorsement BaW (convivencia de marcas, brand book) */}
       <section style={{ marginTop: -32, marginBottom: 64 }}>
         <div className="pb-container">
           <div style={{ maxWidth: 1080, margin: '0 auto' }}>
@@ -119,6 +132,19 @@ export default async function LandingPage({
               buildingSlug={slug}
               locationLabel={[buildingName, building.city].filter(Boolean).join(', ')}
             />
+            <p
+              style={{
+                marginTop: 12,
+                textAlign: 'right',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: 'var(--ink-3)',
+              }}
+            >
+              Reserva operada por <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>BaW</strong>
+            </p>
           </div>
         </div>
       </section>
@@ -136,25 +162,60 @@ export default async function LandingPage({
 
       <AmenityGrid
         eyebrow="Lo que encuentras"
-        title="Amenidades comunes del edificio"
+        title="Amenidades del edificio"
         items={COMMON_AMENITIES}
       />
 
-      {/* Ubicación */}
+      {/* Ubicación + trayectos */}
       <section id="ubicacion" style={{ paddingTop: 64, paddingBottom: 64 }}>
         <div className="pb-container">
           <div style={{ display: 'grid', gap: 32, gridTemplateColumns: '1fr' }}>
             <div style={{ maxWidth: 720 }}>
               <MonoLabel as="div" style={{ marginBottom: 12 }}>Ubicación</MonoLabel>
-              <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', letterSpacing: '-0.02em', marginBottom: 16 }}>
-                {building.city ? `En el corazón de ${building.city}.` : 'Ubicación'}
+              <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', marginBottom: 16 }}>
+                {building.city ? `En el corazón de ${building.city}` : 'Ubicación'}
+                <span className="t-dot" aria-hidden="true">.</span>
               </h2>
               {copy?.locationLine && (
                 <p style={{ fontSize: 17, lineHeight: 1.65, color: 'var(--ink-2)', maxWidth: 560, marginBottom: 24 }}>
                   {copy.locationLine}
                 </p>
               )}
-              <address style={{ fontStyle: 'normal', fontSize: 14, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              {copy?.pois && copy.pois.length > 0 && (
+                <dl
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '16px 40px',
+                    margin: '0 0 24px',
+                    paddingTop: 20,
+                    borderTop: '1px solid var(--line)',
+                    maxWidth: 560,
+                  }}
+                >
+                  {copy.pois.map((poi) => (
+                    <div key={poi.label}>
+                      <dt style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 2 }}>
+                        {poi.label}
+                      </dt>
+                      <dd
+                        style={{
+                          margin: 0,
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 800,
+                          fontSize: 22,
+                          letterSpacing: '-0.04em',
+                          color: 'var(--ink)',
+                        }}
+                      >
+                        {poi.time}
+                        <span className="t-dot" aria-hidden="true">.</span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <address style={{ fontStyle: 'normal', fontSize: 13, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
                 {[buildingName, building.city, building.state]
                   .filter(Boolean)
                   .join(' · ')}

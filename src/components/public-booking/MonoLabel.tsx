@@ -1,7 +1,7 @@
 import * as React from 'react'
 
 /**
- * Label tipográfico — JetBrains Mono, mayúsculas, letter-spacing amplio.
+ * Label tipográfico — IBM Plex Mono, mayúsculas, letter-spacing amplio.
  * Para overlines, etiquetas de sección y micro-metadatos.
  */
 type MonoLabelProps = {

@@ -41,7 +41,7 @@ html[data-brand='809'] h5,
 html[data-brand='809'] h6 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: var(--fw-regular);
+  font-weight: var(--fw-display);
   letter-spacing: var(--ls-display);
   line-height: var(--lh-tight);
   color: var(--ink);
@@ -111,6 +111,7 @@ html[data-brand='809'] .pb-container {
 }
 
 /* Botones base */
+/* Botones y navegación: Outfit Bold 700, tracking −3% (brand book §03) */
 html[data-brand='809'] .pb-btn {
   display: inline-flex;
   align-items: center;
@@ -121,8 +122,8 @@ html[data-brand='809'] .pb-btn {
   border-radius: var(--r-2);
   font-family: var(--font-body);
   font-size: var(--fs-14);
-  font-weight: var(--fw-medium);
-  letter-spacing: 0.01em;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-tight);
   cursor: pointer;
   transition: all 160ms ease;
   text-decoration: none;

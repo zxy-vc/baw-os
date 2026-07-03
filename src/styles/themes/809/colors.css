@@ -1,50 +1,54 @@
 /* ════════════════════════════════════════════════════════════════════════
-   Mateos 809 — Brand Theme · Color Tokens
+   809 — Brand Theme · Color Tokens (Brand Book V1.0 · julio 2026)
    ────────────────────────────────────────────────────────────────────────
    Aplicado solo cuando `data-brand="809"` está en el <html>.
-   Paleta editorial cálida-neutra (warm bone + ink + accent muted blue),
-   inspirada en arquitectura residencial mexicana minimalista.
+   Regla del brand book: "Base muda, un solo acento" — tinta, hueso y
+   concreto cargan ~95% de cada superficie; el terracota es énfasis (el
+   punto, CTAs, datos clave) y NUNCA se usa en párrafos.
+   Proporción de uso: hueso 44% · concreto 30% · tinta 21% · terracota 5%.
    No contamina dashboard ni otros portales públicos.
    ──────────────────────────────────────────────────────────────────────── */
 
 html[data-brand='809'] {
-  /* ── Surfaces ─────────────────────────────────────────────────────── */
-  --bg:          #F7F4EF;        /* warm bone */
-  --bg-2:        #EFEAE2;        /* secondary panel */
+  /* ── Surfaces (hueso + concreto) ──────────────────────────────────── */
+  --bg:          #FAF9F6;        /* hueso */
+  --bg-2:        #F3F1EA;        /* hueso profundo */
   --surface:     #FFFFFF;
-  --surface-2:   #FAF7F1;
-  --line:        #E2DDD3;
-  --line-2:      #C9C2B4;
+  --surface-2:   #FAF9F6;
+  --line:        #E4E2DC;        /* concreto claro */
+  --line-2:      #CDCCC6;        /* concreto medio-oscuro */
 
-  /* ── Ink (typography) ─────────────────────────────────────────────── */
-  --ink:         #1A1916;        /* near-black, warm */
-  --ink-2:       #44423D;        /* secondary body */
-  --ink-3:       #76736B;        /* meta */
-  --ink-4:       #A8A498;        /* faint */
+  /* ── Ink (tinta cálida) ───────────────────────────────────────────── */
+  --ink:         #1A1A1A;        /* tinta — numerales, texto, placas */
+  --ink-2:       #3A3A38;        /* cuerpo secundario */
+  --ink-3:       #7F7F79;        /* meta */
+  --ink-4:       #9B9B95;        /* faint */
 
-  /* ── Accent — muted indigo/blue ───────────────────────────────────── */
-  --accent:      #2C3E5C;        /* deep slate-blue (CTAs, focus) */
-  --accent-2:    #3E5478;        /* hover */
-  --accent-soft: #D9DEE7;        /* tint backgrounds */
-  --accent-ink:  #FFFFFF;
+  /* ── Accent — terracota (el punto) ────────────────────────────────── */
+  --accent:      #B0633F;        /* terracota: punto, CTAs, señal de acceso */
+  --accent-2:    #9A5535;        /* hover */
+  --accent-soft: #F0E4DC;        /* tint backgrounds */
+  --accent-ink:  #FAF9F6;        /* texto sobre terracota = hueso */
 
   /* ── Semantic ─────────────────────────────────────────────────────── */
+  /* Verde #007A33 es EXCLUSIVO de señalética de emergencia (brand book
+     §09) — el success de UI usa un verde apagado que no compite. */
   --success:     #4A6B3A;
   --warning:     #9C7321;
   --danger:      #8A2A2A;
-  --info:        var(--accent);
+  --info:        var(--ink-2);
 
   /* ── Selection ────────────────────────────────────────────────────── */
-  --selection-bg:  var(--accent);
-  --selection-fg:  #FFFFFF;
+  --selection-bg:  var(--ink);
+  --selection-fg:  var(--bg);
 
   /* ── Focus ring ───────────────────────────────────────────────────── */
   --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 
   /* ── Shadows (subtle, warm) ───────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(26, 25, 22, 0.04);
-  --shadow-md: 0 4px 16px -4px rgba(26, 25, 22, 0.08), 0 1px 2px rgba(26, 25, 22, 0.04);
-  --shadow-lg: 0 20px 40px -16px rgba(26, 25, 22, 0.14), 0 4px 8px -2px rgba(26, 25, 22, 0.06);
+  --shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.04);
+  --shadow-md: 0 4px 16px -4px rgba(26, 26, 26, 0.08), 0 1px 2px rgba(26, 26, 26, 0.04);
+  --shadow-lg: 0 20px 40px -16px rgba(26, 26, 26, 0.14), 0 4px 8px -2px rgba(26, 26, 26, 0.06);
 
   /* ── Radii — restrained, architectural ────────────────────────────── */
   --r-1: 2px;

@@ -1,92 +1,84 @@
 import * as React from 'react'
 
 /**
- * Logo numeral "809" — inline SVG para que use `currentColor`.
- * Para el lockup con "MATEOS · LEÓN · GTO" usar `<Logo809Lockup />`.
+ * Logo 809 — Brand Book §01 "La regla del punto": el numeral en Outfit
+ * ExtraBold (tracking −4%) y el punto terracota inmediatamente después del
+ * último dígito, sentado en la línea base. No hay isotipo ni tagline: la
+ * dirección es la marca.
+ *
+ * HTML (no SVG) para heredar la webfont cargada y `currentColor` en la tinta.
  */
 export default function Logo809({
   size = 32,
+  style,
   ...rest
-}: { size?: number } & React.SVGAttributes<SVGSVGElement>) {
-  const ratio = 120 / 48
+}: { size?: number } & React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 120 48"
-      width={size * ratio}
-      height={size}
-      fill="none"
+    <span
       role="img"
-      aria-label="Mateos 809"
+      aria-label="809"
+      style={{
+        fontFamily: 'var(--font-display)',
+        fontWeight: 800,
+        fontSize: size,
+        letterSpacing: '-0.04em',
+        lineHeight: 1,
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        color: 'currentcolor',
+        ...style,
+      }}
       {...rest}
     >
-      <text
-        x="0"
-        y="38"
-        fontFamily="var(--font-display)"
-        fontSize="42"
-        fontWeight="400"
-        letterSpacing="-0.025em"
-        fill="currentColor"
-      >
-        809
-      </text>
-      <rect x="78" y="6" width="2" height="36" fill="currentColor" />
-    </svg>
+      809<span aria-hidden="true" style={{ color: 'var(--accent)' }}>.</span>
+    </span>
   )
 }
 
+/**
+ * Lockup: numeral + dirección en voz técnica (IBM Plex Mono, caps,
+ * tracking 15%). Para footer y contextos con espacio.
+ */
 export function Logo809Lockup({
   size = 48,
+  style,
   ...rest
-}: { size?: number } & React.SVGAttributes<SVGSVGElement>) {
-  const ratio = 320 / 60
+}: { size?: number } & React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 320 60"
-      width={size * ratio}
-      height={size}
-      fill="none"
+    <span
       role="img"
-      aria-label="Mateos 809 — León, Guanajuato"
+      aria-label="809 — López Mateos 809 Pte, León, Guanajuato"
+      style={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        gap: Math.round(size * 0.18),
+        color: 'currentcolor',
+        ...style,
+      }}
       {...rest}
     >
-      <text
-        x="0"
-        y="44"
-        fontFamily="var(--font-display)"
-        fontSize="48"
-        fontWeight="400"
-        letterSpacing="-0.025em"
-        fill="currentColor"
+      <span
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 800,
+          fontSize: size,
+          letterSpacing: '-0.04em',
+          lineHeight: 1,
+        }}
       >
-        809
-      </text>
-      <rect x="92" y="14" width="1.5" height="36" fill="currentColor" opacity="0.4" />
-      <text
-        x="108"
-        y="32"
-        fontFamily="var(--font-body)"
-        fontSize="12"
-        fontWeight="500"
-        letterSpacing="0.16em"
-        fill="currentColor"
+        809<span aria-hidden="true" style={{ color: 'var(--accent)' }}>.</span>
+      </span>
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: Math.max(9, Math.round(size * 0.19)),
+          letterSpacing: '0.15em',
+          textTransform: 'uppercase',
+          opacity: 0.7,
+        }}
       >
-        MATEOS
-      </text>
-      <text
-        x="108"
-        y="48"
-        fontFamily="var(--font-body)"
-        fontSize="10"
-        fontWeight="400"
-        letterSpacing="0.10em"
-        fill="currentColor"
-        opacity="0.65"
-      >
-        LEÓN · GTO
-      </text>
-    </svg>
+        López Mateos 809 Pte · León, Gto
+      </span>
+    </span>
   )
 }

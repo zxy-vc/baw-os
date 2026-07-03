@@ -53,8 +53,9 @@ export default function FAQAccordion({ items = DEFAULT_FAQ }: { items?: FAQItem[
           <MonoLabel as="div" style={{ marginBottom: 12 }}>
             Preguntas frecuentes
           </MonoLabel>
-          <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', marginBottom: 40, letterSpacing: '-0.02em' }}>
-            ¿Algo que aclarar antes de reservar?
+          <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', marginBottom: 40 }}>
+            ¿Algo que aclarar antes de reservar
+            <span className="t-dot" aria-hidden="true">?</span>
           </h2>
 
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>

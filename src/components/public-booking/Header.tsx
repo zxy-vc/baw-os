@@ -15,8 +15,9 @@ export default function Header({
   const NAV = [
     { label: 'Edificio', href: `${basePath}#edificio` },
     { label: 'Unidades', href: `${basePath}/unidades` },
+    { label: 'Amenidades', href: `${basePath}#amenidades` },
     { label: 'Ubicación', href: `${basePath}#ubicacion` },
-    { label: 'Contacto', href: `${basePath}#contacto` },
+    { label: 'Preguntas', href: `${basePath}#faq` },
   ]
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -42,7 +43,7 @@ export default function Header({
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        background: scrolled ? 'rgba(247, 244, 239, 0.92)' : 'transparent',
+        background: scrolled ? 'rgba(250, 249, 246, 0.92)' : 'transparent',
         backdropFilter: scrolled ? 'blur(12px) saturate(140%)' : 'none',
         WebkitBackdropFilter: scrolled ? 'blur(12px) saturate(140%)' : 'none',
         borderBottom: scrolled ? '1px solid var(--line)' : '1px solid transparent',
@@ -65,11 +66,13 @@ export default function Header({
             <span
               style={{
                 fontFamily: 'var(--font-display)',
+                fontWeight: 800,
                 fontSize: 22,
-                letterSpacing: '-0.02em',
+                letterSpacing: '-0.04em',
               }}
             >
               {buildingName}
+              <span className="t-dot" aria-hidden="true">.</span>
             </span>
           )}
         </Link>

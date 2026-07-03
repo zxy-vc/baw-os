@@ -4,17 +4,29 @@ import { Logo809Lockup } from './Logo809'
 
 const YEAR = new Date().getFullYear()
 
+/**
+ * Footer del sitio público — diseño 809 (Claude Design, julio 2026).
+ * Convivencia BaW (brand book §"La marca en casa ajena"): la marca del
+ * edificio firma la página; BaW aparece como operador ("operated by BaW"),
+ * nunca como marca principal.
+ */
 export default function Footer({
   buildingSlug,
   buildingName,
   description,
   addressLines,
+  contactEmail = 'hola@809.mx',
+  whatsappUrl = 'https://wa.me/524771234567',
+  instagramUrl = 'https://instagram.com/809.mx',
   tagline,
 }: {
   buildingSlug: string
   buildingName: string
   description?: string | null
   addressLines?: string[]
+  contactEmail?: string
+  whatsappUrl?: string
+  instagramUrl?: string
   tagline?: string | null
 }) {
   const basePath = `/edificios/${buildingSlug}`
@@ -40,16 +52,18 @@ export default function Footer({
           <div>
             <div style={{ color: 'var(--ink)' }}>
               {buildingSlug === 'mateos-809' ? (
-                <Logo809Lockup size={56} />
+                <Logo809Lockup size={48} />
               ) : (
                 <span
                   style={{
                     fontFamily: 'var(--font-display)',
+                    fontWeight: 800,
                     fontSize: 32,
-                    letterSpacing: '-0.02em',
+                    letterSpacing: '-0.04em',
                   }}
                 >
                   {buildingName}
+                  <span className="t-dot" aria-hidden="true">.</span>
                 </span>
               )}
             </div>
@@ -84,17 +98,17 @@ export default function Footer({
             </MonoLabel>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, fontSize: 14, lineHeight: 1.9 }}>
               <li>
-                <a href="mailto:hola@baw.mx" style={{ color: 'var(--ink)' }}>
-                  hola@baw.mx
+                <a href={`mailto:${contactEmail}`} style={{ color: 'var(--ink)' }}>
+                  {contactEmail}
                 </a>
               </li>
               <li>
-                <a href="https://wa.me/524771234567" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ink)' }}>
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ink)' }}>
                   WhatsApp
                 </a>
               </li>
               <li>
-                <a href="https://instagram.com/baw.mx" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ink)' }}>
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--ink)' }}>
                   Instagram
                 </a>
               </li>
@@ -141,13 +155,20 @@ export default function Footer({
           }}
         >
           <p style={{ margin: 0 }}>
-            © {YEAR} {buildingName} · Operado por <strong style={{ color: 'var(--ink-2)', fontWeight: 500 }}>BaW</strong>, sistema de gestión inmobiliaria — ADR-017
+            © {YEAR} {buildingName} · Todos los derechos reservados
           </p>
-          {tagline && (
-            <p style={{ margin: 0, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', fontSize: 10 }}>
-              {tagline}
-            </p>
-          )}
+          <p
+            style={{
+              margin: 0,
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              fontSize: 10,
+            }}
+          >
+            operated by <strong style={{ color: 'var(--ink-2)', fontWeight: 600 }}>BaW</strong>
+            {tagline ? ` · ${tagline}` : ''}
+          </p>
         </div>
       </div>
     </footer>

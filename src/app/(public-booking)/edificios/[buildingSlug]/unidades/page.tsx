@@ -39,11 +39,11 @@ export default function UnidadesPage({
           <h1
             style={{
               fontSize: 'clamp(36px, 5vw, 56px)',
-              letterSpacing: '-0.025em',
               marginBottom: 12,
             }}
           >
             Unidades
+            <span className="t-dot" aria-hidden="true">.</span>
           </h1>
           <p style={{ fontSize: 17, color: 'var(--ink-2)', maxWidth: 640 }}>
             Departamentos amueblados con tarifas claras, sin cargos ocultos.
