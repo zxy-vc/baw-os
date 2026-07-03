@@ -4,13 +4,13 @@
 // Panel lateral read-only: quién, cuándo, cuánto, estatus, y link al
 // instrumento (contrato o reservación). Compartido por las vistas A y B.
 
-import { useEffect } from 'react'
+import { useEffect, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { X, FileText, BedDouble, Clock, ExternalLink, Users } from 'lucide-react'
 import type { CalendarStay } from '@/lib/calendar-occupancy'
 import { diffDaysISO } from '@/lib/calendar-occupancy'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { TYPE_BADGE, statusChipFor, PAYMENT_STATUS_LABEL, CHANNEL_LABEL } from './calendar-ui'
+import { INSTR_VAR, statusChipFor, PAYMENT_STATUS_LABEL, CHANNEL_LABEL } from './calendar-ui'
 
 export default function StayDrawer({
   stay,
@@ -62,7 +62,7 @@ export default function StayDrawer({
               </>
             )}
             {stay.type && (
-              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[stay.type]}`}>
+              <span className="tl-chip" style={{ '--c': INSTR_VAR[stay.type] } as CSSProperties}>
                 {stay.type}
               </span>
             )}

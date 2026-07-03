@@ -2,14 +2,17 @@
 
 // BaW OS — Calendario de unidades · Vista A (timeline multi-unidad).
 //
-// Modelo Airbnb multi-calendar: filas = unidades agrupadas por edificio,
-// columnas = días con desplazamiento horizontal por ventana (◀ Hoy ▶ + zoom).
-// Barras = estancias de los 3 instrumentos (contratos LTR/MTR, reservaciones
-// STR, holds del booking público) + franja de temporadas (str_seasons) arriba.
-// Read-only en esta fase: click en barra → drawer con link al instrumento;
-// click en la unidad → /calendario/[unitId] (Vista B mensual con precios).
+// Render según la spec «tl» del kit UI System v1: el grid es FLUIDO — las
+// columnas reparten el 100% del ancho disponible entre los días visibles
+// (nada de px fijos ni scroll horizontal), las barras usan fondo suave +
+// borde izquierdo de instrumento, y check-in/out caen a mitad de día para
+// que salida y entrada convivan en el mismo día sin conflicto visual.
+// La leyenda es un filtro interactivo (toggles por instrumento).
+//
+// Click en barra → drawer con link al instrumento; click en la unidad →
+// /calendario/[unitId] (Vista B mensual, donde vive la edición de precios).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -26,11 +29,10 @@ import EmptyState from '@/components/EmptyState'
 import { KPICard } from '@/components/ui/status'
 import StayDrawer from '@/components/calendar/StayDrawer'
 import {
-  TYPE_BADGE,
-  BAR_CLASS,
-  HOLD_STRIPES,
-  SEASON_CHIP,
-  barClassFor,
+  INSTR_VAR,
+  instrVarFor,
+  unitTypeVar,
+  barModifiers,
 } from '@/components/calendar/calendar-ui'
 import type { CalendarStay, Season, StayType } from '@/lib/calendar-occupancy'
 import {
@@ -43,6 +45,7 @@ import {
   holdToStay,
   layoutLanes,
   computeKpis,
+  freeNightsInWindow,
 } from '@/lib/calendar-occupancy'
 import type { UnitType } from '@/types'
 
@@ -72,11 +75,19 @@ const ZOOM_OPTIONS: Array<{ value: Zoom; label: string }> = [
   { value: 31, label: 'Mes' },
   { value: 92, label: 'Trimestre' },
 ]
-const COL_PX: Record<Zoom, number> = { 14: 44, 31: 26, 92: 11 }
-const LABEL_W = 210
-const LANE_H = 24
+const LANE_H = 28
 const ALL = '__ALL__'
 const SIN_EDIFICIO = '__NONE__'
+
+type LegendKey = 'STR' | 'MTR' | 'LTR' | 'hold' | 'tent' | 'season'
+const LEGEND: Array<{ key: LegendKey; label: string; bar: string }> = [
+  { key: 'STR', label: 'STR', bar: INSTR_VAR.STR },
+  { key: 'MTR', label: 'MTR', bar: INSTR_VAR.MTR },
+  { key: 'LTR', label: 'LTR', bar: INSTR_VAR.LTR },
+  { key: 'hold', label: 'Hold', bar: INSTR_VAR.hold },
+  { key: 'season', label: 'Temporada', bar: INSTR_VAR.season },
+  { key: 'tent', label: 'Tentativa', bar: 'var(--baw-instr-tent)' },
+]
 
 export default function CalendarioPage() {
   const {
@@ -97,9 +108,15 @@ export default function CalendarioPage() {
 
   const [buildingFilter, setBuildingFilter] = useState<string>(ALL)
   const [unitTypeFilter, setUnitTypeFilter] = useState<'all' | UnitType>('all')
-  const [stayTypeFilter, setStayTypeFilter] = useState<'all' | StayType>('all')
-  const [showHolds, setShowHolds] = useState(true)
   const [query, setQuery] = useState('')
+  const [legend, setLegend] = useState<Record<LegendKey, boolean>>({
+    STR: true,
+    MTR: true,
+    LTR: true,
+    hold: true,
+    tent: true,
+    season: true,
+  })
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<CalendarStay | null>(null)
 
@@ -187,8 +204,6 @@ export default function CalendarioPage() {
   )
 
   const days = zoom
-  const colPx = COL_PX[zoom]
-  const gridW = days * colPx
   const dayList = useMemo(
     () => Array.from({ length: days }, (_, i) => addDaysISO(windowStart, i)),
     [windowStart, days],
@@ -196,14 +211,15 @@ export default function CalendarioPage() {
   const todayIdx = diffDaysISO(windowStart, today)
   const todayVisible = todayIdx >= 0 && todayIdx < days
 
-  // Barras visibles según filtros de tipo de estancia / holds
+  // Barras visibles según la leyenda-filtro
   const visibleStays = useMemo(
     () =>
       stays.filter((s) => {
-        if (s.kind === 'hold') return showHolds
-        return stayTypeFilter === 'all' || s.type === stayTypeFilter
+        if (s.kind === 'hold') return legend.hold
+        if (s.tentative && !legend.tent) return false
+        return legend[(s.type ?? 'LTR') as LegendKey]
       }),
-    [stays, stayTypeFilter, showHolds],
+    [stays, legend],
   )
 
   const staysByUnit = useMemo(() => {
@@ -259,7 +275,7 @@ export default function CalendarioPage() {
     [filteredUnits, visibleStays, windowStart, days, today],
   )
 
-  // Encabezado: runs de meses [label, startIdx, span]
+  // Header: runs de meses [label, startIdx, span]
   const monthSpans = useMemo(() => {
     const spans: Array<{ label: string; startIdx: number; span: number }> = []
     for (let i = 0; i < dayList.length; i++) {
@@ -271,7 +287,7 @@ export default function CalendarioPage() {
         const [y, m] = ym.split('-').map(Number)
         spans.push({
           label: new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('es-MX', {
-            month: 'short',
+            month: zoom === 14 ? 'long' : 'short',
             year: 'numeric',
             timeZone: 'UTC',
           }),
@@ -281,7 +297,28 @@ export default function CalendarioPage() {
       }
     }
     return spans
+  }, [dayList, zoom])
+
+  // Overlays: runs de fin de semana + inicios de mes
+  const weekendRuns = useMemo(() => {
+    const runs: Array<{ startIdx: number; len: number }> = []
+    for (let i = 0; i < dayList.length; i++) {
+      if (!isWeekendISO(dayList[i])) continue
+      const last = runs[runs.length - 1]
+      if (last && last.startIdx + last.len === i) last.len++
+      else runs.push({ startIdx: i, len: 1 })
+    }
+    return runs
   }, [dayList])
+
+  const monthStarts = useMemo(
+    () =>
+      dayList
+        .map((iso, i) => ({ iso, i }))
+        .filter(({ iso, i }) => i > 0 && iso.endsWith('-01'))
+        .map(({ i }) => i),
+    [dayList],
+  )
 
   // Temporadas recortadas a la ventana
   const seasonSegments = useMemo(() => {
@@ -322,7 +359,9 @@ export default function CalendarioPage() {
     return `Unidad ${u.number}${b ? ` · ${b.name}` : ''}`
   }
 
-  const showDayNumbers = zoom !== 92
+  // Densidad de números en el header: a Trimestre solo lunes (evita colisiones)
+  const showAllDayNumbers = zoom !== 92
+  const isMonday = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay() === 1
 
   return (
     <div className="space-y-6">
@@ -370,7 +409,7 @@ export default function CalendarioPage() {
 
           {/* Controles */}
           <div className="flex flex-col xl:flex-row xl:items-center gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => shift(-1)}
                 className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -443,25 +482,6 @@ export default function CalendarioPage() {
                   </option>
                 ))}
               </select>
-              <select
-                value={stayTypeFilter}
-                onChange={(e) => setStayTypeFilter(e.target.value as 'all' | StayType)}
-                className="input-field text-sm py-1.5 w-auto"
-              >
-                <option value="all">Toda estancia</option>
-                <option value="STR">STR (corta)</option>
-                <option value="MTR">MTR (media)</option>
-                <option value="LTR">LTR (larga)</option>
-              </select>
-              <label className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={showHolds}
-                  onChange={(e) => setShowHolds(e.target.checked)}
-                  className="rounded"
-                />
-                Holds
-              </label>
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -472,260 +492,201 @@ export default function CalendarioPage() {
                   className="input-field w-full pl-9 text-sm py-1.5"
                 />
               </div>
-            </div>
-          </div>
-
-          {/* Timeline */}
-          <div className="card p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <div style={{ width: LABEL_W + gridW, minWidth: '100%' }}>
-                {/* Header: meses */}
-                <div className="flex border-b border-gray-200 dark:border-gray-800">
-                  <div
-                    className="sticky left-0 z-20 shrink-0 px-3 py-1.5 text-[11px] uppercase tracking-wide muted-text"
-                    style={{ width: LABEL_W, backgroundColor: 'var(--baw-surface)' }}
+              {/* Leyenda-filtro: click apaga/enciende cada instrumento */}
+              <div className="tl-legend">
+                {LEGEND.map((l) => (
+                  <button
+                    key={l.key}
+                    aria-pressed={legend[l.key]}
+                    onClick={() => setLegend((prev) => ({ ...prev, [l.key]: !prev[l.key] }))}
+                    style={{ '--bar': l.bar } as CSSProperties}
+                    title={legend[l.key] ? `Ocultar ${l.label}` : `Mostrar ${l.label}`}
                   >
-                    Unidad
-                  </div>
-                  <div className="relative" style={{ width: gridW, height: 26 }}>
-                    {monthSpans.map((m) => (
-                      <div
-                        key={m.startIdx}
-                        className="absolute top-0 h-full flex items-center px-2 text-xs font-medium capitalize border-l border-gray-200 dark:border-gray-800"
-                        style={{
-                          left: m.startIdx * colPx,
-                          width: m.span * colPx,
-                          color: 'var(--baw-text)',
-                        }}
-                      >
-                        <span className="truncate">{m.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Header: días */}
-                <div className="flex border-b border-gray-200 dark:border-gray-800">
-                  <div
-                    className="sticky left-0 z-20 shrink-0"
-                    style={{ width: LABEL_W, backgroundColor: 'var(--baw-surface)' }}
-                  />
-                  <div className="flex" style={{ width: gridW, height: 24 }}>
-                    {dayList.map((iso, i) => {
-                      const isToday = iso === today
-                      const showNum =
-                        showDayNumbers || iso.endsWith('-01') || new Date(iso + 'T00:00:00Z').getUTCDay() === 1
-                      return (
-                        <div
-                          key={iso}
-                          className={`shrink-0 flex items-center justify-center text-[10px] tabular-nums ${
-                            isWeekendISO(iso) ? 'bg-black/[0.03] dark:bg-white/[0.04]' : ''
-                          } ${i > 0 ? 'border-l border-black/[0.05] dark:border-white/[0.05]' : ''}`}
-                          style={{ width: colPx }}
-                          title={iso}
-                        >
-                          {isToday ? (
-                            <span className="px-1 rounded bg-indigo-600 text-white font-semibold">
-                              {Number(iso.slice(8, 10))}
-                            </span>
-                          ) : showNum ? (
-                            <span className="muted-text">{Number(iso.slice(8, 10))}</span>
-                          ) : null}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Franja de temporadas */}
-                {seasonSegments.length > 0 && (
-                  <div className="flex border-b border-gray-200 dark:border-gray-800">
-                    <div
-                      className="sticky left-0 z-20 shrink-0 px-3 flex items-center text-[11px] muted-text"
-                      style={{ width: LABEL_W, backgroundColor: 'var(--baw-surface)' }}
-                    >
-                      Temporadas
-                    </div>
-                    <div className="relative" style={{ width: gridW, height: 24 }}>
-                      {seasonSegments.map(({ season, startIdx, span }) => (
-                        <div
-                          key={season.id}
-                          className={`absolute top-1 h-[16px] rounded px-1.5 text-[10px] leading-[14px] truncate ${SEASON_CHIP}`}
-                          style={{ left: startIdx * colPx, width: span * colPx }}
-                          title={`${season.name} · ×${season.price_multiplier} · ${season.start_date} → ${season.end_date}`}
-                        >
-                          {span * colPx > 56 ? `${season.name} ×${season.price_multiplier}` : ''}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Grupos por edificio */}
-                {groups.map((g) => (
-                  <div key={g.id}>
-                    <button
-                      onClick={() => toggleGroup(g.id)}
-                      className="flex items-center w-full border-b border-gray-200 dark:border-gray-800 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
-                    >
-                      <div
-                        className="sticky left-0 z-20 shrink-0 px-3 py-1.5 flex items-center gap-1.5 text-xs font-semibold"
-                        style={{ width: LABEL_W, color: 'var(--baw-text)' }}
-                      >
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform ${
-                            collapsed.has(g.id) ? '-rotate-90' : ''
-                          }`}
-                        />
-                        {g.name}
-                        <span className="muted-text font-normal">({g.units.length})</span>
-                      </div>
-                    </button>
-
-                    {!collapsed.has(g.id) &&
-                      g.units.map((u) => {
-                        const { bars, laneCount } = layoutLanes(
-                          staysByUnit.get(u.id) ?? [],
-                          windowStart,
-                          days,
-                        )
-                        const rowH = Math.max(34, 10 + laneCount * LANE_H)
-                        return (
-                          <div
-                            key={u.id}
-                            className="flex border-b border-gray-100 dark:border-gray-800/70"
-                          >
-                            {/* Celda de unidad (sticky) */}
-                            <div
-                              className="sticky left-0 z-20 shrink-0 px-3 flex items-center gap-2 border-r border-gray-200 dark:border-gray-800"
-                              style={{
-                                width: LABEL_W,
-                                height: rowH,
-                                backgroundColor: 'var(--baw-surface)',
-                              }}
-                            >
-                              <Link
-                                href={`/calendario/${u.id}`}
-                                className="font-medium text-sm hover:text-indigo-500 transition-colors truncate"
-                                style={{ color: 'var(--baw-text)' }}
-                                title={`Abrir calendario mensual de ${u.number}`}
-                              >
-                                {u.number}
-                              </Link>
-                              <span
-                                className={`inline-flex px-1.5 py-0 rounded-full text-[10px] font-medium ${
-                                  u.type === 'STR' || u.type === 'MTR' || u.type === 'LTR'
-                                    ? TYPE_BADGE[u.type]
-                                    : 'bg-gray-500/10 text-gray-500 border border-gray-500/20'
-                                }`}
-                              >
-                                {u.type}
-                              </span>
-                            </div>
-
-                            {/* Grid de días + barras */}
-                            <div className="relative" style={{ width: gridW, height: rowH }}>
-                              {/* fondo: separadores de día, fin de semana, hoy */}
-                              <div className="absolute inset-0 flex">
-                                {dayList.map((iso, i) => (
-                                  <div
-                                    key={iso}
-                                    className={`shrink-0 h-full ${
-                                      iso === today
-                                        ? 'bg-indigo-500/[0.07]'
-                                        : isWeekendISO(iso)
-                                        ? 'bg-black/[0.03] dark:bg-white/[0.04]'
-                                        : ''
-                                    } ${
-                                      i > 0
-                                        ? iso.endsWith('-01')
-                                          ? 'border-l border-gray-300 dark:border-gray-700'
-                                          : 'border-l border-black/[0.05] dark:border-white/[0.05]'
-                                        : ''
-                                    }`}
-                                    style={{ width: colPx }}
-                                  />
-                                ))}
-                              </div>
-                              {/* línea de hoy */}
-                              {todayVisible && (
-                                <div
-                                  className="absolute top-0 bottom-0 w-[2px] bg-indigo-500/70 z-10 pointer-events-none"
-                                  style={{ left: todayIdx * colPx }}
-                                />
-                              )}
-                              {/* barras */}
-                              {bars.map((b) => {
-                                const showText = b.span * colPx >= 44
-                                return (
-                                  <button
-                                    key={b.stay.key}
-                                    onClick={() => setSelected(b.stay)}
-                                    className={`absolute border text-left px-1.5 text-[11px] font-medium truncate transition-opacity hover:opacity-90 ${barClassFor(
-                                      b.stay.kind,
-                                      b.stay.type,
-                                      b.stay.tentative,
-                                    )} ${b.clippedStart ? 'rounded-l-none' : 'rounded-l-md'} ${
-                                      b.clippedEnd ? 'rounded-r-none' : 'rounded-r-md'
-                                    }`}
-                                    style={{
-                                      left: b.startIdx * colPx + 1,
-                                      width: Math.max(colPx - 2, b.span * colPx - 2),
-                                      top: 5 + b.lane * LANE_H,
-                                      height: LANE_H - 4,
-                                      lineHeight: `${LANE_H - 6}px`,
-                                      ...(b.stay.kind === 'hold' ? HOLD_STRIPES : {}),
-                                    }}
-                                    title={`${b.stay.person} · ${b.stay.start} → ${
-                                      b.stay.moveOutDay ?? 'sin fin'
-                                    }`}
-                                  >
-                                    {showText
-                                      ? `${b.clippedStart ? '← ' : ''}${b.stay.person}${
-                                          b.clippedEnd ? ' →' : ''
-                                        }`
-                                      : ''}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      })}
-                  </div>
+                    <i />
+                    {l.label}
+                  </button>
                 ))}
-
-                {filteredUnits.length === 0 && (
-                  <div className="py-10 text-center text-sm muted-text">
-                    Sin unidades con los filtros actuales.
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Leyenda */}
-          <div className="flex flex-wrap items-center gap-3 text-xs muted-text">
-            <span className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded ${BAR_CLASS.STR}`} /> STR (reservación)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded ${BAR_CLASS.MTR}`} /> MTR (contrato)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded ${BAR_CLASS.LTR}`} /> LTR (contrato)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded border ${BAR_CLASS.hold}`} style={HOLD_STRIPES} /> Hold
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className={`w-3 h-3 rounded ${SEASON_CHIP}`} /> Temporada de precio
-            </span>
-            <span className="flex items-center gap-1.5 opacity-60">
-              <span className="w-3 h-3 rounded border border-dashed border-gray-400 bg-gray-400/30" />{' '}
-              Tentativa / pendiente
-            </span>
+          {/* Timeline fluido (spec «tl»: columnas = 100% del ancho / días) */}
+          <div className="tl" style={{ '--cols': days } as CSSProperties}>
+            {/* Overlays de contexto: fines de semana, inicios de mes, hoy */}
+            {weekendRuns.map((r) => (
+              <i
+                key={`we-${r.startIdx}`}
+                className="tl-we"
+                style={{ '--d': r.startIdx, '--len': r.len } as CSSProperties}
+              />
+            ))}
+            {monthStarts.map((i) => (
+              <i key={`ml-${i}`} className="tl-monthline" style={{ '--d': i } as CSSProperties} />
+            ))}
+            {todayVisible && (
+              <i className="tl-todayline" style={{ '--today': todayIdx } as CSSProperties} />
+            )}
+
+            {/* Header: meses + días */}
+            <div className="tl-row">
+              <div className="tl-unit" style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                UNIDAD
+              </div>
+              <div className="tl-track tl-track--head">
+                <div className="tl-months">
+                  {monthSpans.map((m) => (
+                    <span
+                      key={m.startIdx}
+                      className="tl-month"
+                      style={{ '--d': m.startIdx, '--len': m.span } as CSSProperties}
+                    >
+                      {m.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="tl-days">
+                  {dayList.map((iso) => {
+                    const isToday = iso === today
+                    const show = showAllDayNumbers || isMonday(iso)
+                    return (
+                      <span key={iso} title={iso} className={isWeekendISO(iso) ? 'we' : undefined}>
+                        {isToday ? (
+                          <span className="today">{Number(iso.slice(8, 10))}</span>
+                        ) : show ? (
+                          Number(iso.slice(8, 10))
+                        ) : null}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Franja de temporadas de precio */}
+            {legend.season && seasonSegments.length > 0 && (
+              <div className="tl-row">
+                <div className="tl-unit" style={{ fontSize: 10.5, color: 'var(--text-3)' }}>
+                  Temporadas
+                </div>
+                <div className="tl-track tl-track--season">
+                  {seasonSegments.map(({ season, startIdx, span }) => (
+                    <span key={season.id}>
+                      <i
+                        className="tl-season"
+                        style={{ '--d': startIdx, '--len': span } as CSSProperties}
+                        title={`${season.name} · ×${season.price_multiplier} · ${season.start_date} → ${season.end_date}`}
+                      />
+                      {startIdx + span < days - 6 && (
+                        <span
+                          className="tl-season-label"
+                          style={{ '--d': startIdx, '--len': span } as CSSProperties}
+                        >
+                          {season.name} ×{season.price_multiplier}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Grupos por edificio */}
+            {groups.map((g) => (
+              <div key={g.id}>
+                <button className="tl-group" onClick={() => toggleGroup(g.id)}>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform ${
+                      collapsed.has(g.id) ? '-rotate-90' : ''
+                    }`}
+                  />
+                  {g.name} <small>({g.units.length})</small>
+                </button>
+
+                {!collapsed.has(g.id) &&
+                  g.units.map((u) => {
+                    const unitStays = staysByUnit.get(u.id) ?? []
+                    const { bars, laneCount } = layoutLanes(unitStays, windowStart, days)
+                    const trackH = Math.max(36, 12 + laneCount * LANE_H)
+                    const free = freeNightsInWindow(unitStays, windowStart, days)
+                    return (
+                      <div key={u.id} className="tl-row">
+                        <div className="tl-unit" style={{ height: trackH }}>
+                          <Link
+                            href={`/calendario/${u.id}`}
+                            title={`Abrir calendario mensual de ${u.number}`}
+                          >
+                            {u.number}
+                          </Link>
+                          <span
+                            className="tl-chip"
+                            style={{ '--c': unitTypeVar(u.type) } as CSSProperties}
+                          >
+                            {u.type}
+                          </span>
+                          {free > 0 && free < days && <span className="tl-vac">{free}n libres</span>}
+                          {free === days && <span className="tl-vac">libre</span>}
+                        </div>
+                        <div className="tl-track" style={{ height: trackH }}>
+                          {bars.map((b) => {
+                            // Half-day: check-in arranca a mitad de día y
+                            // check-out termina a mitad de día — salvo bordes
+                            // recortados por la ventana, que van al límite.
+                            const startPos = b.clippedStart ? 0 : b.startIdx + 0.5
+                            const endPos = b.clippedEnd
+                              ? days
+                              : Math.min(days, b.startIdx + b.span + 0.5)
+                            const len = Math.max(0.4, endPos - startPos)
+                            const showText = len / days > 0.045
+                            return (
+                              <button
+                                key={b.stay.key}
+                                onClick={() => setSelected(b.stay)}
+                                className={`tl-bar ${barModifiers({
+                                  kind: b.stay.kind,
+                                  tentative: b.stay.tentative,
+                                  clippedStart: b.clippedStart,
+                                  clippedEnd: b.clippedEnd,
+                                })}`}
+                                style={
+                                  {
+                                    '--d': startPos,
+                                    '--len': len,
+                                    '--bar': instrVarFor(b.stay.kind, b.stay.type),
+                                    top: 6 + b.lane * LANE_H,
+                                  } as CSSProperties
+                                }
+                                title={`${b.stay.person} · ${b.stay.start} → ${
+                                  b.stay.moveOutDay ?? 'sin fin'
+                                }`}
+                              >
+                                {showText && (
+                                  <>
+                                    {b.stay.type && <span className="cap">{b.stay.type}</span>}
+                                    <span className="truncate">{b.stay.person}</span>
+                                  </>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            ))}
+
+            {filteredUnits.length === 0 && (
+              <div className="py-10 text-center text-sm muted-text">
+                Sin unidades con los filtros actuales.
+              </div>
+            )}
           </div>
+
+          <p className="text-xs muted-text">
+            Click en una barra para ver el detalle · click en la unidad para abrir su calendario
+            mensual con precios por noche · las barras punteadas continúan fuera de la ventana
+            visible.
+          </p>
         </>
       )}
 

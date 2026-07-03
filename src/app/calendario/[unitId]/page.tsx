@@ -3,30 +3,29 @@
 // BaW OS — Calendario de unidades · Vista B (mensual por unidad).
 //
 // Modelo Airbnb host: meses apilados con scroll vertical. Cada día muestra la
-// ocupación (banda con el color del tipo de estancia) y el precio por noche
-// (tarifa base de la unidad × multiplicador de temporada de str_seasons —
-// misma fórmula que el cotizador). Read-only en esta fase; la edición de
-// temporadas/tarifas desde el calendario llega en el siguiente PR.
+// ocupación (banda con instrumento, half-day en check-in/out) y el precio por
+// noche (tarifa base × multiplicador de temporada — misma fórmula que /quotes).
+//
+// AQUÍ vive el price management: arrastra sobre días libres para seleccionar
+// un rango → panel con desglose de precio, crear/editar temporadas
+// (str_seasons, misma tabla que usa el cotizador y /pricing), editar la tarifa
+// base de la unidad, y crear una reservación con las fechas prellenadas.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, CalendarDays } from 'lucide-react'
+import { ArrowLeft, CalendarDays, X, Trash2, BedDouble, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useActiveContext } from '@/lib/useActiveContext'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import StayDrawer from '@/components/calendar/StayDrawer'
-import {
-  TYPE_BADGE,
-  HOLD_STRIPES,
-  SEASON_CHIP,
-  barClassFor,
-} from '@/components/calendar/calendar-ui'
+import { INSTR_VAR, instrVarFor, unitTypeVar } from '@/components/calendar/calendar-ui'
 import type { CalendarStay, Season } from '@/lib/calendar-occupancy'
 import {
   todayISO,
   addDaysISO,
+  diffDaysISO,
   contractToStay,
   reservationToStay,
   holdToStay,
@@ -36,7 +35,7 @@ import {
   monthLabel,
   monthRange,
 } from '@/lib/calendar-occupancy'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import type { UnitType } from '@/types'
 
 interface UnitDetail {
@@ -68,9 +67,15 @@ export default function UnidadCalendarioPage() {
   const [stays, setStays] = useState<CalendarStay[]>([])
   const [seasons, setSeasons] = useState<Season[]>([])
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
   const [monthsBack, setMonthsBack] = useState(0)
   const [monthsAhead, setMonthsAhead] = useState(6)
   const [selected, setSelected] = useState<CalendarStay | null>(null)
+
+  // Selección de rango (drag sobre días libres)
+  const [selAnchor, setSelAnchor] = useState<string | null>(null)
+  const [selEnd, setSelEnd] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     if (ctxLoading) return
@@ -130,17 +135,61 @@ export default function UnidadCalendarioPage() {
     return () => {
       alive = false
     }
-  }, [ctxLoading, activeOrgId, unitId])
+  }, [ctxLoading, activeOrgId, unitId, reloadKey])
+
+  // Terminar el drag donde sea que suelte el pointer
+  useEffect(() => {
+    function onUp() {
+      setDragging(false)
+    }
+    window.addEventListener('pointerup', onUp)
+    return () => window.removeEventListener('pointerup', onUp)
+  }, [])
 
   const months = useMemo(
     () => monthRange(today, monthsBack, monthsAhead),
     [today, monthsBack, monthsAhead],
   )
 
-  function staysCovering(iso: string): CalendarStay[] {
-    return stays.filter(
-      (s) => s.start <= iso && (s.endExclusive === null || iso < s.endExclusive),
-    )
+  const coveringOf = useCallback(
+    (iso: string): CalendarStay[] =>
+      stays.filter(
+        (s) => s.start <= iso && (s.endExclusive === null || iso < s.endExclusive),
+      ),
+    [stays],
+  )
+  const endingOf = useCallback(
+    (iso: string): CalendarStay[] => stays.filter((s) => s.endExclusive === iso),
+    [stays],
+  )
+  const isFree = useCallback((iso: string) => coveringOf(iso).length === 0, [coveringOf])
+
+  /** Extiende la selección desde el ancla hacia target sin cruzar días ocupados. */
+  const clampToFree = useCallback(
+    (anchor: string, target: string): string => {
+      const step = target >= anchor ? 1 : -1
+      let cur = anchor
+      while (cur !== target) {
+        const next = addDaysISO(cur, step)
+        if (!isFree(next)) break
+        cur = next
+      }
+      return cur
+    },
+    [isFree],
+  )
+
+  const selection = useMemo(() => {
+    if (!selAnchor || !selEnd) return null
+    const a = selAnchor <= selEnd ? selAnchor : selEnd
+    const b = selAnchor <= selEnd ? selEnd : selAnchor
+    return { from: a, to: b, nights: diffDaysISO(a, b) + 1, checkOut: addDaysISO(b, 1) }
+  }, [selAnchor, selEnd])
+
+  function clearSelection() {
+    setSelAnchor(null)
+    setSelEnd(null)
+    setDragging(false)
   }
 
   const building = one(unit?.building ?? null)
@@ -197,25 +246,22 @@ export default function UnidadCalendarioPage() {
             <CalendarDays className="w-6 h-6 text-indigo-400" />
             Unidad {unit.number}
           </h1>
-          <span
-            className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-              unit.type === 'STR' || unit.type === 'MTR' || unit.type === 'LTR'
-                ? TYPE_BADGE[unit.type]
-                : 'bg-gray-500/10 text-gray-500 border border-gray-500/20'
-            }`}
-          >
+          <span className="tl-chip" style={{ '--c': unitTypeVar(unit.type) } as CSSProperties}>
             {unit.type}
           </span>
         </div>
         <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
           {building ? `${building.name} · ` : ''}
           {showPrices
-            ? `Tarifa base ${formatCurrency(unit.base_rate_mxn!)}/noche`
+            ? `Tarifa base ${formatCurrency(unit.base_rate_mxn!)}/noche · precio/día = base × temporada`
             : 'Sin tarifa base por noche configurada'}
           {unit.monthly_rate_mxn != null
             ? ` · Renta mensual ${formatCurrency(unit.monthly_rate_mxn)}/mes`
             : ''}
-          {showPrices ? ' · precio/día = base × temporada' : ''}
+        </p>
+        <p className="text-xs muted-text mt-1">
+          Arrastra sobre días libres para seleccionar un rango: cotiza, crea/edita temporadas de
+          precio o crea una reservación con las fechas prellenadas.
         </p>
       </div>
 
@@ -228,7 +274,7 @@ export default function UnidadCalendarioPage() {
       </button>
 
       {/* Meses apilados */}
-      <div className="space-y-8 max-w-3xl">
+      <div className="space-y-8 max-w-3xl select-none">
         {months.map(({ year, month }) => {
           const cells = monthMatrix(year, month)
           return (
@@ -242,7 +288,10 @@ export default function UnidadCalendarioPage() {
               <div className="card p-2">
                 <div className="grid grid-cols-7 mb-1">
                   {WEEKDAYS.map((d) => (
-                    <div key={d} className="text-center text-[11px] uppercase tracking-wide muted-text py-1">
+                    <div
+                      key={d}
+                      className="text-center text-[11px] uppercase tracking-wide muted-text py-1"
+                    >
                       {d}
                     </div>
                   ))}
@@ -252,16 +301,17 @@ export default function UnidadCalendarioPage() {
                     if (!cell.inMonth) {
                       return <div key={cell.iso} className="min-h-[72px]" />
                     }
-                    const covering = staysCovering(cell.iso)
-                    // La banda pinta la estancia "más firme": no-hold primero
+                    const covering = coveringOf(cell.iso)
                     const band =
                       covering.find((s) => s.kind !== 'hold' && !s.tentative) ??
                       covering.find((s) => s.kind !== 'hold') ??
                       covering[0] ??
                       null
+                    const ending = endingOf(cell.iso)[0] ?? null
                     const isStart = band ? band.start === cell.iso : false
-                    const isEnd = band
-                      ? band.endExclusive !== null && addDaysISO(cell.iso, 1) === band.endExclusive
+                    const isBandEnd = band
+                      ? band.endExclusive !== null &&
+                        addDaysISO(cell.iso, 1) === band.endExclusive
                       : false
                     const season = seasonForDate(seasons, cell.iso)
                     const price = showPrices
@@ -269,15 +319,36 @@ export default function UnidadCalendarioPage() {
                       : null
                     const isPast = cell.iso < today
                     const isToday = cell.iso === today
+                    const free = !band
+                    const inSelection =
+                      selection !== null &&
+                      cell.iso >= selection.from &&
+                      cell.iso <= selection.to
 
                     return (
-                      <button
+                      <div
                         key={cell.iso}
-                        onClick={() => band && setSelected(band)}
-                        disabled={!band}
-                        className={`relative min-h-[72px] p-1 text-left border border-black/[0.04] dark:border-white/[0.04] transition-colors ${
-                          band ? 'cursor-pointer hover:bg-black/[0.03] dark:hover:bg-white/[0.03]' : 'cursor-default'
-                        } ${season ? 'bg-emerald-500/[0.06]' : ''} ${isPast ? 'opacity-55' : ''}`}
+                        onPointerDown={() => {
+                          if (!free) return
+                          setSelAnchor(cell.iso)
+                          setSelEnd(cell.iso)
+                          setDragging(true)
+                        }}
+                        onPointerEnter={() => {
+                          if (dragging && selAnchor) setSelEnd(clampToFree(selAnchor, cell.iso))
+                        }}
+                        onClick={() => {
+                          const target = band ?? ending
+                          if (target) {
+                            clearSelection()
+                            setSelected(target)
+                          }
+                        }}
+                        className={`relative min-h-[72px] p-1 border border-black/[0.04] dark:border-white/[0.04] transition-colors ${
+                          band || ending ? 'cursor-pointer' : 'cursor-crosshair'
+                        } ${season && !inSelection ? 'bg-emerald-500/[0.06]' : ''} ${
+                          isPast ? 'opacity-55' : ''
+                        } ${inSelection ? 'cal-cell--sel' : ''} hover:bg-black/[0.02] dark:hover:bg-white/[0.02]`}
                         title={
                           band
                             ? `${band.person} · ${band.start} → ${band.moveOutDay ?? 'sin fin'}`
@@ -287,7 +358,7 @@ export default function UnidadCalendarioPage() {
                         }
                       >
                         <span
-                          className={`text-xs tabular-nums ${
+                          className={`relative z-10 text-xs tabular-nums ${
                             isToday
                               ? 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 text-white font-semibold'
                               : 'muted-text'
@@ -296,23 +367,51 @@ export default function UnidadCalendarioPage() {
                           {cell.day}
                         </span>
 
-                        {/* Banda de ocupación */}
+                        {/* Banda que TERMINA hoy (check-out por la mañana) */}
+                        {ending && (!band || band.key !== ending.key) && (
+                          <span
+                            className={`cal-band cal-band--end ${
+                              ending.kind === 'hold'
+                                ? 'cal-band--hold'
+                                : ending.tentative
+                                ? 'cal-band--tent'
+                                : ''
+                            }`}
+                            style={
+                              {
+                                left: 0,
+                                width: '50%',
+                                '--bar': instrVarFor(ending.kind, ending.type),
+                              } as CSSProperties
+                            }
+                          />
+                        )}
+
+                        {/* Banda de ocupación (check-in arranca a mitad de día) */}
                         {band && (
                           <span
-                            className={`absolute left-0 right-0 top-1/2 -translate-y-1/2 h-5 border text-[10px] font-medium truncate px-1 leading-[18px] ${barClassFor(
-                              band.kind,
-                              band.type,
-                              band.tentative,
-                            )} ${isStart ? 'rounded-l-md ml-0.5' : ''} ${
-                              isEnd ? 'rounded-r-md mr-0.5' : ''
+                            className={`cal-band ${isStart ? 'cal-band--start' : ''} ${
+                              isBandEnd ? 'cal-band--end' : ''
+                            } ${
+                              band.kind === 'hold'
+                                ? 'cal-band--hold'
+                                : band.tentative
+                                ? 'cal-band--tent'
+                                : ''
                             }`}
-                            style={band.kind === 'hold' ? HOLD_STRIPES : undefined}
+                            style={
+                              {
+                                left: isStart ? '50%' : 0,
+                                right: 0,
+                                '--bar': instrVarFor(band.kind, band.type),
+                              } as CSSProperties
+                            }
                           >
                             {isStart ? band.person : ''}
                           </span>
                         )}
 
-                        {/* Precio por noche (solo días libres para no encimar) */}
+                        {/* Precio por noche (solo días sin banda, no encima) */}
                         {price !== null && !band && (
                           <span
                             className={`absolute bottom-1 right-1 text-[10px] tabular-nums ${
@@ -320,16 +419,11 @@ export default function UnidadCalendarioPage() {
                                 ? 'text-emerald-600 dark:text-emerald-400 font-medium'
                                 : 'muted-text'
                             }`}
-                            title={
-                              season
-                                ? `${formatCurrency(price)} · ${season.name} ×${season.price_multiplier}`
-                                : formatCurrency(price)
-                            }
                           >
                             ${price.toLocaleString('es-MX')}
                           </span>
                         )}
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -348,22 +442,307 @@ export default function UnidadCalendarioPage() {
       </button>
 
       {/* Leyenda */}
-      <div className="flex flex-wrap items-center gap-3 text-xs muted-text">
-        <span className="flex items-center gap-1.5">
-          <span className={`w-3 h-3 rounded ${SEASON_CHIP}`} /> Día en temporada (precio ×
-          multiplicador)
-        </span>
-        <span className="flex items-center gap-1.5 opacity-60">
-          <span className="w-3 h-3 rounded border border-dashed border-gray-400 bg-gray-400/30" />{' '}
-          Tentativa / hold
-        </span>
+      <div className="tl-legend">
+        <button aria-pressed="true" style={{ '--bar': INSTR_VAR.STR } as CSSProperties} disabled>
+          <i /> STR
+        </button>
+        <button aria-pressed="true" style={{ '--bar': INSTR_VAR.MTR } as CSSProperties} disabled>
+          <i /> MTR
+        </button>
+        <button aria-pressed="true" style={{ '--bar': INSTR_VAR.LTR } as CSSProperties} disabled>
+          <i /> LTR
+        </button>
+        <button aria-pressed="true" style={{ '--bar': INSTR_VAR.hold } as CSSProperties} disabled>
+          <i /> Hold
+        </button>
+        <button aria-pressed="true" style={{ '--bar': INSTR_VAR.season } as CSSProperties} disabled>
+          <i /> Temporada
+        </button>
       </div>
+
+      {/* Panel de rango seleccionado (price management) */}
+      {selection && !selected && (
+        <RangePanel
+          unit={unit}
+          orgId={activeOrgId}
+          selection={selection}
+          seasons={seasons}
+          onClose={clearSelection}
+          onChanged={() => setReloadKey((k) => k + 1)}
+        />
+      )}
 
       <StayDrawer
         stay={selected}
         unitLabel={`Unidad ${unit.number}${building ? ` · ${building.name}` : ''}`}
         onClose={() => setSelected(null)}
       />
+    </div>
+  )
+}
+
+/* ──────────────────────────── Panel de rango ──────────────────────────── */
+
+function RangePanel({
+  unit,
+  orgId,
+  selection,
+  seasons,
+  onClose,
+  onChanged,
+}: {
+  unit: UnitDetail
+  orgId: string
+  selection: { from: string; to: string; nights: number; checkOut: string }
+  seasons: Season[]
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [newSeasonName, setNewSeasonName] = useState('')
+  const [newSeasonMult, setNewSeasonMult] = useState('1.2')
+  const [baseRate, setBaseRate] = useState(unit.base_rate_mxn != null ? String(unit.base_rate_mxn) : '')
+  const [seasonEdits, setSeasonEdits] = useState<Record<string, { name: string; mult: string }>>({})
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const overlapping = useMemo(
+    () =>
+      seasons.filter((s) => !(s.end_date < selection.from || s.start_date > selection.to)),
+    [seasons, selection],
+  )
+
+  const total = useMemo(() => {
+    if (unit.base_rate_mxn == null) return null
+    let sum = 0
+    for (let iso = selection.from; iso <= selection.to; iso = addDaysISO(iso, 1)) {
+      sum += nightlyPrice(unit.base_rate_mxn, seasons, iso) ?? 0
+    }
+    return sum
+  }, [unit.base_rate_mxn, seasons, selection])
+
+  async function run(action: () => PromiseLike<{ error: { message: string } | null }>) {
+    setSaving(true)
+    setError(null)
+    const { error: err } = await action()
+    setSaving(false)
+    if (err) {
+      setError(`No se pudo guardar: ${err.message}`)
+      return false
+    }
+    onChanged()
+    return true
+  }
+
+  async function createSeason() {
+    if (!newSeasonName.trim()) {
+      setError('Ponle nombre a la temporada.')
+      return
+    }
+    const ok = await run(() =>
+      supabase.from('str_seasons').insert({
+        org_id: orgId,
+        name: newSeasonName.trim(),
+        start_date: selection.from,
+        end_date: selection.to,
+        price_multiplier: Number(newSeasonMult) || 1,
+        notes: null,
+      }),
+    )
+    if (ok) setNewSeasonName('')
+  }
+
+  async function saveSeason(s: Season) {
+    const edit = seasonEdits[s.id]
+    if (!edit) return
+    await run(() =>
+      supabase
+        .from('str_seasons')
+        .update({ name: edit.name, price_multiplier: Number(edit.mult) || 1 })
+        .eq('id', s.id),
+    )
+  }
+
+  async function deleteSeason(s: Season) {
+    if (!window.confirm(`¿Eliminar la temporada "${s.name}"?`)) return
+    await run(() => supabase.from('str_seasons').delete().eq('id', s.id))
+  }
+
+  async function saveBaseRate() {
+    const value = baseRate === '' ? null : Number(baseRate)
+    await run(() => supabase.from('units').update({ base_rate_mxn: value }).eq('id', unit.id))
+  }
+
+  return (
+    <div className="fixed inset-y-0 right-0 z-40 w-full max-w-sm flex flex-col overflow-y-auto p-5 space-y-5 shadow-2xl"
+      style={{ backgroundColor: 'var(--baw-surface)', borderLeft: '1px solid var(--baw-border)' }}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-semibold" style={{ color: 'var(--baw-text)' }}>
+            {formatDate(selection.from)} → {formatDate(selection.to)}
+          </h3>
+          <p className="text-xs muted-text mt-0.5">
+            {selection.nights} noche{selection.nights === 1 ? '' : 's'} · check-out{' '}
+            {formatDate(selection.checkOut)}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          aria-label="Cerrar"
+        >
+          <X className="w-4 h-4 muted-text" />
+        </button>
+      </div>
+
+      {total !== null && (
+        <div className="rounded-lg p-3" style={{ border: '1px solid var(--baw-border)' }}>
+          <p className="text-xs uppercase tracking-wide muted-text mb-1">Estimado del rango</p>
+          <p className="text-lg font-semibold" style={{ color: 'var(--baw-text)' }}>
+            {formatCurrency(total)}
+            <span className="text-xs muted-text font-normal"> · base × temporada, sin limpieza/IVA</span>
+          </p>
+        </div>
+      )}
+
+      {/* Acciones de creación */}
+      <div className="flex gap-2">
+        <Link
+          href={`/reservations?unit_id=${unit.id}&check_in=${selection.from}&check_out=${selection.checkOut}`}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+        >
+          <BedDouble className="w-4 h-4" /> Crear reservación
+        </Link>
+        <Link
+          href="/contracts/new"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+          style={{ color: 'var(--baw-text)' }}
+        >
+          <FileText className="w-4 h-4" /> Contrato
+        </Link>
+      </div>
+
+      {/* Tarifa base */}
+      <div className="space-y-1.5">
+        <p className="text-xs uppercase tracking-wide muted-text">Tarifa base por noche (MXN)</p>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min={0}
+            value={baseRate}
+            onChange={(e) => setBaseRate(e.target.value)}
+            placeholder="—"
+            className="input-field flex-1 text-sm py-1.5"
+          />
+          <button
+            onClick={saveBaseRate}
+            disabled={saving}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+            style={{ color: 'var(--baw-text)' }}
+          >
+            Guardar
+          </button>
+        </div>
+      </div>
+
+      {/* Temporadas que tocan el rango */}
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-wide muted-text">
+          Temporadas en el rango ({overlapping.length})
+        </p>
+        {overlapping.map((s) => {
+          const edit = seasonEdits[s.id] ?? { name: s.name, mult: String(s.price_multiplier) }
+          return (
+            <div key={s.id} className="rounded-lg p-2.5 space-y-1.5" style={{ border: '1px solid var(--baw-border)' }}>
+              <p className="text-[10px] font-mono muted-text">
+                {s.start_date} → {s.end_date}
+              </p>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={edit.name}
+                  onChange={(e) =>
+                    setSeasonEdits((prev) => ({ ...prev, [s.id]: { ...edit, name: e.target.value } }))
+                  }
+                  className="input-field flex-1 text-sm py-1"
+                />
+                <span className="text-xs muted-text">×</span>
+                <input
+                  type="number"
+                  step="0.05"
+                  min={0.1}
+                  value={edit.mult}
+                  onChange={(e) =>
+                    setSeasonEdits((prev) => ({ ...prev, [s.id]: { ...edit, mult: e.target.value } }))
+                  }
+                  className="input-field w-20 text-sm py-1"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveSeason(s)}
+                  disabled={saving || !seasonEdits[s.id]}
+                  className="text-xs px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+                  style={{ color: 'var(--baw-text)' }}
+                >
+                  Guardar cambios
+                </button>
+                <button
+                  onClick={() => deleteSeason(s)}
+                  disabled={saving}
+                  className="text-xs px-2 py-1 rounded-md text-red-500 hover:bg-red-500/10 inline-flex items-center gap-1"
+                >
+                  <Trash2 className="w-3 h-3" /> Eliminar
+                </button>
+              </div>
+            </div>
+          )
+        })}
+
+        {/* Crear temporada con el rango seleccionado */}
+        <div className="rounded-lg p-2.5 space-y-1.5" style={{ border: '1px dashed var(--baw-border)' }}>
+          <p className="text-xs muted-text">Nueva temporada con este rango</p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={newSeasonName}
+              onChange={(e) => setNewSeasonName(e.target.value)}
+              placeholder="Nombre (ej. Alta diciembre)"
+              className="input-field flex-1 text-sm py-1"
+            />
+            <span className="text-xs muted-text">×</span>
+            <input
+              type="number"
+              step="0.05"
+              min={0.1}
+              value={newSeasonMult}
+              onChange={(e) => setNewSeasonMult(e.target.value)}
+              className="input-field w-20 text-sm py-1"
+            />
+          </div>
+          <button
+            onClick={createSeason}
+            disabled={saving}
+            className="text-xs px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+          >
+            Crear temporada
+          </button>
+          <p className="text-[10px] muted-text">
+            Aplica a TODAS las unidades (multiplicador global de la organización, mismo motor que
+            el cotizador).
+          </p>
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   )
 }
