@@ -13,6 +13,7 @@ import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
 import PersonPicker, { type PickedPerson } from '@/components/PersonPicker'
+import EngagementsPanel from './EngagementsPanel'
 
 interface ContractRow {
   id: string
@@ -670,6 +671,9 @@ export default function CobrosPage() {
           />
         </div>
       </div>
+
+      {/* Cuentas combinadas (pools tipo Natturaly Complements) */}
+      <EngagementsPanel orgId={orgId} selectedMonth={selectedMonth} />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">

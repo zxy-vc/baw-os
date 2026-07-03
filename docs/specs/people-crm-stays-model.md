@@ -1,6 +1,6 @@
 # Spec — Modelo de Personas, CRM y Estancias (operación híbrida STR/MTR/LTR)
 
-**Status:** propuesta · pendiente de revisión por Fran
+**Status:** aprobado por Fran · en construcción por fases (2b y 3b en main; engagements Fase 1 en curso)
 **Autor:** Claude Code (planeación) · **Ejecutor previsto:** Claude Code
 **Origen:** discusión Fran ↔ Claude sobre cómo estructurar la sección "Inquilinos"
 (Contactos / Clientes / Contratos / Expedientes) para una operación híbrida.
@@ -217,13 +217,21 @@ Orden sugerido en "Inquilinos" (operación): **Personas · Estancias (Contratos/
 
 ---
 
-## 12. Decisiones abiertas (para Fran)
+## 12. Decisiones (resueltas por Fran)
 
-1. **Party = enriquecer `occupants`** (menos disruptivo) **o tabla `parties` nueva**
-   (más limpio, más migración). ¿Preferencia?
-2. **"Estancias" como vista unificada** sobre contratos+reservas, ¿o mantenerlas como
-   dos pestañas separadas y solo unificar el modelo por debajo?
-3. **Facturación corporativa:** ¿consolidada por empresa, por unidad, o configurable?
-4. **¿El CRM sale del sidebar como sección propia**, o se queda como pestaña dentro de
-   Inquilinos (respetando "el sidebar no crece")?
-5. ¿Hay algún escenario más (depósitos compartidos, subarriendo, etc.) que falte cubrir?
+1. **Party = enriquecer `occupants`** ✅ (decisión "1A", 2026-06; `occupants.kind`
+   persona|empresa en main vía `20260627_party_kind_payer.sql`).
+2. **"Estancias" unificadas dentro de Inquilinos** ✅ (decisión "2A", 2026-06).
+3. **Facturación corporativa: consolidada** ✅ (2026-07-02; `engagements.billing_mode`
+   default `'consolidated'`, `'per_unit'` disponible como opción).
+4. **CRM se queda como pestaña dentro de Inquilinos** (el sidebar no crece) — vigente.
+5. Escenarios extra (depósitos compartidos, subarriendo): sin casos reales aún; se
+   abordan cuando aparezcan.
+
+### Decisiones del caso Natturaly Complements (2026-07-02)
+
+- El mes único de **D201** SÍ se registra (con su 50% de descuento documentado).
+- El saldo del pool se **reconstruye desde febrero 2026** — se capturan cargos y
+  abonos reales; NO hay ajuste de saldo inicial. El saldo se deriva del historial.
+- Estado de cuenta del pool: **consolidado** a nombre de Natturaly Complements con
+  desglose por unidad.
