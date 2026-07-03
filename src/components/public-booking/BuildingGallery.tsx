@@ -13,7 +13,7 @@ export default function BuildingGallery({
   images = DEFAULT_IMAGES,
   buildingName = 'el edificio',
   title = 'Una construcción restaurada de los años setenta, ahora vivienda corta.',
-  body = 'Doce departamentos distribuidos en tres niveles, con planta baja comercial. Restauración cuidadosa del concreto original, carpintería en madera natural y paleta neutra. Lobby con acceso biométrico, patio interior y estacionamiento subterráneo.',
+  body = 'Dieciséis departamentos en tres niveles, con planta baja comercial. Restauración cuidadosa del concreto original, carpintería en madera natural y paleta neutra. Lobby con acceso biométrico, patio interior y estacionamiento subterráneo.',
 }: {
   images?: string[]
   buildingName?: string
@@ -33,8 +33,9 @@ export default function BuildingGallery({
           {/* Text column */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <MonoLabel as="div" style={{ marginBottom: 16 }}>El edificio</MonoLabel>
-            <h2 style={{ fontSize: 'clamp(36px, 5vw, 56px)', letterSpacing: '-0.025em', marginBottom: 24, lineHeight: 1.05 }}>
-              {title}
+            <h2 style={{ fontSize: 'clamp(36px, 5vw, 56px)', marginBottom: 24, lineHeight: 1.05 }}>
+              {title.replace(/\.\s*$/, '')}
+              <span className="t-dot" aria-hidden="true">.</span>
             </h2>
             {body && (
               <p style={{ fontSize: 17, lineHeight: 1.65, color: 'var(--ink-2)', maxWidth: 520 }}>

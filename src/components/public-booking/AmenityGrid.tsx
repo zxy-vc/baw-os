@@ -44,11 +44,12 @@ export default function AmenityGrid({
   eyebrow?: string
 }) {
   return (
-    <section style={{ paddingTop: 64, paddingBottom: 64 }}>
+    <section id="amenidades" style={{ paddingTop: 64, paddingBottom: 64 }}>
       <div className="pb-container">
         {eyebrow && <MonoLabel as="div" style={{ marginBottom: 12 }}>{eyebrow}</MonoLabel>}
-        <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', marginBottom: 40, letterSpacing: '-0.02em' }}>
+        <h2 style={{ fontSize: 'clamp(32px, 4vw, 48px)', marginBottom: 40 }}>
           {title}
+          <span className="t-dot" aria-hidden="true">.</span>
         </h2>
         <ul
           style={{

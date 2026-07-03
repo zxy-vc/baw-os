@@ -1,6 +1,42 @@
 import Image from 'next/image'
 import MonoLabel from './MonoLabel'
 
+/* Regla del punto (brand book §01): si la línea termina en ".", el punto
+   final se pinta terracota; si no, se agrega. */
+function HeadlineLine({ text }: { text: string }) {
+  const base = text.replace(/\.\s*$/, '')
+  return (
+    <>
+      {base}
+      <span className="t-dot" aria-hidden="true">.</span>
+    </>
+  )
+}
+
+/* Cifra clave del hero: valor en display ExtraBold + punto terracota,
+   etiqueta en cuerpo abajo. */
+function HeroStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <dt
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 800,
+          fontSize: 32,
+          letterSpacing: '-0.04em',
+          color: 'var(--ink)',
+        }}
+      >
+        {value}
+        <span className="t-dot" aria-hidden="true">.</span>
+      </dt>
+      <dd style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-3)' }}>
+        {label}
+      </dd>
+    </div>
+  )
+}
+
 /**
  * Hero del edificio — composición editorial. Lado izquierdo: texto.
  * Lado derecho: imagen aspect 4/5. En móvil: stack vertical.
@@ -58,30 +94,24 @@ export default function BuildingHero({
               className="t-display"
               style={{
                 fontSize: 'clamp(48px, 7vw, 88px)',
-                lineHeight: 0.98,
-                letterSpacing: '-0.03em',
+                lineHeight: 1.02,
                 marginBottom: 24,
               }}
             >
-              {title ?? buildingName}
+              <HeadlineLine text={title ?? buildingName} />
               {titleAccent && (
                 <>
                   <br />
-                  <span className="t-italic" style={{ fontStyle: 'italic', color: 'var(--ink-2)' }}>
-                    {titleAccent}
-                  </span>
+                  <HeadlineLine text={titleAccent} />
                 </>
               )}
             </h1>
 
             {intro && (
               <p
-                className="t-italic"
                 style={{
-                  fontFamily: 'var(--font-display)',
-                  fontStyle: 'italic',
-                  fontSize: 20,
-                  lineHeight: 1.45,
+                  fontSize: 18,
+                  lineHeight: 1.55,
                   color: 'var(--ink-2)',
                   maxWidth: 480,
                   marginBottom: 40,
@@ -103,57 +133,15 @@ export default function BuildingHero({
               }}
             >
               {typeof unitsCount === 'number' && unitsCount > 0 && (
-                <div>
-                  <MonoLabel as="dt">Unidades</MonoLabel>
-                  <dd
-                    style={{
-                      margin: '6px 0 0',
-                      fontFamily: 'var(--font-display)',
-                      fontSize: 32,
-                      fontWeight: 400,
-                      letterSpacing: '-0.02em',
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    {unitsCount}
-                  </dd>
-                </div>
+                <HeroStat value={String(unitsCount)} label="unidades" />
               )}
               {basePriceMxn != null && basePriceMxn > 0 && (
-                <div>
-                  <MonoLabel as="dt">Desde</MonoLabel>
-                  <dd
-                    style={{
-                      margin: '6px 0 0',
-                      fontFamily: 'var(--font-display)',
-                      fontSize: 32,
-                      fontWeight: 400,
-                      letterSpacing: '-0.02em',
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    {`$${basePriceMxn.toLocaleString('es-MX')}`}
-                    <span style={{ fontSize: 14, color: 'var(--ink-3)', fontFamily: 'var(--font-body)', marginLeft: 4 }}>
-                      {priceSuffix}
-                    </span>
-                  </dd>
-                </div>
+                <HeroStat
+                  value={`$${basePriceMxn.toLocaleString('es-MX')}`}
+                  label={priceSuffix === '/noche' ? 'desde, por noche' : `desde ${priceSuffix}`}
+                />
               )}
-              <div>
-                <MonoLabel as="dt">Reserva</MonoLabel>
-                <dd
-                  style={{
-                    margin: '6px 0 0',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 32,
-                    fontWeight: 400,
-                    letterSpacing: '-0.02em',
-                    color: 'var(--ink)',
-                  }}
-                >
-                  En línea
-                </dd>
-              </div>
+              <HeroStat value="24/7" label="acceso autónomo" />
             </dl>
           </div>
 

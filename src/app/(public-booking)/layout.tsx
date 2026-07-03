@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { EB_Garamond, Inter, JetBrains_Mono } from 'next/font/google'
+import { IBM_Plex_Mono, Outfit } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import './globals.css'
 import BrandActivator from '@/components/public-booking/BrandActivator'
@@ -12,25 +12,19 @@ import BrandActivator from '@/components/public-booking/BrandActivator'
 // skipea `/edificios` via PUBLIC_PREFIXES). Respeta el feature flag
 // NEXT_PUBLIC_PUBLIC_BOOKING_ENABLED.
 
-const ebGaramond = EB_Garamond({
+// Brand Book 809 §03 — "Dos voces, roles fijos": Outfit (display/UI/cuerpo)
+// e IBM Plex Mono (voz técnica: direcciones, etiquetas, datos operativos).
+const outfit = Outfit({
   subsets: ['latin'],
-  weight: ['400', '500'],
-  style: ['normal', 'italic'],
-  variable: '--font-eb-garamond',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-outfit-809',
   display: 'swap',
 })
 
-const inter = Inter({
+const plexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-inter-809',
-  display: 'swap',
-})
-
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-jetbrains-mono',
+  weight: ['400', '500', '600'],
+  variable: '--font-plex-mono-809',
   display: 'swap',
 })
 
@@ -42,8 +36,8 @@ export const metadata: Metadata = {
   description:
     'Departamentos amueblados con reserva en línea, operados con BaW OS.',
   icons: {
-    icon: '/themes/809/favicon.svg',
-    apple: '/themes/809/favicon.svg',
+    icon: '/themes/809/favicon-809-512.png',
+    apple: '/themes/809/favicon-809-512.png',
   },
   openGraph: {
     type: 'website',
@@ -68,7 +62,7 @@ export default function PublicBookingLayout({
   return (
     <div
       data-pb-root
-      className={`${ebGaramond.variable} ${inter.variable} ${jetBrainsMono.variable}`}
+      className={`${outfit.variable} ${plexMono.variable}`}
       style={{
         minHeight: '100vh',
         display: 'flex',
