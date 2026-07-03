@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-03 (Fase 1 Public Listing: rutas públicas genéricas `/edificios/[buildingSlug]`, galería pública, leads MTR/LTR, UI de publicación).
+> **Última actualización:** 2026-07-03 (Calendario de unidades PR 1; antes el mismo día: Fase 1 Public Listing).
 
 ---
 
@@ -23,6 +23,18 @@ Plan de 4 fases acordado en chat (rama `claude/property-listing-website-qf916r`)
 4. **Fase 4** — Consolidación PM rentas fijas (recordatorios de vencimiento, vacancia → listing).
 
 Decisión estratégica registrada (2026-07-03): canal directo por edificio/tenant (modelo WanderOS), NO marketplace consolidado bajo marca BaW por ahora. La relación con el huésped pertenece al tenant.
+
+---
+
+## 0.ter · Calendario de unidades (aprobado por Fran 2026-07-03, rama `claude/calendar-units-display-8waabf`)
+
+Sección de visualización de ocupación modelo Airbnb, 2 vistas, en Portafolio → Calendario:
+
+- **Vista A `/calendario`** — timeline multi-unidad: filas = unidades agrupadas por edificio (colapsables), columnas = días (zoom 2 semanas/mes/trimestre, navegación ◀ Hoy ▶), barras = estancias de los 3 instrumentos con colores de `/estancias` (STR morado / MTR ámbar / LTR azul), holds del booking público en gris rayado, franja de temporadas (`str_seasons`) arriba, línea de "hoy", KPIs de la ventana (ocupación %, noches vacantes, entradas/salidas hoy, contratos vencen ≤60d), filtros (edificio/tipo unidad/tipo estancia/holds/búsqueda), drawer de detalle con link al instrumento.
+- **Vista B `/calendario/[unitId]`** — mensual por unidad con scroll vertical (meses apilados): cada día muestra ocupación + **precio por noche = `units.base_rate_mxn` × multiplicador de temporada** (misma fórmula que `/quotes`), tinte esmeralda en días con temporada.
+- Lógica pura compartida en `src/lib/calendar-occupancy.ts` (rangos semiabiertos `[start, endExclusive)` como los EXCLUDE de DB; contratos `end_date` inclusivo → +1; `terminated`/`cancelled` no pintan; tentativas/holds no cuentan en ocupación). Constantes visuales en `src/components/calendar/calendar-ui.ts` (tailwind no escanea src/lib). Sin migraciones de DB.
+- **PR 2 pendiente (acordado):** price management interactivo desde la Vista B (seleccionar rango → crear/editar temporada en `str_seasons`, editar tarifa base, cotización rápida) + crear reservación/contrato desde celdas vacías. **Fase 3 futura:** `unit_rate_overrides` por unidad (requiere migración), drag & drop, bloqueos de mantenimiento con fechas.
+- Nota: RLS de `str_seasons` solo tiene política service_role en `20260404_rls_hardening.sql`; `/pricing` y `/quotes` ya la leen client-side igual que el calendario — si en prod el browser no la ve, el calendario degrada sin temporadas (mismo comportamiento que el cotizador). Verificar en el audit de drift de Fase 2.
 
 ---
 

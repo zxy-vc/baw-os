@@ -90,9 +90,12 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     href: '/units',
     icon: 'Building2',
     placement: 'top',
-    routes: ['/buildings', '/units', '/owners'],
+    routes: ['/buildings', '/units', '/owners', '/calendario'],
     subNav: [
       { href: '/units', label: 'Unidades' },
+      // Calendario de unidades (2026-07-03, acuerdo con Fran en chat):
+      // timeline multi-unidad + mensual por unidad con temporadas de precio.
+      { href: '/calendario', label: 'Calendario' },
       { href: '/buildings', label: 'Edificios' },
       { href: '/owners', label: 'Propietarios' },
     ],
