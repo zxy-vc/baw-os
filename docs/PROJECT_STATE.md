@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-03 (Calendario de unidades PR 1; antes el mismo día: Fase 1 Public Listing).
+> **Última actualización:** 2026-07-04 (Revisión de finanzas por niveles, ADR-022; antes: cotización telefónica + CRM mínimo).
 
 ---
 
@@ -54,6 +54,12 @@ User story de Fran: llamada → disponibilidad en calendario → click entrada/c
 - `QuotePanel` (`src/components/calendar/QuotePanel.tsx` + lógica en `src/lib/quote-flow.ts`): desglose con el motor unificado, huéspedes, temperatura, hold 24/48/72h, contacto = buscar/crear en `crm_contacts` (source llamada); crea tentativa + oportunidad `cotizado` ligada (`reservation_id`); propuesta prellenada por WhatsApp (wa.me), correo (mailto) o copiar.
 - Drawer de tentativas: countdown del apartado ("expira en 36h"), **Confirmar** (→ confirmed, opp ganado, PROMUEVE contacto a occupant deduplicando el espejo del trigger `crm_contact_for_occupant`, liga `reservations.occupant_id`) y **Liberar** (→ cancelled, opp perdido).
 - CRM `/clientes`: etapa Cotizado en kanban, chip y select de temperatura, "Historial de transacciones" = contratos + reservaciones (via `reservations.occupant_id`); `/reservations` ahora persiste el occupant del PersonPicker.
+
+---
+
+## 0.sexies · Revisión de finanzas por niveles (2026-07-04, rama `claude/finance-structure-review-7lanmw`)
+
+Auditoría completa de la sección Finanzas + propuesta de arquitectura en **`docs/adr/ADR-022-finance-architecture-levels.md`** (status Proposed, pendiente decisión de Fran). Resumen: de los 3 flujos de dinero (A plataforma→PM, B PM→propietario, C inquilino→PM) solo C está construido; B existe como cálculo efímero con comisión 10% hardcodeada en el endpoint legacy apagado del owner portal; A no existe. El ADR define el patrón canónico (acuerdo→cargo→abono→statement), propone `management_agreements`/`owner_statements`/`owner_payouts` (Fase 1, valor inmediato DuVa ReEs), `org_usage_snapshots` para decidir el modelo de negocio con datos (Fase 2), y difiere el billing SaaS (Fase 3) y Stripe Connect (Fase 4). Incluye lista de deuda financiera D1-D9 (legacy `/payments/new`, `invoices.org_id` TEXT `'baw'`, RLS abiertas en tablas de dinero, PIN estático del conserje, ancillary sin materializar en cobranza).
 
 ---
 
