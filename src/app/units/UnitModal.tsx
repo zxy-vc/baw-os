@@ -101,7 +101,7 @@ export default function UnitModal({ unit, onSave, onClose }: Props) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Área (m²)</label>
               <input

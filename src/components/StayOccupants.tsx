@@ -183,7 +183,7 @@ export default function StayOccupants({
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               Nuevo ocupante
             </p>
-            <button onClick={resetForm} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+            <button onClick={resetForm} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
               <X className="w-4 h-4" />
             </button>
           </div>

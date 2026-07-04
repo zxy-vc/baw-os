@@ -239,7 +239,7 @@ export default function Sidebar() {
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
-                className="p-1 md:hidden"
+                className="p-2 md:hidden"
                 style={{ color: 'var(--baw-muted)' }}
                 aria-label="Cerrar menú"
               >

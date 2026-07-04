@@ -68,7 +68,7 @@ export default async function UsersPage() {
       </div>
 
       <div
-        className="rounded-lg overflow-hidden"
+        className="rounded-lg overflow-x-auto"
         style={{
           backgroundColor: 'var(--baw-surface)',
           border: '1px solid var(--baw-border)',

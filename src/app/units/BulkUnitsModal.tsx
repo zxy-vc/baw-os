@@ -293,7 +293,7 @@ export default function BulkUnitsModal({
                 </button>
               </div>
               <div
-                className="rounded-md overflow-hidden"
+                className="rounded-md overflow-x-auto"
                 style={{ border: '1px solid var(--baw-border)' }}
               >
                 <table className="w-full text-xs">

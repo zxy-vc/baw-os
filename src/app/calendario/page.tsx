@@ -152,6 +152,12 @@ export default function CalendarioPage() {
   const [savingChange, setSavingChange] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  // En pantallas chicas (iPhone) el zoom default es "2 semanas": a 31+ días
+  // las columnas fluidas bajan de ~8px y dejan de ser legibles/tocables.
+  useEffect(() => {
+    if (window.innerWidth < 640) setZoom(14)
+  }, [])
+
   // Respetar el building activo del switcher como filtro inicial (patrón /units)
   useEffect(() => {
     if (activeBuildingId && activeBuildingId !== 'all' && buildingFilter === ALL) {

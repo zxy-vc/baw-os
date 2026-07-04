@@ -340,7 +340,7 @@ export default function WhatsAppPage() {
                   <button
                     onClick={() => setReceivedPage((p) => Math.max(0, p - 1))}
                     disabled={receivedPage === 0}
-                    className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-30"
+                    className="p-2 rounded text-gray-400 hover:text-white disabled:opacity-30"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -348,7 +348,7 @@ export default function WhatsAppPage() {
                   <button
                     onClick={() => setReceivedPage((p) => Math.min(receivedTotalPages - 1, p + 1))}
                     disabled={receivedPage >= receivedTotalPages - 1}
-                    className="p-1 rounded text-gray-400 hover:text-white disabled:opacity-30"
+                    className="p-2 rounded text-gray-400 hover:text-white disabled:opacity-30"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>

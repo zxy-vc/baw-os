@@ -653,7 +653,7 @@ export default function CobrosPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="text-sm text-gray-500 dark:text-gray-400">Desde</label>
           <input
             type="month"
@@ -1053,7 +1053,7 @@ export default function CobrosPage() {
                           <button
                             onClick={() => removeReceipt(r.id)}
                             title="Eliminar abono"
-                            className="shrink-0 p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            className="shrink-0 p-2 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
