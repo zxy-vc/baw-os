@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/renovaciones",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/usage-snapshots",
+      "schedule": "0 8 1 * *"
     }
   ],
   "installCommand": "git submodule update --init --recursive && npm install"
