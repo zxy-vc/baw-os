@@ -2,7 +2,8 @@
 // Cargos accesorios (estacionamiento extra, espectaculares) SIEMPRE ligados a
 // un contrato. La generación automática en cobranza vive en el cron (PR B3).
 import { NextRequest } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId, getOrgIdAsync } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -62,7 +63,18 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  // Doble plano de auth (mismo patrón que /api/gastos): API key o sesión de
+  // miembro de la org, con el delete acotado a la org del caller. La página
+  // /ancillary-charges llama sin API key — antes siempre devolvía 401.
+  let orgId: string
+  if (validateApiKey(request)) {
+    orgId = await getOrgIdAsync()
+  } else {
+    const caller = await requireMemberCaller()
+    if (!caller.ok) return unauthorized(caller.message)
+    orgId = caller.orgId
+  }
+
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
 
@@ -73,6 +85,7 @@ export async function DELETE(request: NextRequest) {
     .from('ancillary_charges')
     .delete()
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) return apiError(error.message, 500)
 

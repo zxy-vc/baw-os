@@ -125,7 +125,6 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
     placement: 'top',
     routes: [
       '/cobros',
-      '/payments',
       '/invoices',
       '/gastos',
       '/mora',

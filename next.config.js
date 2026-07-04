@@ -25,6 +25,19 @@ const nextConfig = {
         destination: '/edificios/mateos-809/:path*',
         permanent: true,
       },
+      // Fase 0 finanzas (ADR-022 D1/D2): /payments era el flujo legacy de
+      // registro de pagos (sin org_id, sin abonos/bitácora) y /payments
+      // (índice) nunca existió. Todo va a /cobros, el modelo canónico.
+      {
+        source: '/payments',
+        destination: '/cobros',
+        permanent: true,
+      },
+      {
+        source: '/payments/:path*',
+        destination: '/cobros',
+        permanent: true,
+      },
     ]
   },
 }

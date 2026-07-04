@@ -510,7 +510,7 @@ export default function ContractDetailPage() {
         {payments.length === 0 ? (
           <p className="text-gray-400 dark:text-gray-500 text-sm">
             No hay pagos registrados para este contrato.{' '}
-            <Link href="/payments/new" className="text-indigo-400 hover:text-indigo-300">
+            <Link href="/cobros" className="text-indigo-400 hover:text-indigo-300">
               Registrar pago
             </Link>
           </p>
