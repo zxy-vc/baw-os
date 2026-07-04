@@ -8,13 +8,14 @@
 // ver "todo lo que está ocupado" sin importar el instrumento. Crear/editar sigue
 // viviendo en Contratos y Reservaciones.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { CalendarRange, Search, FileText, BedDouble, Filter } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
+import { INSTR_VAR } from '@/components/calendar/calendar-ui'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 type Instrument = 'contrato' | 'reservacion'
@@ -35,11 +36,9 @@ type Stay = {
   href: string
 }
 
-const TYPE_BADGE: Record<StayType, string> = {
-  STR: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
-  MTR: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-  LTR: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
-}
+// Tipos de estancia con los tokens de instrumento del kit UI System v1
+// (--baw-instr-*, los mismos del calendario): STR teal · MTR ámbar · LTR azul.
+// Antes: clases Tailwind sueltas con STR morado, que ya no coincidía.
 
 const CONTRACT_STATUS: Record<string, { label: string; cls: string }> = {
   active: { label: 'Activo', cls: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
@@ -253,7 +252,7 @@ export default function EstanciasPage() {
                       </span>
                     </td>
                     <td className="py-2.5 pr-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_BADGE[s.type]}`}>
+                      <span className="tl-chip" style={{ '--c': INSTR_VAR[s.type] } as CSSProperties}>
                         {s.type}
                       </span>
                     </td>
