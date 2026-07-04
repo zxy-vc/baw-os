@@ -1,18 +1,37 @@
 'use client'
 
+// BaW OS — Cotizador (fuente de precio unificada, 2026-07-03).
+//
+// Antes leía la tabla legacy `unit_prices` (unit_id texto, $/persona/noche,
+// sin org) mientras el sitio público y el calendario usaban `units
+// .base_rate_mxn` — dos verdades de precio conviviendo. Ahora TODO cotiza
+// desde `units` (org-filtrado) con la misma fórmula que el booking público y
+// /calendario:
+//
+//   STR: base_rate_mxn ($/noche, unidad completa) × noches × temporada
+//        + huéspedes extra sobre max_guests (+$250/pers/noche)
+//        + limpieza (cleaning_fee_mxn) + IVA 16%
+//   LTR: monthly_rate_mxn × meses (agua incluida, depósito 1 mes)
+//
+// `unit_prices` queda como tabla legacy sin lectores (deprecada, no borrada).
+
 import { useEffect, useState, useRef } from 'react'
 import { Calculator, Printer, FileText, CalendarPlus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 import { formatCurrency } from '@/lib/utils'
 
-interface UnitPrice {
+interface QuoteUnit {
   id: string
-  unit_id: string
-  ltr_price: number
-  str_price_per_person: number | null
-  category: string
-  nivel: string
-  notes: string | null
+  number: string
+  floor: number | null
+  type: string
+  base_rate_mxn: number | null
+  monthly_rate_mxn: number | null
+  cleaning_fee_mxn: number | null
+  max_guests: number | null
+  min_nights: number | null
+  building?: { name: string } | { name: string }[] | null
 }
 
 interface Season {
@@ -28,9 +47,7 @@ type Modality = 'LTR' | 'STR' | 'Corporativo'
 
 interface Breakdown {
   basePrice: number
-  personsAdjustment: number
   extraPersonsFee: number
-  waterFee: number
   subtotal: number
   discountAmount: number
   cleaningFee: number
@@ -40,8 +57,16 @@ interface Breakdown {
   details: string[]
 }
 
+const EXTRA_PERSON_FEE = 250 // $/persona/noche sobre max_guests
+
+function one<T>(rel: T | T[] | null | undefined): T | null {
+  if (Array.isArray(rel)) return rel[0] ?? null
+  return rel ?? null
+}
+
 export default function QuotesPage() {
-  const [prices, setPrices] = useState<UnitPrice[]>([])
+  const { orgId, loading: orgLoading } = useOrgContext()
+  const [units, setUnits] = useState<QuoteUnit[]>([])
   const [seasons, setSeasons] = useState<Season[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUnit, setSelectedUnit] = useState('')
@@ -61,49 +86,62 @@ export default function QuotesPage() {
       const outDate = new Date(checkOutDate + 'T00:00:00')
       const diffDays = Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60 * 60 * 24))
       if (diffDays >= 1) {
-        setNights(Math.max(3, diffDays))
+        setNights(diffDays)
       }
     }
   }, [checkInDate, checkOutDate])
 
   useEffect(() => {
-    async function fetchData() {
-      const [pricesRes, seasonsRes] = await Promise.all([
-        supabase.from('unit_prices').select('*').order('unit_id'),
+    if (orgLoading) return
+    if (!orgId) {
+      setLoading(false)
+      return
+    }
+    async function fetchData(org: string) {
+      const [unitsRes, seasonsRes] = await Promise.all([
+        supabase
+          .from('units')
+          .select('id, number, floor, type, base_rate_mxn, monthly_rate_mxn, cleaning_fee_mxn, max_guests, min_nights, building:buildings(name)')
+          .eq('org_id', org)
+          .is('archived_at', null)
+          .order('floor')
+          .order('number'),
         supabase.from('str_seasons').select('*').order('start_date'),
       ])
-      setPrices(pricesRes.data || [])
+      setUnits((unitsRes.data as QuoteUnit[]) || [])
       setSeasons(seasonsRes.data || [])
       setLoading(false)
     }
-    fetchData()
-  }, [])
+    fetchData(orgId)
+  }, [orgId, orgLoading])
 
   function getActiveSeason(date: string): Season | null {
     if (!date) return null
-    return seasons.find(s => date >= s.start_date && date <= s.end_date) || null
+    return seasons.find((s) => date >= s.start_date && date <= s.end_date) || null
   }
 
-  const unit = prices.find((p) => p.unit_id === selectedUnit)
+  const unit = units.find((u) => u.id === selectedUnit)
 
-  const strUnits = prices.filter((p) => p.str_price_per_person !== null)
-  const availableUnits = modality === 'STR' ? strUnits : prices
+  const strUnits = units.filter((u) => u.base_rate_mxn !== null)
+  const ltrUnits = units.filter((u) => u.monthly_rate_mxn !== null)
+  const availableUnits = modality === 'LTR' ? ltrUnits : strUnits
+
+  const minNights = unit?.min_nights ?? 1
+  const includedGuests = unit?.max_guests ?? 4
 
   function calculate(): Breakdown | null {
     if (!unit) return null
 
     if (modality === 'LTR') {
-      const basePrice = unit.ltr_price
-      const waterFee = 0 // Already included in LTR price
+      if (unit.monthly_rate_mxn == null) return null
+      const basePrice = unit.monthly_rate_mxn
       const subtotal = basePrice * months
       const discountAmount = subtotal * (discount / 100)
       const total = subtotal - discountAmount
 
       return {
         basePrice,
-        personsAdjustment: 0,
         extraPersonsFee: 0,
-        waterFee,
         subtotal,
         discountAmount,
         cleaningFee: 0,
@@ -119,26 +157,23 @@ export default function QuotesPage() {
     }
 
     if (modality === 'STR' || modality === 'Corporativo') {
-      if (!unit.str_price_per_person) return null
+      if (unit.base_rate_mxn == null) return null
 
       const activeSeason = getActiveSeason(checkInDate)
       const seasonMultiplier = activeSeason ? Number(activeSeason.price_multiplier) : 1
-      const pricePerPerson = unit.str_price_per_person * seasonMultiplier
-      const extraPersons = Math.max(0, persons - 4)
-      const personsAdjustment = 0
-      const basePrice = pricePerPerson * 4 * nights // Base = rate × 4 persons × nights
-      const extraPersonsFee = extraPersons * 250 * nights
+      const pricePerNight = Math.round(unit.base_rate_mxn * seasonMultiplier)
+      const extraPersons = Math.max(0, persons - includedGuests)
+      const basePrice = pricePerNight * nights
+      const extraPersonsFee = extraPersons * EXTRA_PERSON_FEE * nights
       const subtotal = basePrice + extraPersonsFee
       const discountAmount = subtotal * (discount / 100)
-      const cleaningFee = 800
+      const cleaningFee = unit.cleaning_fee_mxn ?? 0
       const iva = (subtotal - discountAmount + cleaningFee) * 0.16
       const total = subtotal - discountAmount + cleaningFee + iva
 
       return {
         basePrice,
-        personsAdjustment,
         extraPersonsFee,
-        waterFee: 0,
         subtotal,
         discountAmount,
         cleaningFee,
@@ -146,11 +181,17 @@ export default function QuotesPage() {
         total,
         label: `${nights} noches · ${persons} personas${activeSeason ? ` · 🗓️ ${activeSeason.name}` : ''}`,
         details: [
-          ...(activeSeason ? [`✨ Temporada: ${activeSeason.name} (×${activeSeason.price_multiplier})`] : []),
-          `Tarifa: ${formatCurrency(pricePerPerson)}/persona/noche${activeSeason ? ` (base ${formatCurrency(unit.str_price_per_person!)} × ${activeSeason.price_multiplier})` : ''}`,
-          `Base: ${formatCurrency(pricePerPerson)} × 4 pers × ${nights} noches`,
+          ...(activeSeason
+            ? [`✨ Temporada: ${activeSeason.name} (×${activeSeason.price_multiplier})`]
+            : []),
+          `Tarifa: ${formatCurrency(pricePerNight)}/noche (unidad completa, hasta ${includedGuests} huéspedes)${
+            activeSeason
+              ? ` — base ${formatCurrency(unit.base_rate_mxn)} × ${activeSeason.price_multiplier}`
+              : ''
+          }`,
+          `Base: ${formatCurrency(pricePerNight)} × ${nights} noches`,
           ...(extraPersons > 0
-            ? [`+${extraPersons} persona(s) extra: ${formatCurrency(250)}/pers/noche`]
+            ? [`+${extraPersons} persona(s) extra: ${formatCurrency(EXTRA_PERSON_FEE)}/pers/noche`]
             : []),
         ],
       }
@@ -172,17 +213,30 @@ export default function QuotesPage() {
     day: 'numeric',
   })
 
+  const unitLabel = (u: QuoteUnit) => {
+    const b = one(u.building)
+    return `${u.number}${b ? ` · ${b.name}` : ''}`
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold">Cotizador</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Motor de cotizaciones BaW · ALM809P
+          Misma fuente de precio que el sitio público y el calendario: tarifa por noche de la
+          unidad × temporada. Precios en <span className="font-medium">Finanzas → Precios</span> y
+          overrides por unidad en el calendario.
         </p>
       </div>
 
-      {loading ? (
+      {loading || orgLoading ? (
         <div className="text-gray-400 dark:text-gray-500">Cargando precios...</div>
+      ) : !orgId ? (
+        <div className="card text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">
+            Selecciona una organización en el switcher del sidebar.
+          </p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Input Panel */}
@@ -221,23 +275,29 @@ export default function QuotesPage() {
               {/* Unit */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Departamento
+                  Unidad
                 </label>
                 <select
                   value={selectedUnit}
                   onChange={(e) => setSelectedUnit(e.target.value)}
                   className="input-field"
                 >
-                  <option value="">Seleccionar departamento</option>
-                  {availableUnits.map((p) => (
-                    <option key={p.unit_id} value={p.unit_id}>
-                      {p.unit_id} — {p.category} · {p.nivel}
+                  <option value="">Seleccionar unidad</option>
+                  {availableUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {unitLabel(u)}
                       {modality === 'LTR'
-                        ? ` · ${formatCurrency(p.ltr_price)}/mes`
-                        : ` · ${formatCurrency(p.str_price_per_person!)}/pers/noche`}
+                        ? ` · ${formatCurrency(u.monthly_rate_mxn!)}/mes`
+                        : ` · ${formatCurrency(u.base_rate_mxn!)}/noche`}
                     </option>
                   ))}
                 </select>
+                {availableUnits.length === 0 && (
+                  <p className="text-xs text-amber-500 mt-1">
+                    Ninguna unidad tiene {modality === 'LTR' ? 'renta mensual' : 'tarifa por noche'}{' '}
+                    configurada — se captura en Finanzas → Precios.
+                  </p>
+                )}
               </div>
 
               {/* LTR: Months */}
@@ -261,7 +321,7 @@ export default function QuotesPage() {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Personas (mín. 4)
+                      Personas
                     </label>
                     <input
                       type="number"
@@ -270,26 +330,22 @@ export default function QuotesPage() {
                       onChange={(e) => setPersons(Math.max(1, Number(e.target.value)))}
                       className="input-field"
                     />
-                    {persons > 4 && (
+                    {unit && persons > includedGuests && (
                       <p className="text-xs text-amber-500 mt-1">
-                        +{persons - 4} persona(s) extra → +$250/persona/noche
-                      </p>
-                    )}
-                    {persons < 4 && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Se cobrará mínimo 4 personas
+                        +{persons - includedGuests} persona(s) sobre la capacidad incluida (
+                        {includedGuests}) → +${EXTRA_PERSON_FEE}/persona/noche
                       </p>
                     )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Noches (mín. 3)
+                      Noches{unit ? ` (mín. ${minNights})` : ''}
                     </label>
                     <input
                       type="number"
-                      min={3}
+                      min={minNights}
                       value={nights}
-                      onChange={(e) => setNights(Math.max(3, Number(e.target.value)))}
+                      onChange={(e) => setNights(Math.max(minNights, Number(e.target.value)))}
                       className="input-field"
                     />
                   </div>
@@ -303,14 +359,17 @@ export default function QuotesPage() {
                       onChange={(e) => setCheckInDate(e.target.value)}
                       className="input-field"
                     />
-                    {checkInDate && (() => {
-                      const s = getActiveSeason(checkInDate)
-                      return s ? (
-                        <p className="text-xs text-amber-500 mt-1">✨ Temporada: {s.name} (×{s.price_multiplier})</p>
-                      ) : (
-                        <p className="text-xs text-gray-400 mt-1">Sin temporada especial</p>
-                      )
-                    })()}
+                    {checkInDate &&
+                      (() => {
+                        const s = getActiveSeason(checkInDate)
+                        return s ? (
+                          <p className="text-xs text-amber-500 mt-1">
+                            ✨ Temporada: {s.name} (×{s.price_multiplier})
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-1">Sin temporada especial</p>
+                        )
+                      })()}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -353,57 +412,81 @@ export default function QuotesPage() {
               <>
                 <div className="card space-y-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Desglose — {unit.unit_id}
+                    Desglose — {unitLabel(unit)}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {unit.category} · {unit.nivel} · {modality === 'LTR' ? 'Renta mensual' : modality === 'STR' ? 'Corta estancia' : 'Corporativo'}
+                    {unit.type} ·{' '}
+                    {modality === 'LTR'
+                      ? 'Renta mensual'
+                      : modality === 'STR'
+                      ? 'Corta estancia'
+                      : 'Corporativo'}
                   </p>
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Precio base</span>
-                      <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(breakdown.basePrice)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {formatCurrency(breakdown.basePrice)}
+                      </span>
                     </div>
 
                     {breakdown.extraPersonsFee > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">
-                          + Personas extra ({persons - 4} × $250 × {nights} noches)
+                          + Personas extra ({persons - includedGuests} × ${EXTRA_PERSON_FEE} ×{' '}
+                          {nights} noches)
                         </span>
-                        <span className="text-amber-500 font-medium">+{formatCurrency(breakdown.extraPersonsFee)}</span>
+                        <span className="text-amber-500 font-medium">
+                          +{formatCurrency(breakdown.extraPersonsFee)}
+                        </span>
                       </div>
                     )}
 
                     {modality === 'LTR' && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Agua (incluida en precio)</span>
-                        <span className="text-gray-400">$250 incl.</span>
+                        <span className="text-gray-600 dark:text-gray-400">
+                          Agua (incluida en precio)
+                        </span>
+                        <span className="text-gray-400">incl.</span>
                       </div>
                     )}
 
                     <div className="flex justify-between border-t border-gray-200 dark:border-gray-700 pt-2">
-                      <span className="text-gray-600 dark:text-gray-400">Subtotal ({breakdown.label})</span>
-                      <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(breakdown.subtotal)}</span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Subtotal ({breakdown.label})
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {formatCurrency(breakdown.subtotal)}
+                      </span>
                     </div>
 
                     {breakdown.discountAmount > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">- Descuento ({discount}%)</span>
-                        <span className="text-red-500 font-medium">-{formatCurrency(breakdown.discountAmount)}</span>
+                        <span className="text-gray-600 dark:text-gray-400">
+                          - Descuento ({discount}%)
+                        </span>
+                        <span className="text-red-500 font-medium">
+                          -{formatCurrency(breakdown.discountAmount)}
+                        </span>
                       </div>
                     )}
 
                     {breakdown.cleaningFee > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Servicio de limpieza</span>
-                        <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(breakdown.cleaningFee)}</span>
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {formatCurrency(breakdown.cleaningFee)}
+                        </span>
                       </div>
                     )}
 
                     {breakdown.iva > 0 && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">IVA (16%)</span>
-                        <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(breakdown.iva)}</span>
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {formatCurrency(breakdown.iva)}
+                        </span>
                       </div>
                     )}
 
@@ -417,7 +500,7 @@ export default function QuotesPage() {
 
                   {modality === 'LTR' && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5 mt-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <p>Depósito: {formatCurrency(unit.ltr_price)} (1 mes)</p>
+                      <p>Depósito: {formatCurrency(unit.monthly_rate_mxn ?? 0)} (1 mes)</p>
                       <p>Pago día 5 · Mora +3% desde día 10</p>
                       <p>Incremento anual: INPC o 5% (el mayor)</p>
                     </div>
@@ -425,8 +508,10 @@ export default function QuotesPage() {
 
                   {(modality === 'STR' || modality === 'Corporativo') && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5 mt-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <p>Mínimo 4 personas (se cobra base 4 aunque sean menos)</p>
-                      <p>Mínimo 3 noches</p>
+                      <p>
+                        Tarifa por unidad completa (hasta {includedGuests} huéspedes) · mínimo{' '}
+                        {minNights} noche{minNights === 1 ? '' : 's'}
+                      </p>
                       {modality === 'Corporativo' && (
                         <p>Tarifa corporativa con respaldo de renta mensual mínima garantizada</p>
                       )}
@@ -443,7 +528,11 @@ export default function QuotesPage() {
                 </button>
 
                 <button
-                  onClick={() => { window.location.href = '/reservations' }}
+                  onClick={() => {
+                    window.location.href = `/reservations?unit_id=${unit.id}${
+                      checkInDate ? `&check_in=${checkInDate}` : ''
+                    }${checkOutDate ? `&check_out=${checkOutDate}` : ''}`
+                  }}
                   className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors w-full justify-center"
                 >
                   <CalendarPlus className="w-4 h-4" />
@@ -454,7 +543,7 @@ export default function QuotesPage() {
               <div className="card text-center py-12">
                 <FileText className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
                 <p className="text-gray-500 dark:text-gray-400">
-                  Selecciona un departamento para ver el desglose
+                  Selecciona una unidad para ver el desglose
                 </p>
               </div>
             )}
@@ -464,7 +553,10 @@ export default function QuotesPage() {
 
       {/* Printable Quote */}
       {showQuote && unit && breakdown && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center print:bg-white print:static" onClick={() => setShowQuote(false)}>
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center print:bg-white print:static"
+          onClick={() => setShowQuote(false)}
+        >
           <div
             ref={quoteRef}
             className="bg-white rounded-xl p-8 max-w-lg w-full mx-4 print:max-w-none print:rounded-none print:shadow-none print:mx-0"
@@ -478,7 +570,9 @@ export default function QuotesPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">BaW Living</h2>
-                  <p className="text-xs text-gray-500">ALM809P · Álamos, Querétaro</p>
+                  <p className="text-xs text-gray-500">
+                    {one(unit.building)?.name ?? 'DuVa ReEs'}
+                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -489,18 +583,23 @@ export default function QuotesPage() {
 
             {/* Unit Info */}
             <div className="mb-4">
-              <h3 className="font-semibold text-gray-900">
-                Departamento {unit.unit_id}
-              </h3>
+              <h3 className="font-semibold text-gray-900">Unidad {unit.number}</h3>
               <p className="text-sm text-gray-600">
-                {unit.category} · {unit.nivel} · {modality === 'LTR' ? 'Renta Mensual' : modality === 'STR' ? 'Corta Estancia' : 'Corporativo'}
+                {unit.type} ·{' '}
+                {modality === 'LTR'
+                  ? 'Renta Mensual'
+                  : modality === 'STR'
+                  ? 'Corta Estancia'
+                  : 'Corporativo'}
               </p>
             </div>
 
             {/* Breakdown */}
             <div className="space-y-2 text-sm mb-6">
               {breakdown.details.map((d, i) => (
-                <p key={i} className="text-gray-600">{d}</p>
+                <p key={i} className="text-gray-600">
+                  {d}
+                </p>
               ))}
             </div>
 
@@ -539,7 +638,9 @@ export default function QuotesPage() {
               )}
               <div className="flex justify-between border-t-2 border-gray-900 pt-3 mt-2">
                 <span className="font-bold text-gray-900 text-base">TOTAL</span>
-                <span className="font-bold text-indigo-600 text-xl">{formatCurrency(breakdown.total)}</span>
+                <span className="font-bold text-indigo-600 text-xl">
+                  {formatCurrency(breakdown.total)}
+                </span>
               </div>
             </div>
 
