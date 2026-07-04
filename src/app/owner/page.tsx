@@ -146,6 +146,35 @@ export default async function OwnerDashboard() {
           />
         </section>
 
+        {/* Estados de cuenta (ADR-022 Fase 1) */}
+        <section
+          className="rounded-lg p-4 flex items-center justify-between"
+          style={{
+            backgroundColor: 'var(--baw-surface)',
+            border: '1px solid var(--baw-border)',
+          }}
+        >
+          <div>
+            <div className="text-[13px] font-medium" style={{ color: 'var(--baw-text)' }}>
+              Estados de cuenta
+            </div>
+            <div className="text-[11px]" style={{ color: 'var(--baw-muted)' }}>
+              Cobrado, comisión, gastos y tu pago neto, mes con mes.
+            </div>
+          </div>
+          <Link
+            href="/owner/estados"
+            className="text-[12px] px-3 py-1.5 rounded"
+            style={{
+              backgroundColor: 'var(--baw-elevated)',
+              color: 'var(--baw-text)',
+              border: '1px solid var(--baw-border)',
+            }}
+          >
+            Ver
+          </Link>
+        </section>
+
         {/* Properties by org */}
         <section>
           <h2

@@ -49,6 +49,7 @@ interface Expense {
   amount: number
   expense_date: string
   provider: string | null
+  provider_id: string | null
   reference: string | null
   notes: string | null
   created_at: string
@@ -60,13 +61,23 @@ interface UnitOption {
   number: string
 }
 
+// ADR-022 Fase 1 (D10): los proveedores dejan de ser texto libre — el gasto
+// liga service_providers.id y conserva el nombre en `provider` para display.
+interface ProviderOption {
+  id: string
+  name: string
+}
+
+const NEW_PROVIDER = '__new__'
+
 const emptyForm = {
   category: 'otro' as Category,
   scope: 'general' as 'general' | 'unit',
   unit_id: '' as string,
   amount: 0,
   expense_date: new Date().toISOString().split('T')[0],
-  provider: '',
+  provider_id: '' as string,
+  new_provider_name: '',
   reference: '',
   notes: '',
 }
@@ -75,6 +86,7 @@ export default function GastosPage() {
   const toast = useToast()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [units, setUnits] = useState<UnitOption[]>([])
+  const [providers, setProviders] = useState<ProviderOption[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
@@ -119,9 +131,20 @@ export default function GastosPage() {
     setUnits((data || []) as UnitOption[])
   }
 
+  async function fetchProviders() {
+    const { data } = await supabase
+      .from('service_providers')
+      .select('id, name')
+      .eq('org_id', orgId)
+      .eq('active', true)
+      .order('name')
+    setProviders((data || []) as ProviderOption[])
+  }
+
   useEffect(() => {
     if (!orgId) return
     fetchUnits()
+    fetchProviders()
   }, [orgId])
 
   useEffect(() => {
@@ -143,7 +166,10 @@ export default function GastosPage() {
       unit_id: expense.unit_id || '',
       amount: expense.amount,
       expense_date: expense.expense_date,
-      provider: expense.provider || '',
+      // Gasto legacy con texto libre pero sin proveedor ligado → se ofrece
+      // como "nuevo proveedor" para normalizarlo al guardar (con dedupe).
+      provider_id: expense.provider_id || (expense.provider ? NEW_PROVIDER : ''),
+      new_provider_name: expense.provider_id ? '' : expense.provider || '',
       reference: expense.reference || '',
       notes: expense.notes || '',
     })
@@ -152,6 +178,37 @@ export default function GastosPage() {
 
   async function handleSave() {
     setSaving(true)
+
+    // Resolver proveedor: id existente, o crear/dedupe por nombre si es nuevo.
+    let providerId: string | null =
+      form.provider_id && form.provider_id !== NEW_PROVIDER ? form.provider_id : null
+    let providerName: string | null = providerId
+      ? providers.find((p) => p.id === providerId)?.name || null
+      : null
+    if (form.provider_id === NEW_PROVIDER && form.new_provider_name.trim()) {
+      const name = form.new_provider_name.trim()
+      const existing = providers.find(
+        (p) => p.name.toLowerCase() === name.toLowerCase(),
+      )
+      if (existing) {
+        providerId = existing.id
+        providerName = existing.name
+      } else {
+        const { data: np } = await supabase
+          .from('service_providers')
+          .insert({ org_id: orgId, name })
+          .select('id, name')
+          .single()
+        if (np) {
+          providerId = np.id
+          providerName = np.name
+          setProviders((prev) => [...prev, np as ProviderOption])
+        } else {
+          providerName = name // fallback: se guarda como texto, igual que antes
+        }
+      }
+    }
+
     const payload = {
       org_id: orgId,
       category: form.category,
@@ -159,7 +216,8 @@ export default function GastosPage() {
       unit_id: form.scope === 'unit' && form.unit_id ? form.unit_id : null,
       amount: form.amount,
       expense_date: form.expense_date,
-      provider: form.provider || null,
+      provider: providerName,
+      provider_id: providerId,
       reference: form.reference || null,
       notes: form.notes || null,
     }
@@ -434,13 +492,29 @@ export default function GastosPage() {
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Proveedor</label>
-                <input
-                  type="text"
-                  value={form.provider}
-                  onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                <select
+                  value={form.provider_id}
+                  onChange={(e) => setForm({ ...form, provider_id: e.target.value })}
                   className="input-field w-full"
-                  placeholder="Opcional"
-                />
+                >
+                  <option value="">Sin proveedor</option>
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                  <option value={NEW_PROVIDER}>➕ Nuevo proveedor…</option>
+                </select>
+                {form.provider_id === NEW_PROVIDER && (
+                  <input
+                    type="text"
+                    value={form.new_provider_name}
+                    onChange={(e) => setForm({ ...form, new_provider_name: e.target.value })}
+                    className="input-field w-full mt-2"
+                    placeholder="Nombre del proveedor"
+                    autoFocus
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia</label>

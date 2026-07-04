@@ -11,6 +11,12 @@ export interface AdminCallerOk {
   userId: string
   orgId: string
   isPlatformAdmin: boolean
+  /**
+   * Rol del caller en la org activa (pm_* o legacy), null si es platform
+   * admin sin membresía. Lo consumen los mapas de capacidades (p.ej.
+   * finance-permissions.ts, ADR-022 §4.2).
+   */
+  role: string | null
 }
 
 export interface AdminCallerErr {
@@ -51,22 +57,21 @@ export async function requireAdminCaller(): Promise<AdminCallerOk | AdminCallerE
     throw e
   }
 
+  const { data: membership } = await service
+    .from('org_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  const role = (membership?.role as string) ?? null
+
   if (!isPlatformAdmin) {
-    const { data: membership } = await service
-      .from('org_members')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('org_id', orgId)
-      .maybeSingle()
-    if (
-      !membership ||
-      !ORG_ADMIN_ROLES.includes(membership.role as string)
-    ) {
+    if (!role || !ORG_ADMIN_ROLES.includes(role)) {
       return { ok: false, status: 403, message: 'Owner or admin role required' }
     }
   }
 
-  return { ok: true, userId: user.id, orgId, isPlatformAdmin }
+  return { ok: true, userId: user.id, orgId, isPlatformAdmin, role }
 }
 
 /**
@@ -102,17 +107,17 @@ export async function requireMemberCaller(): Promise<AdminCallerOk | AdminCaller
     .maybeSingle()
   const isPlatformAdmin = !!pa
 
-  if (!isPlatformAdmin) {
-    const { data: membership } = await service
-      .from('org_members')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .eq('org_id', orgId)
-      .maybeSingle()
-    if (!membership) {
-      return { ok: false, status: 403, message: 'Not a member of this organization' }
-    }
+  const { data: membership } = await service
+    .from('org_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  const role = (membership?.role as string) ?? null
+
+  if (!isPlatformAdmin && !membership) {
+    return { ok: false, status: 403, message: 'Not a member of this organization' }
   }
 
-  return { ok: true, userId: user.id, orgId, isPlatformAdmin }
+  return { ok: true, userId: user.id, orgId, isPlatformAdmin, role }
 }

@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-04 (Conserje: cobros server-side con PIN validado en server; mismo día: Fase 0 higiene financiera, ADR-022).
+> **Última actualización:** 2026-07-04 (Liquidaciones a propietarios — ADR-022 Fase 1; mismo día: Fase 0 higiene y conserje server-side).
 
 ---
 
@@ -84,6 +84,19 @@ Cierra D5 de ADR-022: el kiosco `/[orgSlug]/conserje` validaba el PIN (`1234` ha
 - **Cobros por API**: `GET /api/conserje/cobros` (pendientes del mes, org del token) y `POST /api/conserje/cobros/[id]` (marcar pagado en efectivo). Límites ADR-022 §4.1: solo marca cargos EXISTENTES pendientes de SU org — no crea ni edita montos. Liquida base+mora (mismo criterio que webhook Stripe) y **deja asiento en `payment_ledger`** (antes el conserje no dejaba bitácora).
 - Bonus: fix de columnas fantasma `first_name`/`last_name` en el tab (occupants solo tiene `name` — el nombre del inquilino se renderizaba vacío).
 - Sin migraciones. El token vive en sessionStorage y expira solo.
+
+---
+
+## 0.nonies · Liquidaciones a propietarios (2026-07-04, rama `feat/finance-owner-statements`)
+
+**ADR-022 Fase 1 — flujo B (Operadora → Propietario) + proveedores v1 + permisos por rol.** Aprobado por Fran en chat ("arranca con todo").
+
+- **Migración `20260704_03_finance_owner_statements.sql`** (⚠️ aplicar en Supabase prod antes de mergear): `management_agreements` (comisión base 10% **personalizable por edificio/propietario**, decisión de Fran; tipos percent_collected/percent_billed/flat_monthly, vigencia append-only estilo service_rates), `owner_statements` (estado de cuenta mensual persistido, UNIQUE por owner×building×period, snapshot jsonb inmutable al emitir, estados draft/issued/paid/void), `owner_payouts` (pagos al propietario), `service_providers` (actor A3, D10) + `expenses.provider_id`/`incidents.provider_id`. RLS: miembros leen; el propietario logueado lee SOLO sus statements emitidos (§4.3); escrituras server-side.
+- **Lógica pura `src/lib/owner-statements.ts`** (estilo billing.ts) + armado server `src/lib/liquidaciones-server.ts`. Cobrado del mes sin doble conteo entre los dos modelos de captura: abonos (`payment_receipts`) + payments pagados en el mes SIN ningún abono (Stripe/conserje/legacy). Gastos generales prorrateados por unidad ocupada (criterio del endpoint owner legacy). Comisión resuelta de `management_agreements` (específica de owner > genérica de edificio > default 10%).
+- **Endpoints**: `GET/POST /api/liquidaciones` (calcular mes / emitir statement — siempre recalcula server-side), `PATCH /api/liquidaciones/[id]` (anular, solo emitidos sin pagos; re-emisión reutiliza la fila void), `POST /api/liquidaciones/[id]/payouts` (registrar pago; al cubrir el neto → status paid), `GET/POST /api/management-agreements`.
+- **Permisos por rol (ADR-022 §4.2)**: `src/lib/finance-permissions.ts` — mapa canónico de capacidades financieras por rol pm_* (legacy owner/admin/operator/viewer mapeados); `requireAdminCaller`/`requireMemberCaller` ahora devuelven `role` y los endpoints de liquidaciones lo aplican (`finance.emit_statements`, `finance.record_payout`, `finance.configure_agreements`). Migrar las páginas legacy de Finanzas a este mapa es follow-up.
+- **UI**: nueva sub-página **Finanzas → Liquidaciones** (`/liquidaciones`): por (edificio × propietario) muestra cobrado − comisión − gastos − mantenimiento = neto × % propiedad, desglose por unidad, emitir/anular/registrar pago, y panel de comisiones. **Portal propietario**: `/owner/estados` (solo emitidos/pagados) + card en el dashboard. **Gastos**: selector de proveedor (catálogo `service_providers` + alta inline con dedupe por nombre; los gastos legacy con texto libre se normalizan al editarlos).
+- La ruta legacy owner por token sigue 410-gated; borrarla definitivamente queda como follow-up una vez que el portal v2 con statements esté validado.
 
 ---
 
