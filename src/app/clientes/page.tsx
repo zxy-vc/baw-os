@@ -15,7 +15,7 @@ import { formatCurrency } from '@/lib/utils'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import { CRM_PRODUCT_OPTIONS } from '@/types'
-import type { CrmContact, CrmOpportunity, CrmStatus, CrmSource, CrmOppStage, CrmOppKind } from '@/types'
+import type { CrmContact, CrmOpportunity, CrmStatus, CrmSource, CrmOppStage, CrmOppKind , CrmTemperature} from '@/types'
 
 const STATUS_META: Record<CrmStatus, { label: string; cls: string }> = {
   nuevo: { label: 'Nuevo', cls: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
@@ -33,11 +33,21 @@ const STAGE_META: Record<CrmOppStage, { label: string }> = {
   identificado: { label: 'Identificado' },
   contactado: { label: 'Contactado' },
   interesado: { label: 'Interesado' },
+  cotizado: { label: 'Cotizado' },
   negociacion: { label: 'Negociación' },
   ganado: { label: 'Ganado' },
   perdido: { label: 'Perdido' },
 }
-const STAGE_ORDER: CrmOppStage[] = ['identificado', 'contactado', 'interesado', 'negociacion', 'ganado', 'perdido']
+const STAGE_ORDER: CrmOppStage[] = ['identificado', 'contactado', 'interesado', 'cotizado', 'negociacion', 'ganado', 'perdido']
+
+// Temperatura de la oportunidad (migración 20260704). Puede venir undefined
+// si la fila es previa a la migración.
+const TEMP_META: Record<CrmTemperature, { label: string; cls: string }> = {
+  caliente: { label: '🔥 Caliente', cls: 'bg-red-500/10 text-red-500 border border-red-500/30' },
+  tibio: { label: '🌤 Tibio', cls: 'bg-amber-500/10 text-amber-500 border border-amber-500/30' },
+  frio: { label: '❄️ Frío', cls: 'bg-blue-500/10 text-blue-400 border border-blue-500/30' },
+}
+const TEMP_ORDER: CrmTemperature[] = ['caliente', 'tibio', 'frio']
 
 interface RentalRow {
   id: string
@@ -47,6 +57,7 @@ interface RentalRow {
   status: string
   rent_type: string | null
   unit: { number: string } | null
+  kind?: 'contrato' | 'reservacion'
 }
 
 export default function ClientesPage() {
@@ -301,7 +312,14 @@ function RecompraBoard({
                     onClick={() => c && onOpen(c)}
                     className="w-full text-left card p-3 hover:border-indigo-500/50 transition-colors"
                   >
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{c?.name || 'Cliente'}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{c?.name || 'Cliente'}</p>
+                      {o.temperature && (
+                        <span className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${TEMP_META[o.temperature].cls}`}>
+                          {TEMP_META[o.temperature].label}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {o.kind === 'recompra' ? 'Recompra' : o.kind === 'migracion' ? 'Migración' : 'Nueva'}
                       {o.target_product ? ` · ${o.target_product}` : ''}
@@ -363,13 +381,41 @@ function ContactDrawer({
       setRentals([])
       return
     }
-    supabase
-      .from('contracts')
-      .select('id, start_date, end_date, monthly_amount, status, rent_type, unit:units(number)')
-      .eq('occupant_id', contact.occupant_id)
-      .eq('org_id', orgId)
-      .order('start_date', { ascending: false })
-      .then(({ data }) => setRentals((data as unknown as RentalRow[]) || []))
+    // Historial de transacciones: contratos + reservaciones ligadas a la
+    // identidad durable (reservations.occupant_id, migración 20260704).
+    Promise.all([
+      supabase
+        .from('contracts')
+        .select('id, start_date, end_date, monthly_amount, status, rent_type, unit:units(number)')
+        .eq('occupant_id', contact.occupant_id)
+        .eq('org_id', orgId)
+        .order('start_date', { ascending: false }),
+      supabase
+        .from('reservations')
+        .select('id, check_in, check_out, total_price, status, unit:units(number)')
+        .eq('occupant_id', contact.occupant_id)
+        .order('check_in', { ascending: false }),
+    ]).then(([contractsRes, resRes]) => {
+      const fromContracts = ((contractsRes.data as unknown as RentalRow[]) || []).map((r) => ({
+        ...r,
+        kind: 'contrato' as const,
+      }))
+      const fromReservations = ((resRes.data as any[]) || []).map((r) => ({
+        id: r.id,
+        start_date: r.check_in,
+        end_date: r.check_out,
+        monthly_amount: r.total_price ?? 0,
+        status: r.status,
+        rent_type: 'STR',
+        unit: Array.isArray(r.unit) ? r.unit[0] ?? null : r.unit,
+        kind: 'reservacion' as const,
+      }))
+      setRentals(
+        [...fromContracts, ...fromReservations].sort((a, b) =>
+          (b.start_date ?? '').localeCompare(a.start_date ?? ''),
+        ),
+      )
+    })
   }, [contact.occupant_id, orgId])
 
   async function saveContact() {
@@ -391,6 +437,18 @@ function ContactDrawer({
     } else {
       toast.success('Contacto actualizado')
       if (data) onContactUpdated(data as CrmContact)
+      onChanged()
+    }
+  }
+
+  async function setTemperatureOpp(opp: CrmOpportunity, temperature: CrmTemperature) {
+    const { error } = await supabase
+      .from('crm_opportunities')
+      .update({ temperature, updated_at: new Date().toISOString() })
+      .eq('id', opp.id)
+    if (error) toast.error('No se pudo cambiar la temperatura (¿migración 20260704 aplicada?)')
+    else {
+      toast.success(`Temperatura → ${TEMP_META[temperature].label}`)
       onChanged()
     }
   }
@@ -473,7 +531,7 @@ function ContactDrawer({
 
           {/* Historial de rentas */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Historial de rentas</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Historial de transacciones</h3>
             {rentals.length === 0 ? (
               <p className="text-xs text-gray-400">
                 {contact.occupant_id ? 'Sin contratos registrados.' : 'Contacto no ligado a un inquilino del sistema.'}
@@ -486,7 +544,10 @@ function ContactDrawer({
                       <span className="font-medium text-gray-700 dark:text-gray-200">
                         {r.unit?.number ? `Unidad ${r.unit.number}` : 'Contrato'} · {r.rent_type || '—'}
                       </span>
-                      <span className="text-gray-500">{formatCurrency(r.monthly_amount)}/mes</span>
+                      <span className="text-gray-500">
+                        {formatCurrency(r.monthly_amount)}
+                        {r.kind === 'reservacion' ? ' total' : '/mes'}
+                      </span>
                     </div>
                     <div className="text-gray-400 mt-0.5">
                       {r.start_date}{r.end_date ? ` → ${r.end_date}` : ' → vigente'} · {r.status}
@@ -518,13 +579,20 @@ function ContactDrawer({
                       </span>
                       {o.est_monthly ? <span className="text-xs text-gray-400">{formatCurrency(o.est_monthly)}/mes</span> : null}
                     </div>
-                    <div className="mt-2">
+                    <div className="mt-2 grid grid-cols-2 gap-2">
                       <select
                         value={o.stage}
                         onChange={(e) => advanceOpp(o, e.target.value as CrmOppStage)}
                         className="input-field w-full text-xs py-1"
                       >
                         {STAGE_ORDER.map((s) => <option key={s} value={s}>{STAGE_META[s].label}</option>)}
+                      </select>
+                      <select
+                        value={o.temperature ?? 'tibio'}
+                        onChange={(e) => setTemperatureOpp(o, e.target.value as CrmTemperature)}
+                        className="input-field w-full text-xs py-1"
+                      >
+                        {TEMP_ORDER.map((t) => <option key={t} value={t}>{TEMP_META[t].label}</option>)}
                       </select>
                     </div>
                   </div>

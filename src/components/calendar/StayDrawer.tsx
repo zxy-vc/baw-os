@@ -6,9 +6,10 @@
 
 import { useEffect, type CSSProperties } from 'react'
 import Link from 'next/link'
-import { X, FileText, BedDouble, Clock, ExternalLink, Users } from 'lucide-react'
+import { X, FileText, BedDouble, Clock, ExternalLink, Users, CheckCircle2, CalendarX } from 'lucide-react'
 import type { CalendarStay } from '@/lib/calendar-occupancy'
 import { diffDaysISO } from '@/lib/calendar-occupancy'
+import { holdCountdownLabel } from '@/lib/quote-flow'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { INSTR_VAR, statusChipFor, PAYMENT_STATUS_LABEL, CHANNEL_LABEL } from './calendar-ui'
 
@@ -17,6 +18,8 @@ export default function StayDrawer({
   unitLabel,
   onClose,
   onDelete,
+  onConfirm,
+  onRelease,
 }: {
   stay: CalendarStay | null
   unitLabel?: string
@@ -24,6 +27,10 @@ export default function StayDrawer({
   /** Acción destructiva opcional (p.ej. eliminar un bloqueo). El caller decide
    *  para qué kinds pasarla y ejecuta el write + refetch. */
   onDelete?: (() => void) | null
+  /** Cotización tentativa: cerrar la venta (→ confirmed + CRM ganado + occupant). */
+  onConfirm?: (() => void) | null
+  /** Cotización tentativa: liberar fechas (→ cancelled + CRM perdido). */
+  onRelease?: (() => void) | null
 }) {
   useEffect(() => {
     if (!stay) return
@@ -39,6 +46,8 @@ export default function StayDrawer({
   const chip = statusChipFor(stay)
   const nights =
     stay.endExclusive !== null ? diffDaysISO(stay.start, stay.endExclusive) : null
+  const holdLabel = stay.status === 'tentative' ? holdCountdownLabel(stay.holdExpiresAt) : null
+  const isTentative = stay.kind === 'reservacion' && stay.status === 'tentative'
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
@@ -139,6 +148,17 @@ export default function StayDrawer({
           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${chip.cls}`}>
             {chip.label}
           </span>
+          {holdLabel && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{
+                color: holdLabel.includes('expiró') ? 'var(--baw-danger-fg)' : 'var(--baw-warning-fg)',
+                backgroundColor: holdLabel.includes('expiró') ? 'var(--baw-danger-bg)' : 'var(--baw-warning-bg)',
+              }}
+            >
+              <Clock className="w-3 h-3" /> {holdLabel}
+            </span>
+          )}
           {stay.paymentStatus && (
             <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
               {PAYMENT_STATUS_LABEL[stay.paymentStatus] ?? stay.paymentStatus}
@@ -152,6 +172,27 @@ export default function StayDrawer({
             <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--baw-text)' }}>
               {stay.notes}
             </p>
+          </div>
+        )}
+
+        {isTentative && (onConfirm || onRelease) && (
+          <div className="flex items-center gap-2">
+            {onConfirm && (
+              <button
+                onClick={onConfirm}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Confirmar reservación
+              </button>
+            )}
+            {onRelease && (
+              <button
+                onClick={onRelease}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 muted-text transition-colors"
+              >
+                <CalendarX className="w-4 h-4" /> Liberar fechas
+              </button>
+            )}
           </div>
         )}
 

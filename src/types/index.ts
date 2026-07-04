@@ -370,6 +370,10 @@ export interface Reservation {
   status: ReservationStatus
   payment_status: ReservationPaymentStatus
   amount_paid: number
+  /** Cotización telefónica: la tentativa aparta fechas hasta aquí (20260704) */
+  hold_expires_at?: string | null
+  /** Identidad durable del huésped; se liga al confirmar (20260704) */
+  occupant_id?: string | null
   notes?: string
   created_at: string
   updated_at: string
@@ -495,7 +499,9 @@ export interface WebhookEvent {
 export type CrmSource = 'llamada' | 'whatsapp' | 'referido' | 'portal' | 'anuncio' | 'manual' | 'otro'
 export type CrmStatus = 'nuevo' | 'contactado' | 'activo' | 'inactivo' | 'en_seguimiento' | 'recompro' | 'descartado'
 export type CrmOppKind = 'recompra' | 'migracion' | 'nueva'
-export type CrmOppStage = 'identificado' | 'contactado' | 'interesado' | 'negociacion' | 'ganado' | 'perdido'
+export type CrmOppStage = 'identificado' | 'contactado' | 'interesado' | 'cotizado' | 'negociacion' | 'ganado' | 'perdido'
+// Temperatura de la oportunidad (qué tan caliente está el prospecto)
+export type CrmTemperature = 'frio' | 'tibio' | 'caliente'
 
 // Producto/segmento del cliente. Texto libre (el negocio tiene productos
 // heterogéneos y crecientes); esta lista solo sugiere valores en la UI.
@@ -537,6 +543,8 @@ export interface CrmOpportunity {
   target_product?: string | null
   unit_id?: string | null
   stage: CrmOppStage
+  temperature?: CrmTemperature
+  reservation_id?: string | null
   est_monthly?: number | null
   owner?: string | null
   next_followup_at?: string | null

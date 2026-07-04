@@ -38,6 +38,8 @@ export interface CalendarStay {
   guests?: number | null
   paymentStatus?: string | null
   notes?: string | null
+  /** Cotización: la tentativa aparta fechas hasta aquí (null = sin vencimiento) */
+  holdExpiresAt?: string | null
 }
 
 export interface Season {
@@ -130,6 +132,7 @@ export interface ReservationRow {
   guests_count: number | null
   channel: string | null
   notes?: string | null
+  hold_expires_at?: string | null
 }
 
 export interface HoldRow {
@@ -186,7 +189,19 @@ export function reservationToStay(r: ReservationRow): CalendarStay | null {
     guests: r.guests_count,
     paymentStatus: r.payment_status,
     notes: r.notes ?? null,
+    holdExpiresAt: r.hold_expires_at ?? null,
   }
+}
+
+/** true si la estancia es una cotización tentativa cuyo apartado ya venció. */
+export function isHoldExpired(stay: CalendarStay, nowIso: string): boolean {
+  return (
+    stay.kind === 'reservacion' &&
+    stay.status === 'tentative' &&
+    stay.holdExpiresAt !== null &&
+    stay.holdExpiresAt !== undefined &&
+    stay.holdExpiresAt <= nowIso
+  )
 }
 
 export interface BlockRow {

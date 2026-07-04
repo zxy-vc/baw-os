@@ -31,7 +31,9 @@ import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import { KPICard } from '@/components/ui/status'
 import StayDrawer from '@/components/calendar/StayDrawer'
+import QuotePanel from '@/components/calendar/QuotePanel'
 import ConfirmModal from '@/components/ConfirmModal'
+import { confirmQuote, releaseQuote, type QuoteUnitInfo } from '@/lib/quote-flow'
 import {
   INSTR_VAR,
   instrVarFor,
@@ -64,6 +66,18 @@ interface UnitRow {
   status: string
   base_rate_mxn: number | null
   monthly_rate_mxn: number | null
+  cleaning_fee_mxn: number | null
+  max_guests: number | null
+}
+
+/** Selección entrada→salida sobre la fila de una unidad (flujo de cotización). */
+interface RowSelection {
+  unitId: string
+  /** día de entrada (primera noche) */
+  anchor: string
+  /** última noche seleccionada (checkOut = end + 1) */
+  end: string
+  complete: boolean
 }
 
 const UNIT_TYPE_LABELS: Record<UnitType, string> = {
@@ -152,6 +166,23 @@ export default function CalendarioPage() {
   const [savingChange, setSavingChange] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  // Cotización telefónica: selección entrada→salida sobre una fila
+  const [rowSel, setRowSel] = useState<RowSelection | null>(null)
+  const [quoteFor, setQuoteFor] = useState<{
+    unit: UnitRow
+    checkIn: string
+    checkOut: string
+  } | null>(null)
+
+  // ESC cancela la selección en curso
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setRowSel(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // En pantallas chicas (iPhone) el zoom default es "2 semanas": a 31+ días
   // las columnas fluidas bajan de ~8px y dejan de ser legibles/tocables.
   useEffect(() => {
@@ -182,7 +213,7 @@ export default function CalendarioPage() {
         const [unitsRes, contractsRes, reservationsRes, seasonsRes] = await Promise.all([
           supabase
             .from('units')
-            .select('id, building_id, number, floor, type, status, base_rate_mxn, monthly_rate_mxn')
+            .select('id, building_id, number, floor, type, status, base_rate_mxn, monthly_rate_mxn, cleaning_fee_mxn, max_guests')
             .eq('org_id', orgId)
             .is('archived_at', null)
             .order('floor')
@@ -196,7 +227,7 @@ export default function CalendarioPage() {
           // Ojo: reservations filtra por organization_id, no org_id (esquema histórico)
           supabase
             .from('reservations')
-            .select('id, unit_id, guest_name, check_in, check_out, status, payment_status, total_price, guests_count, channel, notes')
+            .select('id, unit_id, guest_name, check_in, check_out, status, payment_status, total_price, guests_count, channel, notes, hold_expires_at')
             .eq('organization_id', orgId),
           supabase.from('str_seasons').select('*').order('start_date'),
         ])
@@ -483,6 +514,81 @@ export default function CalendarioPage() {
     return kind === 'reservacion' ? endExclusive : addDaysISO(endExclusive, -1)
   }
 
+  /* ── Cotización telefónica: primer click = entrada, segundo = salida ── */
+
+  function isRowDayFree(unitId: string, iso: string): boolean {
+    return !stays.some(
+      (s) =>
+        s.unitId === unitId &&
+        s.start <= iso &&
+        (s.endExclusive === null || iso < s.endExclusive),
+    )
+  }
+
+  /** Extiende desde la entrada hacia la salida sin cruzar días ocupados. */
+  function clampRowToFree(unitId: string, anchor: string, target: string): string {
+    let cur = anchor
+    while (cur < target) {
+      const next = addDaysISO(cur, 1)
+      if (!isRowDayFree(unitId, next)) break
+      cur = next
+    }
+    return cur
+  }
+
+  function dayFromTrackEvent(e: { clientX: number; currentTarget: EventTarget }): string | null {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const idx = Math.floor(((e.clientX - rect.left) / rect.width) * days)
+    if (idx < 0 || idx >= days) return null
+    return addDaysISO(windowStart, idx)
+  }
+
+  function handleTrackClick(u: UnitRow, e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return // clicks sobre barras los maneja la barra
+    const iso = dayFromTrackEvent(e)
+    if (!iso || !isRowDayFree(u.id, iso)) {
+      setRowSel(null)
+      return
+    }
+    if (!rowSel || rowSel.unitId !== u.id || rowSel.complete) {
+      setRowSel({ unitId: u.id, anchor: iso, end: iso, complete: false })
+      return
+    }
+    // Segundo click = día de SALIDA (semiabierto). Si cae antes de la
+    // entrada, se invierten los roles; mismo día = 1 noche.
+    let entrada = rowSel.anchor
+    let salida = iso
+    if (salida < entrada) {
+      const tmp = entrada
+      entrada = salida
+      salida = tmp
+    } else if (salida === entrada) {
+      salida = addDaysISO(entrada, 1)
+    }
+    const lastNight = clampRowToFree(u.id, entrada, addDaysISO(salida, -1))
+    setRowSel({ unitId: u.id, anchor: entrada, end: lastNight, complete: true })
+    setQuoteFor({ unit: u, checkIn: entrada, checkOut: addDaysISO(lastNight, 1) })
+  }
+
+  function handleTrackMove(u: UnitRow, e: React.PointerEvent<HTMLDivElement>) {
+    if (!rowSel || rowSel.unitId !== u.id || rowSel.complete) return
+    const iso = dayFromTrackEvent(e)
+    if (!iso) return
+    const targetLast = iso > rowSel.anchor ? addDaysISO(iso, -1) : rowSel.anchor
+    const end = clampRowToFree(u.id, rowSel.anchor, targetLast)
+    if (end !== rowSel.end) setRowSel({ ...rowSel, end })
+  }
+
+  const quoteUnitInfo = (u: UnitRow): QuoteUnitInfo => ({
+    id: u.id,
+    number: u.number,
+    type: u.type,
+    base_rate_mxn: u.base_rate_mxn,
+    cleaning_fee_mxn: u.cleaning_fee_mxn,
+    max_guests: u.max_guests,
+    buildingName: orgBuildings.find((b) => b.id === u.building_id)?.name ?? null,
+  })
+
   // Densidad de números en el header: a Trimestre solo lunes (evita colisiones)
   const showAllDayNumbers = zoom !== 92
   const isMonday = (iso: string) => new Date(iso + 'T00:00:00Z').getUTCDay() === 1
@@ -750,7 +856,29 @@ export default function CalendarioPage() {
                           {free > 0 && free < days && <span className="tl-vac">{free}n libres</span>}
                           {free === days && <span className="tl-vac">libre</span>}
                         </div>
-                        <div className="tl-track" style={{ height: trackH }}>
+                        <div
+                          className="tl-track"
+                          style={{ height: trackH, cursor: 'crosshair' }}
+                          onClick={(e) => handleTrackClick(u, e)}
+                          onPointerMove={(e) => handleTrackMove(u, e)}
+                        >
+                          {rowSel?.unitId === u.id && (
+                            <span
+                              className="tl-sel"
+                              style={
+                                {
+                                  '--d': diffDaysISO(windowStart, rowSel.anchor),
+                                  '--len': diffDaysISO(rowSel.anchor, rowSel.end) + 1,
+                                  pointerEvents: 'none',
+                                } as CSSProperties
+                              }
+                            >
+                              <span>
+                                {diffDaysISO(rowSel.anchor, rowSel.end) + 1}n
+                                {rowSel.complete ? '' : ' · elige salida'}
+                              </span>
+                            </span>
+                          )}
                           {bars.map((b) => {
                             // Half-day: check-in arranca a mitad de día y
                             // check-out termina a mitad de día — salvo bordes
@@ -895,9 +1023,10 @@ export default function CalendarioPage() {
           )}
 
           <p className="text-xs muted-text">
-            Arrastra una barra para mover la estancia (orillas para extender/recortar) — se pide
-            confirmación antes de guardar · click simple abre el detalle · click en la unidad abre
-            su calendario mensual con precios por noche.
+            <strong>Cotizar:</strong> click en el día de entrada y luego en el de salida sobre una
+            fila libre — se abre la cotización con apartado de 24-72h · arrastra una barra para
+            mover la estancia (orillas para extender) · click simple abre el detalle · click en la
+            unidad abre su calendario mensual.
           </p>
         </>
       )}
@@ -924,10 +1053,46 @@ export default function CalendarioPage() {
         variant="default"
       />
 
+      {quoteFor && activeOrgId && (
+        <QuotePanel
+          orgId={activeOrgId}
+          unit={quoteUnitInfo(quoteFor.unit)}
+          checkIn={quoteFor.checkIn}
+          checkOut={quoteFor.checkOut}
+          seasons={seasons}
+          onClose={() => {
+            setQuoteFor(null)
+            setRowSel(null)
+          }}
+          onCreated={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+
       <StayDrawer
         stay={selected}
         unitLabel={unitLabelFor(selected)}
         onClose={() => setSelected(null)}
+        onConfirm={
+          selected?.kind === 'reservacion' && selected.status === 'tentative' && activeOrgId
+            ? async () => {
+                const err = await confirmQuote(selected, activeOrgId)
+                setSelected(null)
+                if (err) setActionError(err)
+                setReloadKey((k) => k + 1)
+              }
+            : null
+        }
+        onRelease={
+          selected?.kind === 'reservacion' && selected.status === 'tentative'
+            ? async () => {
+                if (!window.confirm('¿Liberar estas fechas? La oportunidad pasa a "perdido".')) return
+                const err = await releaseQuote(selected)
+                setSelected(null)
+                if (err) setActionError(err)
+                setReloadKey((k) => k + 1)
+              }
+            : null
+        }
         onDelete={
           selected?.kind === 'bloqueo'
             ? async () => {
