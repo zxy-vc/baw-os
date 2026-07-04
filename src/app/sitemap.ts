@@ -3,6 +3,7 @@ import {
   listPublicBuildings,
   listPublicUnits,
 } from '@/lib/public-booking/server-data'
+import { buildingBaseUrl } from '@/lib/public-booking/domains'
 
 /**
  * Fase 1 Public Listing — Sitemap dinámico.
@@ -12,8 +13,6 @@ import {
  * públicas si el feature flag está activo. Si la DB no responde, devuelve
  * las rutas raíz de edificios que sí conocemos (vacío en el peor caso).
  */
-
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || 'https://baw.mx'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (process.env.NEXT_PUBLIC_PUBLIC_BOOKING_ENABLED !== 'true') {
@@ -27,15 +26,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   for (const building of buildings) {
     if (!building.slug) continue
+    // Con dominio propio (809.mx) las URLs canónicas viven en ese dominio.
+    const base = buildingBaseUrl(building.slug)
     entries.push(
       {
-        url: `${BASE}/edificios/${building.slug}`,
+        url: base,
         lastModified: now,
         changeFrequency: 'weekly',
         priority: 1,
       },
       {
-        url: `${BASE}/edificios/${building.slug}/unidades`,
+        url: `${base}/unidades`,
         lastModified: now,
         changeFrequency: 'daily',
         priority: 0.9,
@@ -46,7 +47,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const unit of units) {
       if (!unit.slug) continue
       entries.push({
-        url: `${BASE}/edificios/${building.slug}/unidades/${unit.slug}`,
+        url: `${base}/unidades/${unit.slug}`,
         lastModified: now,
         changeFrequency: 'weekly',
         priority: 0.8,

@@ -5,6 +5,7 @@ import {
   getPublicBuilding,
   getPublicUnit,
 } from '@/lib/public-booking/server-data'
+import { buildingBaseUrl } from '@/lib/public-booking/domains'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export async function generateMetadata({
     title: `${name} · ${buildingName}`,
     description: unit?.description ?? `Departamento amueblado en ${buildingName}.`,
     alternates: {
-      canonical: `/edificios/${params.buildingSlug}/unidades/${params.slug}`,
+      canonical: `${buildingBaseUrl(params.buildingSlug)}/unidades/${params.slug}`,
     },
     openGraph: {
       title: `${name} · ${buildingName}`,

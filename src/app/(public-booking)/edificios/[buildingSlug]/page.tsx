@@ -11,6 +11,7 @@ import {
   getPublicBuilding,
   listPublicUnits,
 } from '@/lib/public-booking/server-data'
+import { buildingBaseUrl } from '@/lib/public-booking/domains'
 
 // Mapa cargado client-side para no incluir Leaflet en el bundle inicial.
 const LocationMap = dynamic(() => import('@/components/public-booking/LocationMap'), {
@@ -62,15 +63,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const building = await getPublicBuilding(params.buildingSlug)
   const name = building?.name ?? params.buildingSlug
+  const base = buildingBaseUrl(params.buildingSlug)
   return {
     title: name,
     description: building?.description ?? undefined,
-    alternates: { canonical: `/edificios/${params.buildingSlug}` },
+    alternates: { canonical: base },
     openGraph: {
       title: name,
       description: building?.description ?? undefined,
       type: 'website',
-      url: `/edificios/${params.buildingSlug}`,
+      url: base,
     },
   }
 }
