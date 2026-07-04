@@ -1,8 +1,8 @@
 # ADR-022: Arquitectura financiera por niveles (actores y flujos de dinero)
 
-**Status:** Proposed — v2 con feedback de Fran (2026-07-04): taxonomía de 7 actores, comisión base 10% configurable por cliente, plataforma con múltiples revenue streams
+**Status:** Proposed — v3 con feedback de Fran (2026-07-04): taxonomía de 7 actores, comisión base 10% configurable por cliente, plataforma con múltiples revenue streams, y capas de interacción/permisos/límites por actor (§4)
 **Date:** 2026-07-04
-**Deciders:** Fran (niveles + decisiones §5.1), Claude (propuesta + auditoría)
+**Deciders:** Fran (niveles + decisiones §6.1), Claude (propuesta + auditoría)
 **Related:** ADR-018 (Stripe checkout público), `docs/PRD.md` §3.4 (pricing SaaS), `docs/PROJECT_STATE.md` (reencuadre 2026-07-01: BaW OS = herramienta interna DuVa ReEs), `docs/specs/people-crm-stays-model.md` (party/payer, facturación B2B consolidada)
 
 ---
@@ -255,13 +255,66 @@ Vigente lo dicho en ADR-018 §8: cuenta Stripe única mientras el operador sea u
 
 ---
 
-## 4 · Fases de implementación propuestas
+## 4 · Capas de interacción, permisos y límites por actor
+
+Los actores ya tienen registro en el sistema (varios desde hace meses); lo que faltaba es la **gobernanza**: qué interfaz usa cada uno, con qué cuenta entra, qué puede hacer con los cobros, qué datos financieros ve, y bajo qué límites. Esta sección lo define.
+
+### 4.1 — Matriz resumen
+
+| Actor | Interfaz | Cuenta / auth | Gestión de cobros | Datos financieros que VE | Límites y condiciones |
+|---|---|---|---|---|---|
+| **A0 Plataforma** | `/admin` (L0); futuro `/admin/billing` | `platform_admins` (hoy solo `fran@zxy.vc`) | Solo flujo A (facturar a operadoras). **Jamás opera cobros del flujo C** | Agregados por org (conteos, MRR futuro, usage snapshots). Detalle de rentas de una org solo en modo soporte, auditado | Toda acción L0 queda en `audit_log`; sin acceso de escritura a dinero de tenants |
+| **A1 Operadora** | App principal, sección Finanzas | `org_members` (roles `pm_*`), login Supabase | Dueña del flujo C completo + emite B y paga D (ver 4.2 por rol) | Todo lo de SU org (RLS por `org_id`) | Irreversibles (`payment.charge`, `payment.refund`, `cfdi.emit`) siempre con aprobación de admin; nunca ve otras orgs |
+| **A2 Propietario** | Portal owner v2 (`/owner`) | Login Supabase vía `owner_invites` → `property_owners.user_id` | **Ninguna.** Solo lectura + acuse de statements | Sus edificios (por `ownership_stakes`): statements emitidos, payouts, gastos y mantenimiento que le descuentan, ocupación y rentas brutas | No ve datos personales de inquilinos (solo unidad/concepto/monto); no ve otras propiedades ni la operación interna; puede comentar/disputar un statement, no editarlo |
+| **A3 Proveedor** | **Sin acceso en v1** (es registro, no usuario). Futuro: portal mínimo (sus órdenes/pagos) | N/A en v1 | Ninguna | Ninguno en v1. Futuro: solo SUS trabajos y pagos | Nunca ve rentas, inquilinos ni otros proveedores; la operadora guarda su RFC/banco |
+| **A4 Titular** | Portal inquilino (`/tenant/[token]`) | Token de portal (`portal_token` + `portal_enabled`) | Paga con tarjeta (Stripe) y solicita factura | SU contrato: cargos, saldo, historial, CFDIs propios | Solo sus contratos; no edita montos ni fechas; token revocable por la operadora |
+| **A5 Pagador** | Si = titular: mismo portal. Si empresa: estado de cuenta consolidado del `engagement` (hoy PDF/correo; portal B2B futuro) | Hoy sin cuenta propia (contacto en `occupants` kind empresa) | Paga (transferencia registrada por la operadora, o tarjeta futuro) | El consolidado de SU pool: cargos y saldos de las unidades que paga, facturación consolidada o por unidad | Ve unidad/monto/estatus, no la vida interna de los ocupantes; sin acceso a otras cuentas |
+| **A6 Ocupantes** | Portal operativo (incidencias) / conserje / WhatsApp | Token de portal compartido de la estancia | **Ninguna** | **Ninguno** (salvo que también sean titular o pagador) | Solo operación: incidencias, avisos; cero montos |
+
+Dos actores transversales del lado de la operadora:
+
+| Actor interno | Interfaz | Auth | Cobros | Límites |
+|---|---|---|---|---|
+| **Conserje** | `/[orgSlug]/conserje` tab Cobros | ⚠️ Hoy PIN estático `1234` (D5) | Marca pagos en efectivo del mes como recibidos | **Condición para implementar:** migrar a endpoint server-side con auth real (org_member restringido o token de dispositivo); monto tope por operación; todo asiento con `confirmed_by` |
+| **Agentes (Alicia)** | API v1 con bearer | `agent_credentials` + scopes | `payment.record` (registrar pago recibido, reversible). NUNCA `payment.charge`/`refund` | Modelo de autonomía por origen del disparo (AGENTS.md §9): humano→AUTO, autónomo→aprobación; irreversibles siempre con aprobación de Fran |
+
+### 4.2 — Permisos financieros por rol dentro de la Operadora (A1)
+
+La gestión de cobros vive en la operadora, así que el detalle fino es por rol de `org_members`:
+
+| Capacidad | `pm_owner` | `pm_admin` | `pm_operator` | `pm_viewer` |
+|---|---|---|---|---|
+| Ver cobros, reportes, bitácora | ✔ | ✔ | ✔ | ✔ |
+| Registrar abonos / pago rápido / marcar histórico | ✔ | ✔ | ✔ | — |
+| Editar cargos (montos, vencimientos, condonar) | ✔ | ✔ | — | — |
+| Configurar precios, temporadas, servicios, cargos adicionales | ✔ | ✔ | — | — |
+| Configurar comisiones (`management_agreements`) | ✔ | ✔ | — | — |
+| Emitir/anular estados de cuenta de propietarios y registrar payouts | ✔ | ✔ | — | — |
+| Emitir/cancelar CFDI | ✔ | ✔ | — | — |
+| Refunds / cargos a tarjeta (irreversibles) | ✔ con confirmación | ✔ con confirmación | — | — |
+| Gestionar proveedores y gastos | ✔ | ✔ | ✔ (captura) | — |
+| Ver/configurar el plan con la plataforma (flujo A, futuro) | ✔ | ✔ | — | — |
+
+Estado actual vs. esta matriz: hoy la app **no distingue roles dentro de Finanzas** (cualquier miembro con acceso a la sección puede casi todo; la autorización real depende de RLS genérica por org). Implementar esta matriz = definir un mapa de capacidades por rol en un módulo tipo `src/lib/finance-permissions.ts` (espejo de cómo `navigation.ts` ya esconde secciones por rol) + reforzar los endpoints de escritura con el mismo mapa. Es parte de la Fase 1.
+
+### 4.3 — Reglas de visibilidad de datos (quién ve el dinero de quién)
+
+1. **Aislamiento vertical:** cada actor ve solo su rebanada. La operadora ve todo lo suyo; el propietario ve sus edificios agregados; el titular/pagador ve sus contratos; el ocupante no ve montos; la plataforma ve agregados.
+2. **El propietario ve conceptos, no personas:** en statements el detalle es por unidad/concepto/proveedor, sin datos personales del inquilino más allá de lo contractualmente necesario.
+3. **El pagador-empresa ve consolidado, no vida privada:** unidades, cargos y saldos de su pool; no incidencias ni datos de ocupantes.
+4. **Los proveedores no existen como lectores** en v1 — solo son referenciados.
+5. **Snapshot inmutable como frontera:** lo que un actor externo (propietario, pagador) recibe es siempre un statement **emitido** (snapshot), nunca una query viva a las tablas operativas. Esto simplifica permisos: los portales externos leen tablas de statements, no `payments`.
+6. **Toda escritura financiera lleva autor:** `confirmed_by` / `created_by_agent_id` / rol del org_member — sin asientos anónimos.
+
+---
+
+## 5 · Fases de implementación propuestas
 
 **Fase 0 — Higiene (sin features nuevas, PR chico):**
 D1/D2 (retirar `/payments/new` legacy y la ruta huérfana), D3 (migrar `invoices.org_id` a uuid real + quitar `'baw'` hardcodeado), D4 (RLS por org en `invoices`, `payment_ledger`, `expenses`), D7 (fix columna `date`→`expense_date` en `GET /api/gastos`). D5 (conserje) merece PR propio: mover el marcado de pago a un endpoint server-side con auth real.
 
-**Fase 1 — Flujo B v1 + proveedores v1 (el valor inmediato para DuVa ReEs):**
-Migración `management_agreements` (fee base 10% configurable) + `owner_statements` + `owner_payouts` + `service_providers` (D10); extraer `src/lib/owner-statements.ts` del endpoint legacy; página `Finanzas → Propietarios`; selector de proveedor en Gastos; vista "Estado de cuenta" en portal owner v2; retirar la ruta legacy por token. D6 (materializar `ancillary_charges` en cobranza) entra aquí o en paralelo, porque afecta el `gross_collected` de los statements.
+**Fase 1 — Flujo B v1 + proveedores v1 + permisos por rol (el valor inmediato para DuVa ReEs):**
+Migración `management_agreements` (fee base 10% configurable) + `owner_statements` + `owner_payouts` + `service_providers` (D10); extraer `src/lib/owner-statements.ts` del endpoint legacy; página `Finanzas → Propietarios`; selector de proveedor en Gastos; vista "Estado de cuenta" en portal owner v2; retirar la ruta legacy por token; **mapa de capacidades financieras por rol** (`src/lib/finance-permissions.ts` + enforcement en endpoints de escritura, matriz §4.2). D6 (materializar `ancillary_charges` en cobranza) entra aquí o en paralelo, porque afecta el `gross_collected` de los statements.
 
 **Fase 2 — Medición para los revenue streams (barato, adelanta el flujo A sin construirlo):**
 Cron mensual que llena `org_usage_snapshots` con TODAS las bases candidatas (unidades, usuarios, GMV, agent runs, CFDIs). Da a Fran los números reales para decidir qué streams activar y a qué precio.
@@ -273,15 +326,16 @@ Cron mensual que llena `org_usage_snapshots` con TODAS las bases candidatas (uni
 
 ---
 
-## 5 · Decisiones
+## 6 · Decisiones
 
-### 5.1 — Decididas por Fran (2026-07-04)
+### 6.1 — Decididas por Fran (2026-07-04)
 
 1. **Comisión de administración: 10% base, personalizable por cliente** → `management_agreements.fee_value` con default 10.00, por edificio/propietario.
 2. **Plataforma con múltiples revenue streams** (no un solo fee) → modelo de catálogo de streams + invoice con line items (§3.4).
 3. **Taxonomía de 7 actores** (§1): Plataforma › Operadora › Propietario › Proveedor › Titular › Pagador › Ocupantes. Nombres finales ajustables; los actores son canónicos.
+4. **Lo que define el arranque de implementación son las capas de interacción y permisos por actor** (gestión de cobros, datos financieros, cuentas/usuarios, interfaces, límites y condiciones) → definidas en §4.
 
-### 5.2 — Abiertas
+### 6.2 — Abiertas
 
 1. **Nombres definitivos de los actores en la UI** — propuesta en §1 (Operadora, Titular, Pagador…); validar es-MX con Fran.
 2. **¿Base de la comisión: % de lo cobrado o de lo facturado?** Propuesta default: `percent_collected`.
@@ -290,7 +344,7 @@ Cron mensual que llena `org_usage_snapshots` con TODAS las bases candidatas (uni
 5. **Qué streams activar primero y a qué precio** — decidir con 2-3 meses de datos de `org_usage_snapshots` (Fase 2).
 6. **CxP formal de proveedores** (órdenes de compra, antigüedad de saldos): diferido; v1 es directorio + liga a gastos.
 
-## 6 · Consecuencias
+## 7 · Consecuencias
 
 - (+) Los 7 actores quedan nombrados y los 4 flujos de dinero (A/B/C/D) con un patrón único (acuerdo→cargo→abono→statement), cada uno en sus tablas, sin mezclar el dinero de rentas con el de la plataforma.
 - (+) El flujo B pasa de "cálculo efímero apagado con 10% hardcodeado" a datos persistidos, con comisión configurable por cliente, auditable y visible en el portal del propietario — utilizable ya por DuVa ReEs.
