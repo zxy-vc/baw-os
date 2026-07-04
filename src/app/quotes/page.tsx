@@ -19,6 +19,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Calculator, Printer, FileText, CalendarPlus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
+import { addDaysISO, nightlyPrice, type RateOverride } from '@/lib/calendar-occupancy'
 import { formatCurrency } from '@/lib/utils'
 
 interface QuoteUnit {
@@ -68,6 +69,7 @@ export default function QuotesPage() {
   const { orgId, loading: orgLoading } = useOrgContext()
   const [units, setUnits] = useState<QuoteUnit[]>([])
   const [seasons, setSeasons] = useState<Season[]>([])
+  const [overrides, setOverrides] = useState<RateOverride[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUnit, setSelectedUnit] = useState('')
   const [modality, setModality] = useState<Modality>('LTR')
@@ -115,6 +117,27 @@ export default function QuotesPage() {
     fetchData(orgId)
   }, [orgId, orgLoading])
 
+  // Precios fijos por unidad+rango (unit_rate_overrides, fase 3 del
+  // calendario): ganan sobre base × temporada, igual que en /calendario.
+  // Si la tabla no existe aún en prod, la query falla y cotizamos sin ellos.
+  useEffect(() => {
+    if (!selectedUnit) {
+      setOverrides([])
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('unit_rate_overrides')
+      .select('id, unit_id, start_date, end_date, nightly_rate_mxn, notes')
+      .eq('unit_id', selectedUnit)
+      .then(({ data }) => {
+        if (!cancelled) setOverrides((data ?? []) as RateOverride[])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedUnit])
+
   function getActiveSeason(date: string): Season | null {
     if (!date) return null
     return seasons.find((s) => date >= s.start_date && date <= s.end_date) || null
@@ -161,15 +184,35 @@ export default function QuotesPage() {
 
       const activeSeason = getActiveSeason(checkInDate)
       const seasonMultiplier = activeSeason ? Number(activeSeason.price_multiplier) : 1
-      const pricePerNight = Math.round(unit.base_rate_mxn * seasonMultiplier)
+
+      // Con fechas concretas: suma NOCHE POR NOCHE — cada día aplica su propia
+      // temporada y sus precios fijos de unidad (misma resolución que el
+      // calendario y el panel de rango). Sin fechas: base × temporada del
+      // check-in × noches (estimación rápida).
+      let basePrice: number
+      let perDay = false
+      if (checkInDate && checkOutDate && checkOutDate > checkInDate) {
+        basePrice = 0
+        for (let iso = checkInDate; iso < checkOutDate; iso = addDaysISO(iso, 1)) {
+          basePrice += nightlyPrice(unit.base_rate_mxn, seasons, iso, overrides) ?? 0
+        }
+        perDay = true
+      } else {
+        basePrice = Math.round(unit.base_rate_mxn * seasonMultiplier) * nights
+      }
+      const pricePerNight = Math.round(basePrice / Math.max(1, nights))
+
       const extraPersons = Math.max(0, persons - includedGuests)
-      const basePrice = pricePerNight * nights
       const extraPersonsFee = extraPersons * EXTRA_PERSON_FEE * nights
       const subtotal = basePrice + extraPersonsFee
       const discountAmount = subtotal * (discount / 100)
       const cleaningFee = unit.cleaning_fee_mxn ?? 0
       const iva = (subtotal - discountAmount + cleaningFee) * 0.16
       const total = subtotal - discountAmount + cleaningFee + iva
+
+      const hasOverrideInRange =
+        perDay &&
+        overrides.some((o) => !(o.end_date < checkInDate || o.start_date >= checkOutDate))
 
       return {
         basePrice,
@@ -184,12 +227,13 @@ export default function QuotesPage() {
           ...(activeSeason
             ? [`✨ Temporada: ${activeSeason.name} (×${activeSeason.price_multiplier})`]
             : []),
-          `Tarifa: ${formatCurrency(pricePerNight)}/noche (unidad completa, hasta ${includedGuests} huéspedes)${
-            activeSeason
-              ? ` — base ${formatCurrency(unit.base_rate_mxn)} × ${activeSeason.price_multiplier}`
-              : ''
-          }`,
-          `Base: ${formatCurrency(pricePerNight)} × ${nights} noches`,
+          ...(hasOverrideInRange
+            ? ['📌 Incluye precio fijo de esta unidad en parte del rango']
+            : []),
+          `Tarifa${perDay ? ' promedio' : ''}: ${formatCurrency(pricePerNight)}/noche (unidad completa, hasta ${includedGuests} huéspedes)`,
+          perDay
+            ? `Base: suma noche por noche del ${checkInDate} al ${checkOutDate} (temporadas y precios fijos aplicados por día)`
+            : `Base: ${formatCurrency(pricePerNight)} × ${nights} noches`,
           ...(extraPersons > 0
             ? [`+${extraPersons} persona(s) extra: ${formatCurrency(EXTRA_PERSON_FEE)}/pers/noche`]
             : []),
