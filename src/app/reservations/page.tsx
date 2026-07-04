@@ -257,6 +257,9 @@ export default function ReservationsPage() {
       status,
       payment_status: paymentStatus,
       amount_paid: amountPaid,
+      // Identidad durable del huésped (PersonPicker) — habilita el historial
+      // de transacciones en el CRM (migración 20260704).
+      occupant_id: guestPerson?.id ?? null,
       notes: notes || null,
       platform: platform || null,
       check_in_code: checkInCode || null,

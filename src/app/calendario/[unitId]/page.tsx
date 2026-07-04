@@ -20,6 +20,8 @@ import { useActiveContext } from '@/lib/useActiveContext'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import StayDrawer from '@/components/calendar/StayDrawer'
+import QuotePanel from '@/components/calendar/QuotePanel'
+import { confirmQuote, releaseQuote } from '@/lib/quote-flow'
 import { INSTR_VAR, instrVarFor, unitTypeVar } from '@/components/calendar/calendar-ui'
 import type { CalendarStay, Season, RateOverride } from '@/lib/calendar-occupancy'
 import {
@@ -48,6 +50,8 @@ interface UnitDetail {
   status: string
   base_rate_mxn: number | null
   monthly_rate_mxn: number | null
+  cleaning_fee_mxn: number | null
+  max_guests: number | null
   is_publicly_bookable: boolean | null
   building: { id: string; name: string } | { id: string; name: string }[] | null
 }
@@ -75,10 +79,13 @@ export default function UnidadCalendarioPage() {
   const [monthsAhead, setMonthsAhead] = useState(6)
   const [selected, setSelected] = useState<CalendarStay | null>(null)
 
-  // Selección de rango (drag sobre días libres)
+  // Selección de rango: primer click/tap = día de ENTRADA, segundo = día de
+  // SALIDA (funciona igual con mouse y touch). El hover extiende la vista
+  // previa en desktop.
   const [selAnchor, setSelAnchor] = useState<string | null>(null)
   const [selEnd, setSelEnd] = useState<string | null>(null)
-  const [dragging, setDragging] = useState(false)
+  const [selComplete, setSelComplete] = useState(false)
+  const [quoteMode, setQuoteMode] = useState(false)
 
   useEffect(() => {
     if (ctxLoading) return
@@ -94,7 +101,7 @@ export default function UnidadCalendarioPage() {
         const [unitRes, contractsRes, reservationsRes, holdsRes, seasonsRes] = await Promise.all([
           supabase
             .from('units')
-            .select('id, number, floor, type, status, base_rate_mxn, monthly_rate_mxn, is_publicly_bookable, building:buildings(id, name)')
+            .select('id, number, floor, type, status, base_rate_mxn, monthly_rate_mxn, cleaning_fee_mxn, max_guests, is_publicly_bookable, building:buildings(id, name)')
             .eq('id', unitId)
             .eq('org_id', orgId)
             .maybeSingle(),
@@ -107,7 +114,7 @@ export default function UnidadCalendarioPage() {
           // reservations filtra por organization_id (esquema histórico)
           supabase
             .from('reservations')
-            .select('id, unit_id, guest_name, check_in, check_out, status, payment_status, total_price, guests_count, channel, notes')
+            .select('id, unit_id, guest_name, check_in, check_out, status, payment_status, total_price, guests_count, channel, notes, hold_expires_at')
             .eq('organization_id', orgId)
             .eq('unit_id', unitId),
           supabase
@@ -156,13 +163,14 @@ export default function UnidadCalendarioPage() {
     }
   }, [ctxLoading, activeOrgId, unitId, reloadKey])
 
-  // Terminar el drag donde sea que suelte el pointer
+  // ESC cancela la selección en curso
   useEffect(() => {
-    function onUp() {
-      setDragging(false)
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') clearSelection()
     }
-    window.addEventListener('pointerup', onUp)
-    return () => window.removeEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const months = useMemo(
@@ -208,7 +216,39 @@ export default function UnidadCalendarioPage() {
   function clearSelection() {
     setSelAnchor(null)
     setSelEnd(null)
-    setDragging(false)
+    setSelComplete(false)
+    setQuoteMode(false)
+  }
+
+  /** Click en una celda: arranca o completa la selección entrada→salida. */
+  function handleCellClick(iso: string, freeCell: boolean, bandOrEnding: CalendarStay | null) {
+    // Selección en curso: este click es el día de SALIDA (aunque ese día ya
+    // tenga check-in de alguien más — la salida es por la mañana).
+    if (selAnchor && !selComplete) {
+      let entrada = selAnchor
+      let salida = iso
+      if (salida < entrada) {
+        const tmp = entrada
+        entrada = salida
+        salida = tmp
+      } else if (salida === entrada) {
+        salida = addDaysISO(entrada, 1)
+      }
+      const lastNight = clampToFree(entrada, addDaysISO(salida, -1))
+      setSelAnchor(entrada)
+      setSelEnd(lastNight)
+      setSelComplete(true)
+      return
+    }
+    if (bandOrEnding) {
+      clearSelection()
+      setSelected(bandOrEnding)
+      return
+    }
+    if (!freeCell) return
+    setSelAnchor(iso)
+    setSelEnd(iso)
+    setSelComplete(false)
   }
 
   const building = one(unit?.building ?? null)
@@ -279,9 +319,8 @@ export default function UnidadCalendarioPage() {
             : ''}
         </p>
         <p className="text-xs muted-text mt-1">
-          Arrastra sobre días libres para seleccionar un rango: cotiza, fija precio de esta
-          unidad, crea/edita temporadas, bloquea el rango o crea una reservación con las fechas
-          prellenadas.
+          Toca el día de ENTRADA y luego el de SALIDA para seleccionar: cotiza y aparta 24-72h,
+          fija precio de esta unidad, crea/edita temporadas o bloquea el rango. ESC cancela.
         </p>
       </div>
 
@@ -347,22 +386,14 @@ export default function UnidadCalendarioPage() {
                     return (
                       <div
                         key={cell.iso}
-                        onPointerDown={() => {
-                          if (!free) return
-                          setSelAnchor(cell.iso)
-                          setSelEnd(cell.iso)
-                          setDragging(true)
-                        }}
                         onPointerEnter={() => {
-                          if (dragging && selAnchor) setSelEnd(clampToFree(selAnchor, cell.iso))
-                        }}
-                        onClick={() => {
-                          const target = band ?? ending
-                          if (target) {
-                            clearSelection()
-                            setSelected(target)
+                          if (selAnchor && !selComplete) {
+                            const targetLast =
+                              cell.iso > selAnchor ? addDaysISO(cell.iso, -1) : selAnchor
+                            setSelEnd(clampToFree(selAnchor, targetLast))
                           }
                         }}
+                        onClick={() => handleCellClick(cell.iso, free, band ?? ending)}
                         className={`relative min-h-[72px] p-1 border border-black/[0.04] dark:border-white/[0.04] transition-colors ${
                           band || ending ? 'cursor-pointer' : 'cursor-crosshair'
                         } ${season && !inSelection ? 'bg-emerald-500/[0.06]' : ''} ${
@@ -497,7 +528,27 @@ export default function UnidadCalendarioPage() {
       </div>
 
       {/* Panel de rango seleccionado (price management) */}
-      {selection && !selected && (
+      {selection && selComplete && !selected && quoteMode && activeOrgId && unit && (
+        <QuotePanel
+          orgId={activeOrgId}
+          unit={{
+            id: unit.id,
+            number: unit.number,
+            type: unit.type,
+            base_rate_mxn: unit.base_rate_mxn,
+            cleaning_fee_mxn: unit.cleaning_fee_mxn ?? null,
+            max_guests: unit.max_guests ?? null,
+            buildingName: building?.name ?? null,
+          }}
+          checkIn={selection.from}
+          checkOut={selection.checkOut}
+          seasons={seasons}
+          onClose={clearSelection}
+          onCreated={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+
+      {selection && selComplete && !selected && !quoteMode && (
         <RangePanel
           unit={unit}
           orgId={activeOrgId}
@@ -506,6 +557,7 @@ export default function UnidadCalendarioPage() {
           overrides={overrides}
           onClose={clearSelection}
           onChanged={() => setReloadKey((k) => k + 1)}
+          onQuote={() => setQuoteMode(true)}
         />
       )}
 
@@ -513,6 +565,25 @@ export default function UnidadCalendarioPage() {
         stay={selected}
         unitLabel={`Unidad ${unit.number}${building ? ` · ${building.name}` : ''}`}
         onClose={() => setSelected(null)}
+        onConfirm={
+          selected?.kind === 'reservacion' && selected.status === 'tentative' && activeOrgId
+            ? async () => {
+                await confirmQuote(selected, activeOrgId)
+                setSelected(null)
+                setReloadKey((k) => k + 1)
+              }
+            : null
+        }
+        onRelease={
+          selected?.kind === 'reservacion' && selected.status === 'tentative'
+            ? async () => {
+                if (!window.confirm('¿Liberar estas fechas? La oportunidad pasa a "perdido".')) return
+                await releaseQuote(selected)
+                setSelected(null)
+                setReloadKey((k) => k + 1)
+              }
+            : null
+        }
         onDelete={
           selected?.kind === 'bloqueo'
             ? async () => {
@@ -538,6 +609,7 @@ function RangePanel({
   overrides,
   onClose,
   onChanged,
+  onQuote,
 }: {
   unit: UnitDetail
   orgId: string
@@ -546,6 +618,7 @@ function RangePanel({
   overrides: RateOverride[]
   onClose: () => void
   onChanged: () => void
+  onQuote: () => void
 }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -725,13 +798,22 @@ function RangePanel({
         </div>
       )}
 
-      {/* Acciones de creación */}
+      {/* Acción principal: flujo de cotización telefónica */}
+      <button
+        onClick={onQuote}
+        className="w-full px-3 py-2.5 rounded-lg text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white"
+      >
+        💬 Cotizar y apartar 24-72h
+      </button>
+
+      {/* Acciones de creación directa */}
       <div className="flex gap-2">
         <Link
           href={`/reservations?unit_id=${unit.id}&check_in=${selection.from}&check_out=${selection.checkOut}`}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          style={{ color: 'var(--baw-text)' }}
         >
-          <BedDouble className="w-4 h-4" /> Crear reservación
+          <BedDouble className="w-4 h-4" /> Reservación directa
         </Link>
         <Link
           href="/contracts/new"

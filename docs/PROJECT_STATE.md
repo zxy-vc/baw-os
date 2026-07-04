@@ -45,6 +45,18 @@ Auditoría de responsividad iPhone/390px sobre todo `src/`. Veredicto: el chrome
 
 ---
 
+## 0.quinquies · Cotización telefónica + CRM mínimo (2026-07-04, rama `feat/quote-flow`)
+
+User story de Fran: llamada → disponibilidad en calendario → click entrada/click salida → cotizar → apartar 24-72h → enviar propuesta → confirma o se libera solo. Modelo acordado: **la cotización es una reservación `tentative` con `hold_expires_at`; el prospecto vive SOLO en CRM y se vuelve occupant al confirmar**.
+
+- Migración `20260704_quote_flow_crm.sql`: `reservations.hold_expires_at` + `reservations.occupant_id`, `crm_opportunities.temperature` (frio/tibio/caliente) + `.reservation_id`, etapa `cotizado` en el funnel, y `fn_unit_is_available` ignora tentativas vencidas + **incluye unit_blocks** (hueco: los bloqueos no cerraban el booking público — también corregido en la route de blocked_days). **⚠️ Aplicar en Supabase prod (después de 20260703_03).**
+- Selección **click entrada → click salida** en ambas vistas del calendario (touch-friendly, ESC cancela; el hover extiende la vista previa en desktop; en timeline se selecciona sobre la fila de la unidad con banda `tl-sel`).
+- `QuotePanel` (`src/components/calendar/QuotePanel.tsx` + lógica en `src/lib/quote-flow.ts`): desglose con el motor unificado, huéspedes, temperatura, hold 24/48/72h, contacto = buscar/crear en `crm_contacts` (source llamada); crea tentativa + oportunidad `cotizado` ligada (`reservation_id`); propuesta prellenada por WhatsApp (wa.me), correo (mailto) o copiar.
+- Drawer de tentativas: countdown del apartado ("expira en 36h"), **Confirmar** (→ confirmed, opp ganado, PROMUEVE contacto a occupant deduplicando el espejo del trigger `crm_contact_for_occupant`, liga `reservations.occupant_id`) y **Liberar** (→ cancelled, opp perdido).
+- CRM `/clientes`: etapa Cotizado en kanban, chip y select de temperatura, "Historial de transacciones" = contratos + reservaciones (via `reservations.occupant_id`); `/reservations` ahora persiste el occupant del PersonPicker.
+
+---
+
 ## 0.bis · Qué aterrizó entre 2026-06-11 y 2026-07-02
 
 - **Reencuadre estratégico (Fran, 2026-07-01):** BaW OS es a corto plazo la **herramienta interna de DuVa ReEs** (family office Durán Vargas: edificios 809 y 2020), no el producto SaaS a comercializar. La apuesta comercial de ZXY se mueve a **Engrane AI**. La productización de BaW OS queda en pausa, no cancelada.

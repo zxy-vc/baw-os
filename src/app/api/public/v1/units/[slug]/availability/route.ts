@@ -90,11 +90,12 @@ export async function GET(
     p_to: to,
   })
 
-  // Blocked date ranges (confirmed/checked_in reservations + active holds)
-  const [{ data: reservations }, { data: holds }] = await Promise.all([
+  // Blocked date ranges: reservas firmes + tentativas con hold vigente +
+  // holds de checkout + bloqueos operativos (unit_blocks, fase 3).
+  const [{ data: rawReservations }, { data: holds }, { data: blocks }] = await Promise.all([
     svc
       .from('reservations')
-      .select('check_in, check_out')
+      .select('check_in, check_out, status, hold_expires_at')
       .eq('unit_id', unit.id)
       .in('status', ['confirmed', 'checked_in', 'tentative'])
       .gte('check_out', from)
@@ -107,7 +108,21 @@ export async function GET(
       .gt('expires_at', new Date().toISOString())
       .gte('to_date', from)
       .lte('from_date', to),
+
+    svc
+      .from('unit_blocks')
+      .select('start_date, end_date')
+      .eq('unit_id', unit.id)
+      .gte('end_date', from)
+      .lte('start_date', to),
   ])
+
+  // Una cotización tentativa vencida ya no aparta fechas (se libera sola).
+  const nowIso = new Date().toISOString()
+  const reservations = (rawReservations ?? []).filter(
+    (r) =>
+      r.status !== 'tentative' || !r.hold_expires_at || r.hold_expires_at > nowIso,
+  )
 
   // Build a set of blocked day strings in range (ISO YYYY-MM-DD)
   const blockedDays = new Set<string>()
@@ -121,11 +136,17 @@ export async function GET(
     }
   }
 
-  for (const r of reservations ?? []) {
+  for (const r of reservations) {
     addBlockedDays(r.check_in, r.check_out)
   }
   for (const h of holds ?? []) {
     addBlockedDays(h.from_date, h.to_date)
+  }
+  for (const b of blocks ?? []) {
+    // end_date de unit_blocks es INCLUSIVO → el día end_date también se bloquea
+    const endExclusive = new Date(b.end_date)
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1)
+    addBlockedDays(b.start_date, endExclusive.toISOString().slice(0, 10))
   }
 
   console.log(`action=unit_availability slug=${slug} available=${isAvailable} blocked_days=${blockedDays.size} status=ok`)
