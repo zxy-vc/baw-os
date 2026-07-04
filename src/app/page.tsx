@@ -417,6 +417,7 @@ export default function MissionControl() {
               Sin pagos pendientes ni vencidos.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead className="table-header">
                 <tr>
@@ -453,6 +454,7 @@ export default function MissionControl() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </section>
 

@@ -233,7 +233,7 @@ export default function PoliciesEditorClient({
         >
           Rate caps
         </h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {(['per_minute', 'per_hour', 'per_day'] as const).map((k) => (
             <label key={k} className="flex flex-col gap-1">
               <span className="text-[11px]" style={{ color: 'var(--baw-muted)' }}>

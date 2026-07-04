@@ -39,6 +39,12 @@ Sección de visualización de ocupación modelo Airbnb, 2 vistas, en Portafolio 
 
 ---
 
+## 0.quater · Auditoría mobile-friendly (2026-07-03, rama `fix/mobile-responsive`)
+
+Auditoría de responsividad iPhone/390px sobre todo `src/`. Veredicto: el chrome ya era sólido (hamburguesa + sidebar off-canvas en `Sidebar.tsx`, modales `w-full max-w-*`, sub-nav con scroll, sitio público excelente). Fixes aplicados: 10 tablas sin `overflow-x-auto` (home, units, agents, owners anidada, owner portal, BulkUnitsModal, WizardFirstRun, 3 de /admin), filtros de mes de `/cobros` sin `flex-wrap`, `export const viewport` explícito en `layout.tsx`, grids `grid-cols-3` sin breakpoint en 4 modales/forms (UnitModal, housekeeping, ancillary-charges, policies), objetivos táctiles `p-1`→`p-2` en acciones de fila (cobros, owners, whatsapp, Sidebar, StayDrawer, StayOccupants), y el calendario abre en zoom "2 semanas" bajo 640px. Verificación visual con Chromium a 390×844 (timeline y vista mensual legibles).
+
+---
+
 ## 0.bis · Qué aterrizó entre 2026-06-11 y 2026-07-02
 
 - **Reencuadre estratégico (Fran, 2026-07-01):** BaW OS es a corto plazo la **herramienta interna de DuVa ReEs** (family office Durán Vargas: edificios 809 y 2020), no el producto SaaS a comercializar. La apuesta comercial de ZXY se mueve a **Engrane AI**. La productización de BaW OS queda en pausa, no cancelada.

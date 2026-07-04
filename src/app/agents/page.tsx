@@ -374,7 +374,7 @@ export default async function AgentsPage() {
           </div>
         ) : (
           <div
-            className="rounded-lg overflow-hidden"
+            className="rounded-lg overflow-x-auto"
             style={{ border: '1px solid var(--baw-border)' }}
           >
             <table className="w-full text-[12px]">

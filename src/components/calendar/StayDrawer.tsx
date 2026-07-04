@@ -73,7 +73,7 @@ export default function StayDrawer({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Cerrar"
           >
             <X className="w-4 h-4 muted-text" />

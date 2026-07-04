@@ -405,7 +405,7 @@ export default function AncillaryChargesPage() {
                   placeholder='Ej. "2 cajones extra" o "Espectacular azotea"'
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto c/u</label>
                   <input

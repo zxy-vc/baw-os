@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, IBM_Plex_Mono, Instrument_Serif } from 'next/font/google'
 import './globals.css'
 import AppShell from '@/components/AppShell'
@@ -31,6 +31,13 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.svg',
   },
+}
+
+// Explícito para poder auditar la responsividad móvil (Next lo inyecta por
+// default, pero así queda declarado y controlado).
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

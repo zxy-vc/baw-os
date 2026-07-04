@@ -412,14 +412,14 @@ export default function OwnersPage() {
                                     setEditingStake(s)
                                     setStakeModalOpen(true)
                                   }}
-                                  className="text-gray-400 hover:text-indigo-600 p-1"
+                                  className="text-gray-400 hover:text-indigo-600 p-2"
                                   title="Editar"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteStake(s.id)}
-                                  className="text-gray-400 hover:text-red-600 p-1"
+                                  className="text-gray-400 hover:text-red-600 p-2"
                                   title="Quitar"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -540,6 +540,7 @@ export default function OwnersPage() {
                                 Aún no tiene edificios asignados.
                               </p>
                             ) : (
+                              <div className="overflow-x-auto">
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="text-left text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -606,6 +607,7 @@ export default function OwnersPage() {
                                   })}
                                 </tbody>
                               </table>
+                              </div>
                             )}
                           </div>
                         </td>
