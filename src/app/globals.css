@@ -70,6 +70,7 @@ html.dark {
   --baw-instr-season: var(--green-500);
   --baw-instr-tent:   var(--gray-400);
   --baw-instr-neutral: var(--gray-500);
+  --baw-instr-block:  var(--red-500);
 
   /* ── Status tokens (Sprint 5 / fix #24) ─────────────────────────────
      Tokens semanticos para los badges de status/priority/actor. Mantienen
@@ -642,6 +643,8 @@ main h1 {
   border: 1px solid color-mix(in oklch, var(--bar) 45%, transparent);
   border-left: 3px solid var(--bar);
   cursor: pointer;
+  /* pointer events de drag también en touch */
+  touch-action: none;
 }
 .tl-bar:hover { background: color-mix(in oklab, var(--bar) 26%, var(--surface)); }
 .tl-bar .cap {
@@ -663,6 +666,12 @@ main h1 {
   border: 1px dashed color-mix(in oklch, var(--bar) 55%, transparent);
   border-left-width: 1px;
   color: var(--text-3);
+}
+.tl-bar--block {
+  background: repeating-linear-gradient(-45deg, color-mix(in oklch, var(--bar) 14%, transparent) 0 5px, transparent 5px 10px);
+  border: 1px dashed color-mix(in oklch, var(--bar) 45%, transparent);
+  border-left: 3px solid var(--bar);
+  color: var(--text-2);
 }
 /* Banda de temporada de precio (track propio, delgada) */
 .tl-season {
@@ -745,6 +754,11 @@ main h1 {
   background: transparent;
   border: 1px dashed color-mix(in oklch, var(--bar) 55%, transparent);
   color: var(--text-3);
+}
+.cal-band--block {
+  background: repeating-linear-gradient(-45deg, color-mix(in oklch, var(--bar) 14%, transparent) 0 5px, transparent 5px 10px);
+  border: 1px dashed color-mix(in oklch, var(--bar) 45%, transparent);
+  color: var(--text-2);
 }
 .cal-cell--sel {
   outline: 1.5px dashed var(--brand-400);
