@@ -27,7 +27,7 @@ import { findSection } from '@/lib/navigation'
 // Sprint 5B / WS-2 + Fase 1 Public Listing: `/edificios/<slug>` es la cara
 // pública de booking/listing (grupo `(public-booking)`) y debe renderizar
 // fuera del AppShell del tenant. `/mateos-809` redirige ahí (next.config).
-const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', '/admin', '/edificios']
+const PUBLIC_PREFIXES = ['/portal', '/tenant', '/owner', '/conserje', '/apply', '/admin', '/edificios', '/baw']
 
 function isMultiTenantConserje(pathname: string): boolean {
   // Match `/baw-operations/conserje` y subrutas, sin colisionar con rutas internas.

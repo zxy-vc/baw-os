@@ -19,6 +19,16 @@ export const DOMAIN_BUILDINGS: Record<string, string> = {
   'www.809.mx': 'mateos-809',
 }
 
+/**
+ * Dominios de marketing → ruta interna que sirven en su raíz.
+ * baw.mx sirve la landing informativa de BaW OS (`(public-marketing)/baw`).
+ * OJO: os.baw.mx NO va aquí — es la plataforma y se sirve tal cual.
+ */
+export const MARKETING_DOMAINS: Record<string, string> = {
+  'baw.mx': '/baw',
+  'www.baw.mx': '/baw',
+}
+
 export const BUILDING_DOMAINS: Record<string, string> = {
   'mateos-809': '809.mx',
 }

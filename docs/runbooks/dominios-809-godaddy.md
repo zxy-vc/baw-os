@@ -12,7 +12,8 @@
 | `809.mx` | Landing pública de Mateos 809 en la raíz (`/`, `/unidades`, `/unidades/[slug]`…) | Middleware: rewrite por Host a `(public-booking)/edificios/mateos-809` |
 | `www.809.mx` | Redirige a `809.mx` | Vercel (redirect de dominio) |
 | `os.baw.mx` | La plataforma BaW OS (login, dashboard) | Dominio adicional del proyecto, sin código |
-| `baw.mx` | Redirige a `os.baw.mx` (mientras no exista página informativa) | Vercel (redirect de dominio) |
+| `baw.mx` | Landing informativa de BaW OS (con cintillo hacia 809.mx) | Middleware: rewrite por Host a `(public-marketing)/baw` |
+| `www.baw.mx` | Redirige a `baw.mx` | Vercel (redirect de dominio) |
 | `baw-os.vercel.app` | Sigue funcionando como siempre | — |
 
 ## Paso 1 — Vercel (proyecto baw-os → Settings → Domains)
@@ -22,7 +23,8 @@ Agregar, en este orden:
 1. `809.mx` → asignar a Production.
 2. `www.809.mx` → elegir **Redirect to 809.mx** (308).
 3. `os.baw.mx` → asignar a Production.
-4. `baw.mx` → elegir **Redirect to os.baw.mx** (307/308).
+4. `baw.mx` → asignar a Production (el middleware sirve la landing informativa).
+5. `www.baw.mx` → elegir **Redirect to baw.mx** (308).
 
 Al agregar cada dominio, Vercel muestra los registros DNS exactos que espera
 y el estatus (Invalid Configuration hasta que el DNS propague). **Usar los
@@ -43,6 +45,7 @@ TXT existentes** — ahí vive (o vivirá) el correo `hola@809.mx`.
 | Tipo | Nombre | Valor | TTL |
 |---|---|---|---|
 | A | `@` | `76.76.21.21` (o el que indique Vercel) | 1h |
+| CNAME | `www` | `cname.vercel-dns.com` | 1h |
 | CNAME | `os` | `cname.vercel-dns.com` | 1h |
 
 Si GoDaddy ya tiene un registro A en `@` (estacionado/parking), se **edita**
@@ -70,7 +73,7 @@ Dashboard → Authentication → URL Configuration:
 4. `https://www.809.mx` → redirige a `https://809.mx`.
 5. `https://os.baw.mx` → login de BaW OS; iniciar sesión y verificar que la
    sesión persiste (si no, revisar Paso 3).
-6. `https://baw.mx` → redirige a `https://os.baw.mx`.
+6. `https://baw.mx` → landing informativa de BaW OS (cintillo hacia 809.mx, formulario de lista de interés).
 7. Ver una tarjeta compartida: pegar `https://809.mx` en WhatsApp → debe
    mostrar la OG card "Dieciséis estancias. Una dirección.".
 
@@ -81,6 +84,6 @@ Dashboard → Authentication → URL Configuration:
   `DOMAIN_BUILDINGS`/`BUILDING_DOMAINS` en `src/lib/public-booking/domains.ts`
   (o migrarlo a `buildings.custom_domain` — follow-up del PR C) + repetir
   Pasos 1–2 con ese dominio.
-- La página informativa de baw.mx queda diferida (decisión 2026-07-01: BaW OS
-  es herramienta interna DuVa ReEs; la apuesta comercial es Engrane). El
-  redirect evita que el dominio esté muerto.
+- La landing informativa de baw.mx registra los leads de la lista de interés
+  en CRM vía `MARKETING_LEADS_ORG_ID` (ver `.env.example`); sin esa env el
+  formulario cae a `mailto:admin@baw.mx`.

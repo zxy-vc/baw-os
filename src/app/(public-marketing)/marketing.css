@@ -1,0 +1,143 @@
+/* ════════════════════════════════════════════════════════════════════════
+   BaW OS — Landing informativa (baw.mx) · Claude Design julio 2026
+   ────────────────────────────────────────────────────────────────────────
+   Tema scoped bajo [data-brand='baw-mkt'] (mismo patrón que el 809):
+   paleta dark OKLCH del diseño, siempre dark sin importar el theme toggle
+   del dashboard. Fuentes: las del layout raíz (Inter / Plex Mono /
+   Instrument Serif). No contamina dashboard ni portales.
+   ──────────────────────────────────────────────────────────────────────── */
+
+[data-brand='baw-mkt'] {
+  --mkt-bg:        oklch(15.8% 0.008 264);
+  --mkt-surface:   oklch(18.6% 0.009 264);
+  --mkt-surface-2: oklch(21.4% 0.010 264);
+  --mkt-surface-3: oklch(24.6% 0.011 264);
+  --mkt-line:      oklch(28% 0.012 264);
+  --mkt-line-2:    oklch(34% 0.014 264);
+  --mkt-text:      oklch(96% 0.004 264);
+  --mkt-text-2:    oklch(78% 0.008 264);
+  --mkt-text-3:    oklch(62% 0.010 264);
+  --mkt-text-4:    oklch(48% 0.011 264);
+
+  --mkt-accent:       oklch(58% 0.21 266);
+  --mkt-accent-hover: oklch(52% 0.22 266);
+  --mkt-accent-soft:  oklch(74% 0.13 266);
+  --mkt-accent-tint:  oklch(24% 0.05 266);
+
+  --mkt-agent:      oklch(62% 0.19 300);
+  --mkt-agent-soft: oklch(74% 0.13 300);
+  --mkt-agent-tint: oklch(24% 0.045 300);
+
+  --mkt-ok:      oklch(62% 0.16 155);
+  --mkt-ok-soft: oklch(80% 0.14 155);
+  --mkt-ok-tint: oklch(24% 0.05 155);
+
+  --mkt-sans:  var(--font-inter), 'Inter', -apple-system, sans-serif;
+  --mkt-mono:  var(--font-ibm-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
+  --mkt-serif: var(--font-instrument-serif), 'Instrument Serif', Georgia, serif;
+
+  --mkt-wrap: 1120px;
+
+  background: var(--mkt-bg);
+  color: var(--mkt-text);
+  font-family: var(--mkt-sans);
+  color-scheme: dark;
+}
+
+[data-brand='baw-mkt'] * {
+  box-sizing: border-box;
+}
+
+[data-brand='baw-mkt'] h1,
+[data-brand='baw-mkt'] h2,
+[data-brand='baw-mkt'] h3 {
+  margin: 0;
+  color: var(--mkt-text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+[data-brand='baw-mkt'] p {
+  margin: 0;
+}
+
+[data-brand='baw-mkt'] a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+[data-brand='baw-mkt'] .mkt-wrap {
+  width: 100%;
+  max-width: var(--mkt-wrap);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+[data-brand='baw-mkt'] .mkt-kicker {
+  font-family: var(--mkt-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mkt-text-3);
+}
+
+[data-brand='baw-mkt'] .mkt-serif {
+  font-family: var(--mkt-serif);
+  font-style: italic;
+  font-weight: 400;
+}
+
+[data-brand='baw-mkt'] .mkt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--mkt-sans);
+}
+
+[data-brand='baw-mkt'] .mkt-btn-primary {
+  background: var(--mkt-accent);
+  color: #fff;
+}
+[data-brand='baw-mkt'] .mkt-btn-primary:hover {
+  background: var(--mkt-accent-hover);
+  color: #fff;
+}
+
+[data-brand='baw-mkt'] .mkt-btn-ghost {
+  background: transparent;
+  color: var(--mkt-text-2);
+  border-color: var(--mkt-line-2);
+}
+[data-brand='baw-mkt'] .mkt-btn-ghost:hover {
+  color: var(--mkt-text);
+  border-color: var(--mkt-text-3);
+}
+
+[data-brand='baw-mkt'] .mkt-card {
+  background: var(--mkt-surface);
+  border: 1px solid var(--mkt-line);
+  border-radius: 12px;
+}
+
+[data-brand='baw-mkt'] .mkt-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--mkt-line-2);
+  background: var(--mkt-surface-2);
+  color: var(--mkt-text);
+  font-size: 14px;
+  font-family: var(--mkt-sans);
+}
+[data-brand='baw-mkt'] .mkt-input:focus {
+  outline: none;
+  border-color: var(--mkt-accent);
+}

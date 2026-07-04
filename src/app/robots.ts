@@ -15,7 +15,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/edificios'],
+        allow: ['/edificios', '/baw'],
         disallow: [
           '/api/',
           '/admin/',

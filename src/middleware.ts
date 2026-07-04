@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { DOMAIN_BUILDINGS, normalizeHost } from '@/lib/public-booking/domains'
+import {
+  DOMAIN_BUILDINGS,
+  MARKETING_DOMAINS,
+  normalizeHost,
+} from '@/lib/public-booking/domains'
 
 // Auth protection stays in route/layout guards and AuthGuard.
 // Middleware keeps Supabase SSR cookies fresh so Server Components
@@ -38,6 +42,28 @@ export async function middleware(request: NextRequest) {
       return NextResponse.rewrite(url)
     }
     // En dominio de edificio no hay sesión de plataforma que refrescar.
+    return NextResponse.next({ request })
+  }
+
+  // ── Dominio de marketing (baw.mx → landing informativa) ───────────────
+  const marketingRoute = MARKETING_DOMAINS[host]
+  if (marketingRoute) {
+    const { pathname } = request.nextUrl
+    const passthrough =
+      pathname.startsWith('/api/') ||
+      pathname.startsWith('/_next/') ||
+      pathname.startsWith('/themes/') ||
+      pathname === '/robots.txt' ||
+      pathname === '/sitemap.xml' ||
+      pathname === '/favicon.ico' ||
+      pathname === marketingRoute ||
+      pathname.startsWith(`${marketingRoute}/`)
+    if (!passthrough) {
+      const url = request.nextUrl.clone()
+      url.pathname =
+        pathname === '/' ? marketingRoute : `${marketingRoute}${pathname}`
+      return NextResponse.rewrite(url)
+    }
     return NextResponse.next({ request })
   }
 
