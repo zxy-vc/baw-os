@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import UnitsClient from './UnitsClient'
 import { getPublicBuilding } from '@/lib/public-booking/server-data'
+import { buildingBaseUrl } from '@/lib/public-booking/domains'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ export async function generateMetadata({
     description:
       building?.description ??
       `Departamentos amueblados en ${name}. Filtra por fechas y huéspedes.`,
-    alternates: { canonical: `/edificios/${params.buildingSlug}/unidades` },
+    alternates: { canonical: `${buildingBaseUrl(params.buildingSlug)}/unidades` },
   }
 }
 

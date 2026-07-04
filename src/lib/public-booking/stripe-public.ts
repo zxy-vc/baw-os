@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { buildingBaseUrl } from '@/lib/public-booking/domains'
 
 // Singleton Stripe client for public booking endpoints.
 // Uses the same STRIPE_SECRET_KEY as the internal client but a DIFFERENT
@@ -36,8 +37,7 @@ export async function createCheckoutSession(
   const stripe = getStripePublic()
   const totalCents = Math.round(params.totalMxn * 100)
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baw.mx'
-  const basePath = `${siteUrl}/edificios/${params.buildingSlug}`
+  const basePath = buildingBaseUrl(params.buildingSlug)
   const holdId = params.metadata.hold_id ?? ''
 
   const successUrl =
