@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-03 (Calendario de unidades PR 1; antes el mismo día: Fase 1 Public Listing).
+> **Última actualización:** 2026-07-04 (Revisión de finanzas por niveles, ADR-022; antes: cotización telefónica + CRM mínimo).
 
 ---
 
@@ -54,6 +54,12 @@ User story de Fran: llamada → disponibilidad en calendario → click entrada/c
 - `QuotePanel` (`src/components/calendar/QuotePanel.tsx` + lógica en `src/lib/quote-flow.ts`): desglose con el motor unificado, huéspedes, temperatura, hold 24/48/72h, contacto = buscar/crear en `crm_contacts` (source llamada); crea tentativa + oportunidad `cotizado` ligada (`reservation_id`); propuesta prellenada por WhatsApp (wa.me), correo (mailto) o copiar.
 - Drawer de tentativas: countdown del apartado ("expira en 36h"), **Confirmar** (→ confirmed, opp ganado, PROMUEVE contacto a occupant deduplicando el espejo del trigger `crm_contact_for_occupant`, liga `reservations.occupant_id`) y **Liberar** (→ cancelled, opp perdido).
 - CRM `/clientes`: etapa Cotizado en kanban, chip y select de temperatura, "Historial de transacciones" = contratos + reservaciones (via `reservations.occupant_id`); `/reservations` ahora persiste el occupant del PersonPicker.
+
+---
+
+## 0.sexies · Revisión de finanzas por niveles (2026-07-04, rama `claude/finance-structure-review-7lanmw`)
+
+Auditoría completa de la sección Finanzas + propuesta de arquitectura en **`docs/adr/ADR-022-finance-architecture-levels.md`** (status Proposed; v3 con decisiones de Fran del mismo día, incluye §4 capas de interacción/permisos/límites por actor y matriz de capacidades financieras por rol `pm_*`). **Taxonomía canónica de 7 actores** (Fran): Plataforma › Operadora (PM Co.) › Propietario › Proveedor de servicios › Titular (inquilino fijo) › Pagador (empresa o huésped que paga) › Ocupantes. Cuatro flujos de dinero: A operadora→plataforma (**múltiples revenue streams**, decidido por Fran; no existe aún), B operadora→propietario (cálculo efímero apagado, comisión **10% base personalizable por cliente** — decidido; propone `management_agreements`/`owner_statements`/`owner_payouts`), C pagador→operadora (el único construido, maduro), D operadora→proveedor (solo texto libre; propone `service_providers`). Patrón único acuerdo→cargo→abono→statement; `org_usage_snapshots` para decidir streams con datos (Fase 2); billing SaaS y Stripe Connect diferidos. Incluye deuda financiera D1-D10 (legacy `/payments/new`, `invoices.org_id` TEXT `'baw'`, RLS abiertas en tablas de dinero, PIN estático del conserje, ancillary sin materializar).
 
 ---
 
