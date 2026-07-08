@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-04 (Liquidaciones a propietarios — ADR-022 Fase 1; mismo día: Fase 0 higiene y conserje server-side).
+> **Última actualización:** 2026-07-04 (Fase 2 ADR-022: snapshots mensuales de uso por org; mismo día: Fases 0-1 y conserje).
 
 ---
 
@@ -97,6 +97,12 @@ Cierra D5 de ADR-022: el kiosco `/[orgSlug]/conserje` validaba el PIN (`1234` ha
 - **Permisos por rol (ADR-022 §4.2)**: `src/lib/finance-permissions.ts` — mapa canónico de capacidades financieras por rol pm_* (legacy owner/admin/operator/viewer mapeados); `requireAdminCaller`/`requireMemberCaller` ahora devuelven `role` y los endpoints de liquidaciones lo aplican (`finance.emit_statements`, `finance.record_payout`, `finance.configure_agreements`). Migrar las páginas legacy de Finanzas a este mapa es follow-up.
 - **UI**: nueva sub-página **Finanzas → Liquidaciones** (`/liquidaciones`): por (edificio × propietario) muestra cobrado − comisión − gastos − mantenimiento = neto × % propiedad, desglose por unidad, emitir/anular/registrar pago, y panel de comisiones. **Portal propietario**: `/owner/estados` (solo emitidos/pagados) + card en el dashboard. **Gastos**: selector de proveedor (catálogo `service_providers` + alta inline con dedupe por nombre; los gastos legacy con texto libre se normalizan al editarlos).
 - La ruta legacy owner por token sigue 410-gated; borrarla definitivamente queda como follow-up una vez que el portal v2 con statements esté validado.
+
+---
+
+## 0.decies · Snapshots de uso por org (2026-07-04, rama `feat/finance-usage-snapshots`)
+
+**ADR-022 Fase 2**: medición mensual para decidir los revenue streams de la plataforma con datos reales (decisión de Fran: múltiples streams; precio/activación se decide tras 2-3 meses de datos). Migración `20260704_04_org_usage_snapshots.sql` (tabla `org_usage_snapshots`, UNIQUE org×period, RLS: cada org lee lo suyo) + cron `GET /api/cron/usage-snapshots` (Vercel, día 1 de cada mes 8:00 UTC, `CRON_SECRET`, `?month=` override, upsert idempotente). Captura por org y mes cerrado: unidades activas (S1), usuarios activos (S2), contratos activos, **GMV cobrado** (S3, mismo criterio anti doble conteo que liquidaciones: receipts + payments pagados sin abonos), runs de agentes (S5) y CFDIs (S6). Solo medición — no factura ni toca dinero. ⚠️ Aplicar migración en Supabase prod; el conteo de CFDIs por org asume la migración de Fase 0 (`invoices.org_id` uuid) aplicada.
 
 ---
 
