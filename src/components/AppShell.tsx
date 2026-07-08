@@ -40,7 +40,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/units': 'Unidades',
   '/contracts': 'Contratos',
   '/cobros': 'Cobros',
-  '/payments/new': 'Registrar pago',
   '/invoices': 'Facturas',
   '/mora': 'Morosidad',
   '/ledger': 'Bitácora',

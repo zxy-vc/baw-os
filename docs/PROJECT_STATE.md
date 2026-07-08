@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-04 (Revisión de finanzas por niveles, ADR-022; antes: cotización telefónica + CRM mínimo).
+> **Última actualización:** 2026-07-04 (Fase 0 higiene financiera; antes el mismo día: ADR-022 revisión de finanzas por niveles).
 
 ---
 
@@ -60,6 +60,19 @@ User story de Fran: llamada → disponibilidad en calendario → click entrada/c
 ## 0.sexies · Revisión de finanzas por niveles (2026-07-04, rama `claude/finance-structure-review-7lanmw`)
 
 Auditoría completa de la sección Finanzas + propuesta de arquitectura en **`docs/adr/ADR-022-finance-architecture-levels.md`** (status Proposed; v3 con decisiones de Fran del mismo día, incluye §4 capas de interacción/permisos/límites por actor y matriz de capacidades financieras por rol `pm_*`). **Taxonomía canónica de 7 actores** (Fran): Plataforma › Operadora (PM Co.) › Propietario › Proveedor de servicios › Titular (inquilino fijo) › Pagador (empresa o huésped que paga) › Ocupantes. Cuatro flujos de dinero: A operadora→plataforma (**múltiples revenue streams**, decidido por Fran; no existe aún), B operadora→propietario (cálculo efímero apagado, comisión **10% base personalizable por cliente** — decidido; propone `management_agreements`/`owner_statements`/`owner_payouts`), C pagador→operadora (el único construido, maduro), D operadora→proveedor (solo texto libre; propone `service_providers`). Patrón único acuerdo→cargo→abono→statement; `org_usage_snapshots` para decidir streams con datos (Fase 2); billing SaaS y Stripe Connect diferidos. Incluye deuda financiera D1-D10 (legacy `/payments/new`, `invoices.org_id` TEXT `'baw'`, RLS abiertas en tablas de dinero, PIN estático del conserje, ancillary sin materializar).
+---
+
+## 0.septies · Fase 0 higiene financiera (2026-07-04, rama `fix/finance-fase0-hygiene`)
+
+Primera fase de implementación de **ADR-022** (arquitectura financiera por niveles, rama `claude/finance-structure-review-7lanmw`, PR #148). Cierra la deuda D1-D4 + D7 del ADR:
+
+- **D1/D2**: eliminado `/payments/new` (flujo legacy que escribía `payments` sin `org_id`, sin abonos ni bitácora) y la ruta huérfana `/payments`; redirects 308 → `/cobros` en `next.config.js`; limpiado de `navigation.ts` y AppShell.
+- **D3**: `invoices.org_id` TEXT `'baw'` → **uuid con FK a organizations** (migración `20260704_02_finance_rls_hygiene.sql`, backfill desde contrato → payment → primera org); el POST de `/api/invoices` ahora hereda la org del contrato.
+- **D4**: RLS org-scoped en `invoices` (solo lectura para miembros; writes vía service_role), `payment_ledger` (select/insert por org, sigue inmutable, backfill de `org_id` NULL desde contratos) y `expenses` (select/insert/update por org, se quitó el DEFAULT hardcodeado a una org). Reutiliza `user_org_ids()` de 20260612.
+- **D7**: `GET /api/gastos` filtraba por columna `date` inexistente → `expense_date`.
+- **Bonus**: los DELETE de `/api/gastos` y `/api/ancillary-charges` siempre devolvían 401 desde la UI (pedían API key que las páginas no mandan) y borraban sin filtrar org → ahora doble plano de auth (API key o sesión de miembro, patrón PR #134) + delete acotado a la org del caller.
+
+**⚠️ Aplicar `20260704_02_finance_rls_hygiene.sql` en Supabase prod ANTES de mergear** (cambia el tipo de `invoices.org_id` y endurece RLS; si el drift histórico de prod hace fallar algún paso, avisar y ajustamos el backfill). Pendientes del ADR: D5 (conserje, PR propio) y Fase 1 (liquidaciones a propietarios).
 
 ---
 

@@ -1,6 +1,6 @@
 // BaW OS — Invoices API: GET list + POST create CFDI
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk } from '@/lib/api-auth'
+import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgIdAsync } from '@/lib/api-auth'
 import { createInvoice, isMockMode } from '@/lib/facturapi'
 
 export async function GET(request: NextRequest) {
@@ -102,10 +102,12 @@ export async function POST(request: NextRequest) {
 
   // Save to DB
   const invoiceStatus = facturapiResult._mock ? 'draft' : 'valid'
+  // La factura hereda la org del contrato (D3 de ADR-022: antes 'baw' hardcodeado)
+  const orgId = contract.org_id || (await getOrgIdAsync())
   const { data: invoice, error: insErr } = await supabase
     .from('invoices')
     .insert({
-      org_id: 'baw',
+      org_id: orgId,
       payment_id,
       contract_id: contract.id,
       facturapi_id: facturapiResult.id,
