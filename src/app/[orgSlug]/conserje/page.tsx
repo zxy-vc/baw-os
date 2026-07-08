@@ -7,8 +7,12 @@
 //   /baw-operations/conserje
 //   /<otro-tenant>/conserje
 //
-// Mantiene PIN de acceso (sigue siendo público, sin auth Supabase) pero ahora
-// el fetch de datos se hace contra el org correcto.
+// ADR-022 D5 (2026-07-04): el PIN ya NO vive en el cliente. Se valida
+// server-side (POST /api/conserje/session — PIN por org en
+// organizations.settings.conserje_pin o env CONSERJE_PIN) y devuelve un token
+// HMAC de 12h. El tab de Cobros dejó de escribir `payments` directo a
+// Supabase desde el browser: lee y marca pagos vía /api/conserje/cobros*,
+// que además deja asiento inmutable en payment_ledger.
 
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -24,8 +28,19 @@ import {
   Loader2,
 } from 'lucide-react'
 
-const VALID_PIN = '1234'
-const SESSION_KEY_PREFIX = 'conserje_pin_'
+const TOKEN_KEY_PREFIX = 'conserje_token_'
+
+function getConserjeToken(slug: string): string | null {
+  const raw = sessionStorage.getItem(`${TOKEN_KEY_PREFIX}${slug}`)
+  if (!raw) return null
+  // token = orgId.exp.firma — si ya expiró, límpialo para volver al PIN.
+  const exp = Number(raw.split('.')[1])
+  if (!Number.isFinite(exp) || Date.now() > exp) {
+    sessionStorage.removeItem(`${TOKEN_KEY_PREFIX}${slug}`)
+    return null
+  }
+  return raw
+}
 
 type Tab = 'deptos' | 'incidencias' | 'cobros'
 
@@ -45,10 +60,11 @@ interface Unit {
   status: string
 }
 
+// occupants solo tiene `name` (docs/schema.sql) — first_name/last_name eran
+// columnas fantasma que renderizaban vacío (patrón PROJECT_STATE §1).
 interface Occupant {
   id: string
-  first_name: string
-  last_name: string
+  name: string
   phone: string | null
 }
 
@@ -88,19 +104,34 @@ function PinLogin({
 }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)
+  const [checking, setChecking] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (pin === VALID_PIN) {
-      sessionStorage.setItem(`${SESSION_KEY_PREFIX}${org.slug}`, 'true')
-      onSuccess()
-    } else {
-      setError(true)
-      setPin('')
-      inputRef.current?.focus()
-      setTimeout(() => setError(false), 600)
+    if (checking) return
+    setChecking(true)
+    try {
+      const res = await fetch('/api/conserje/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: org.slug, pin }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.token) {
+        sessionStorage.setItem(`${TOKEN_KEY_PREFIX}${org.slug}`, json.data.token)
+        onSuccess()
+        return
+      }
+    } catch {
+      // cae al flujo de error de abajo
+    } finally {
+      setChecking(false)
     }
+    setError(true)
+    setPin('')
+    inputRef.current?.focus()
+    setTimeout(() => setError(false), 600)
   }
 
   return (
@@ -134,10 +165,10 @@ function PinLogin({
 
         <button
           type="submit"
-          disabled={pin.length < 4}
+          disabled={pin.length < 4 || checking}
           className="w-full h-12 bg-blue-600 text-white font-semibold rounded-xl disabled:opacity-40 active:bg-blue-700 transition-colors"
         >
-          Entrar
+          {checking ? 'Verificando…' : 'Entrar'}
         </button>
       </form>
 
@@ -182,13 +213,15 @@ function TabDeptos({ orgId }: { orgId: string }) {
     setOccupant(null)
     if (unit.status === 'occupied') {
       setLoadingOccupant(true)
+      // Columnas reales de occupants (name, no first/last) + maybeSingle para
+      // no rechazar con PGRST116 cuando la unidad no tiene contrato activo.
       const { data } = await supabase
         .from('contracts')
-        .select('occupant:occupants(first_name, last_name, phone)')
+        .select('occupant:occupants(id, name, phone)')
         .eq('unit_id', unit.id)
         .eq('status', 'active')
         .limit(1)
-        .single()
+        .maybeSingle()
       setOccupant((data as any)?.occupant || null)
       setLoadingOccupant(false)
     }
@@ -222,9 +255,7 @@ function TabDeptos({ orgId }: { orgId: string }) {
           )}
           {occupant && (
             <div className="border-t border-slate-800 pt-4">
-              <p className="font-medium text-slate-100">
-                {occupant.first_name} {occupant.last_name}
-              </p>
+              <p className="font-medium text-slate-100">{occupant.name}</p>
               {occupant.phone && (
                 <a
                   href={`tel:${occupant.phone}`}
@@ -478,7 +509,13 @@ function TabIncidencias({ orgId }: { orgId: string }) {
 
 // --------------- Tab: Cobros ---------------
 
-function TabCobros({ orgId }: { orgId: string }) {
+function TabCobros({
+  slug,
+  onAuthExpired,
+}: {
+  slug: string
+  onAuthExpired: () => void
+}) {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [marking, setMarking] = useState<string | null>(null)
@@ -487,53 +524,60 @@ function TabCobros({ orgId }: { orgId: string }) {
   useEffect(() => {
     fetchPayments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId])
+  }, [slug])
 
   async function fetchPayments() {
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split('T')[0]
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      .toISOString()
-      .split('T')[0]
-
-    const { data } = await supabase
-      .from('payments')
-      .select(
-        '*, contract:contracts(*, unit:units(*), occupant:occupants(*))',
-      )
-      .eq('org_id', orgId)
-      .eq('status', 'pending')
-      .gte('due_date', monthStart)
-      .lte('due_date', monthEnd)
-      .order('due_date')
-
-    setPayments(data || [])
-    setLoading(false)
+    const token = getConserjeToken(slug)
+    if (!token) {
+      onAuthExpired()
+      return
+    }
+    try {
+      const res = await fetch('/api/conserje/cobros', {
+        headers: { 'x-conserje-token': token },
+      })
+      if (res.status === 401) {
+        sessionStorage.removeItem(`${TOKEN_KEY_PREFIX}${slug}`)
+        onAuthExpired()
+        return
+      }
+      const json = await res.json()
+      setPayments(json.success ? json.data || [] : [])
+    } catch {
+      setPayments([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function markPaid(payment: Payment) {
+    const token = getConserjeToken(slug)
+    if (!token) {
+      onAuthExpired()
+      return
+    }
     setMarking(payment.id)
-    const { error } = await supabase
-      .from('payments')
-      .update({
-        status: 'paid',
-        method: 'cash',
-        paid_date: new Date().toISOString().split('T')[0],
-        amount_paid: payment.amount,
-        confirmed_by: 'conserje',
-        confirmed_at: new Date().toISOString(),
+    try {
+      const res = await fetch(`/api/conserje/cobros/${payment.id}`, {
+        method: 'POST',
+        headers: { 'x-conserje-token': token },
       })
-      .eq('id', payment.id)
-
-    setMarking(null)
-    if (!error) {
-      setToast('Pago registrado')
-      setPayments((prev) => prev.filter((p) => p.id !== payment.id))
-    } else {
+      if (res.status === 401) {
+        sessionStorage.removeItem(`${TOKEN_KEY_PREFIX}${slug}`)
+        onAuthExpired()
+        return
+      }
+      const json = await res.json()
+      if (json.success) {
+        setToast('Pago registrado')
+        setPayments((prev) => prev.filter((p) => p.id !== payment.id))
+      } else {
+        setToast('Error al registrar pago')
+      }
+    } catch {
       setToast('Error al registrar pago')
     }
+    setMarking(null)
     setTimeout(() => setToast(''), 3000)
   }
 
@@ -555,9 +599,7 @@ function TabCobros({ orgId }: { orgId: string }) {
                     {unit ? `Depto ${unit.number}` : '—'}
                   </span>
                   {occ && (
-                    <p className="text-sm text-slate-400">
-                      {occ.first_name} {occ.last_name}
-                    </p>
+                    <p className="text-sm text-slate-400">{occ.name}</p>
                   )}
                 </div>
                 <span className="text-lg font-bold text-slate-100">
@@ -679,7 +721,7 @@ export default function ConserjePage() {
           setOrgError(true)
         } else {
           setOrg(data)
-          if (sessionStorage.getItem(`${SESSION_KEY_PREFIX}${data.slug}`) === 'true') {
+          if (getConserjeToken(data.slug)) {
             setAuthed(true)
           }
         }
@@ -706,7 +748,7 @@ export default function ConserjePage() {
         </h1>
         <button
           onClick={() => {
-            sessionStorage.removeItem(`${SESSION_KEY_PREFIX}${org.slug}`)
+            sessionStorage.removeItem(`${TOKEN_KEY_PREFIX}${org.slug}`)
             setAuthed(false)
           }}
           className="text-slate-400 active:text-slate-300 p-2 -mr-2"
@@ -720,7 +762,9 @@ export default function ConserjePage() {
       <main className="p-4 max-w-lg mx-auto">
         {tab === 'deptos' && <TabDeptos orgId={org.id} />}
         {tab === 'incidencias' && <TabIncidencias orgId={org.id} />}
-        {tab === 'cobros' && <TabCobros orgId={org.id} />}
+        {tab === 'cobros' && (
+          <TabCobros slug={org.slug} onAuthExpired={() => setAuthed(false)} />
+        )}
       </main>
 
       {/* Bottom Tab Bar */}

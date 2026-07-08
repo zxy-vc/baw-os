@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-04 (Fase 0 higiene financiera; antes el mismo día: ADR-022 revisión de finanzas por niveles).
+> **Última actualización:** 2026-07-04 (Conserje: cobros server-side con PIN validado en server; mismo día: Fase 0 higiene financiera, ADR-022).
 
 ---
 
@@ -73,6 +73,17 @@ Primera fase de implementación de **ADR-022** (arquitectura financiera por nive
 - **Bonus**: los DELETE de `/api/gastos` y `/api/ancillary-charges` siempre devolvían 401 desde la UI (pedían API key que las páginas no mandan) y borraban sin filtrar org → ahora doble plano de auth (API key o sesión de miembro, patrón PR #134) + delete acotado a la org del caller.
 
 **⚠️ Aplicar `20260704_02_finance_rls_hygiene.sql` en Supabase prod ANTES de mergear** (cambia el tipo de `invoices.org_id` y endurece RLS; si el drift histórico de prod hace fallar algún paso, avisar y ajustamos el backfill). Pendientes del ADR: D5 (conserje, PR propio) y Fase 1 (liquidaciones a propietarios).
+
+---
+
+## 0.octies · Conserje: cobros server-side (2026-07-04, rama `fix/conserje-cobros-auth`)
+
+Cierra D5 de ADR-022: el kiosco `/[orgSlug]/conserje` validaba el PIN (`1234` hardcodeado) en el CLIENTE y marcaba pagos escribiendo `payments` directo a Supabase con la anon key. Ahora:
+
+- **PIN server-side**: `POST /api/conserje/session` valida contra `organizations.settings.conserje_pin` (por org) > env `CONSERJE_PIN` > `1234` legacy (⚠️ Fran: configurar el PIN real en settings o Vercel). Comparación timing-safe + delay anti fuerza bruta. Devuelve token HMAC de 12h (`src/lib/conserje-auth.ts`, firmado con `INTERNAL_WEBHOOK_SECRET`).
+- **Cobros por API**: `GET /api/conserje/cobros` (pendientes del mes, org del token) y `POST /api/conserje/cobros/[id]` (marcar pagado en efectivo). Límites ADR-022 §4.1: solo marca cargos EXISTENTES pendientes de SU org — no crea ni edita montos. Liquida base+mora (mismo criterio que webhook Stripe) y **deja asiento en `payment_ledger`** (antes el conserje no dejaba bitácora).
+- Bonus: fix de columnas fantasma `first_name`/`last_name` en el tab (occupants solo tiene `name` — el nombre del inquilino se renderizaba vacío).
+- Sin migraciones. El token vive en sessionStorage y expira solo.
 
 ---
 
