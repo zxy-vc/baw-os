@@ -41,6 +41,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/contracts': 'Contratos',
   '/cobros': 'Cobros',
   '/invoices': 'Facturas',
+  '/liquidaciones': 'Liquidaciones',
   '/mora': 'Morosidad',
   '/ledger': 'Bitácora',
   '/gastos': 'Gastos',

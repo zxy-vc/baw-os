@@ -127,6 +127,7 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       '/cobros',
       '/invoices',
       '/gastos',
+      '/liquidaciones',
       '/mora',
       '/ledger',
       '/reportes',
@@ -139,6 +140,9 @@ export const SIDEBAR_SECTIONS: SidebarSection[] = [
       { href: '/cobros', label: 'Cobros' },
       { href: '/invoices', label: 'Facturas' },
       { href: '/gastos', label: 'Gastos' },
+      // ADR-022 Fase 1 (aprobado por Fran 2026-07-04): flujo B, estados de
+      // cuenta y pagos netos a propietarios.
+      { href: '/liquidaciones', label: 'Liquidaciones' },
       { href: '/mora', label: 'Morosidad' },
       { href: '/ledger', label: 'Bitácora' },
       { href: '/reportes', label: 'Reportes' },
