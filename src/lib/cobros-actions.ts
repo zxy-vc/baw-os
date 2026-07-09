@@ -30,15 +30,23 @@ export async function recomputeCharge(paymentId: string): Promise<boolean> {
   return res.ok
 }
 
+export interface QuickPayResult {
+  ok: boolean
+  /** false = el abono quedó escrito pero el cargo no se recalculó (server) */
+  recomputeOk: boolean
+}
+
 /**
  * Marca el mes pagado completo (renta + agua, sin mora, fecha = vencimiento,
- * referencia "histórico"). Devuelve true si todo el pipeline quedó escrito.
+ * referencia "histórico"). `ok` = pipeline escrito; `recomputeOk` = el server
+ * recalculó amount_paid/status (si es false, el mes puede seguir viéndose
+ * impago — el caller debe avisar, como hacía el toast original de /cobros).
  */
 export async function quickPayMonth(
   orgId: string,
   row: QuickPayRow,
   confirmedBy: string,
-): Promise<boolean> {
+): Promise<QuickPayResult> {
   const c = row.contract
   const rent = row.payment?.rent_amount ?? c.monthly_amount
   const water = row.payment?.water_fee ?? row.waterFee
@@ -58,7 +66,7 @@ export async function quickPayMonth(
       .insert({ ...charge, org_id: orgId, contract_id: c.id, due_date: row.dueDate, amount_paid: 0, status: 'pending' })
       .select('id')
       .single()
-    if (error || !data) return false
+    if (error || !data) return { ok: false, recomputeOk: true }
     cid = data.id
   }
   const { methodEnum, paymentMethodEs } = mapPaymentMethod('Transferencia')
@@ -74,8 +82,8 @@ export async function quickPayMonth(
     payer_occupant_id: null,
     confirmed_by: confirmedBy,
   })
-  if (error) return false
-  await recomputeCharge(cid as string)
+  if (error) return { ok: false, recomputeOk: true }
+  const recomputeOk = await recomputeCharge(cid as string)
   await supabase.from('payment_ledger').insert({
     org_id: orgId,
     payment_id: cid,
@@ -89,5 +97,5 @@ export async function quickPayMonth(
     confirmed_by: confirmedBy,
     notes: 'Pago rápido (histórico)',
   })
-  return true
+  return { ok: true, recomputeOk }
 }

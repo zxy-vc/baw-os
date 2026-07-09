@@ -232,9 +232,12 @@ export default function CobrosPage() {
   async function quickPay(row: BillingRow) {
     const key = `${row.contract.id}|${row.month}`
     setQuickId(key)
-    const ok = orgId ? await quickPayMonth(orgId, row, confirmedBy) : false
+    const res = orgId
+      ? await quickPayMonth(orgId, row, confirmedBy)
+      : { ok: false, recomputeOk: true }
     setQuickId(null)
-    if (ok) {
+    if (res.ok) {
+      if (!res.recomputeOk) toast.error('No se pudo recalcular el cargo del mes')
       toast.success('Mes marcado pagado')
       fetchBilling()
     } else {
@@ -251,7 +254,7 @@ export default function CobrosPage() {
     setBulkRunning(true)
     let ok = 0
     for (const row of targets) {
-      if (orgId && (await quickPayMonth(orgId, row, confirmedBy))) ok++
+      if (orgId && (await quickPayMonth(orgId, row, confirmedBy)).ok) ok++
     }
     setBulkRunning(false)
     setSelected(new Set())

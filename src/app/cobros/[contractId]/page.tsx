@@ -176,7 +176,7 @@ export default function CuentaInquilinoPage() {
         ? `${now.getFullYear() + 1}-01-01`
         : `${now.getFullYear()}-${pad2(now.getMonth() + 2)}-01`
 
-    const { data: c } = await supabase
+    const { data: c, error: cErr } = await supabase
       .from('contracts')
       .select(
         'id, unit_id, occupant_id, payer_occupant_id, monthly_amount, payment_day, status, start_date, end_date, billing_start_date, portal_enabled, engagement_id, unit:units(number, building_id), occupant:occupants(name, phone, email)',
@@ -185,6 +185,7 @@ export default function CuentaInquilinoPage() {
       .eq('org_id', orgId)
       .maybeSingle()
 
+    if (cErr) toast.error(`No se pudo cargar el contrato: ${cErr.message}`)
     if (!c) {
       setNotFound(true)
       setLoading(false)
@@ -237,8 +238,16 @@ export default function CuentaInquilinoPage() {
       if (!prev || rankPayment(p.status) > rankPayment(prev.status)) paymentByMonth.set(key, p)
     }
 
-    const receiptsByPayment = new Map<string, ReceiptItem[]>()
+    // Abonos agrupados por MES (no por el pago representativo): si un mes
+    // tiene 2+ filas payments (el caso que rankPayment resuelve), los abonos
+    // de la fila no-representativa también deben verse — esta pantalla existe
+    // para auditar dinero recibido.
+    const monthByPaymentId = new Map<string, string>()
+    for (const p of payments) monthByPaymentId.set(p.id, p.due_date.slice(0, 7))
+    const receiptsByMonth = new Map<string, ReceiptItem[]>()
     for (const r of receiptsRes.data || []) {
+      const month = monthByPaymentId.get(r.payment_id)
+      if (!month) continue
       const payerRow = Array.isArray(r.payer) ? r.payer[0] : r.payer
       const item: ReceiptItem = {
         id: r.id,
@@ -250,9 +259,9 @@ export default function CuentaInquilinoPage() {
         confirmed_by: r.confirmed_by,
         payerName: (payerRow as { name: string } | null)?.name ?? null,
       }
-      const list = receiptsByPayment.get(r.payment_id) || []
+      const list = receiptsByMonth.get(month) || []
       list.push(item)
-      receiptsByPayment.set(r.payment_id, list)
+      receiptsByMonth.set(month, list)
     }
 
     const today = new Date()
@@ -281,13 +290,14 @@ export default function CuentaInquilinoPage() {
         remaining,
         owed,
         waterFee,
-        receipts: payment ? receiptsByPayment.get(payment.id) || [] : [],
+        receipts: receiptsByMonth.get(month) || [],
       })
     }
     // Más reciente primero: lo operativo (el mes en curso) queda arriba.
     monthRows.sort((a, b) => b.month.localeCompare(a.month))
     setRows(monthRows)
     setLoading(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, contractId])
 
   useEffect(() => {
@@ -309,13 +319,14 @@ export default function CuentaInquilinoPage() {
   async function quickPay(row: MonthRow) {
     if (!orgId || !contract) return
     setQuickMonth(row.month)
-    const ok = await quickPayMonth(
+    const res = await quickPayMonth(
       orgId,
       { contract, payment: row.payment, dueDate: row.dueDate, waterFee: row.waterFee },
       confirmedBy,
     )
     setQuickMonth(null)
-    if (ok) {
+    if (res.ok) {
+      if (!res.recomputeOk) toast.error('No se pudo recalcular el cargo del mes')
       toast.success('Mes marcado pagado')
       fetchAll()
     } else {

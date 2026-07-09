@@ -61,7 +61,7 @@ function monthLabel(month: string): string {
 }
 
 function dayDiff(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000)
+  return Math.floor((b.getTime() - a.getTime()) / 86_400_000)
 }
 
 // Mora sugerida: respeta la mora ya guardada en el cargo; si no hay, la
@@ -246,7 +246,8 @@ export default function AbonoModal({
       toast.error('No se pudo eliminar el abono')
       return
     }
-    await recomputeCharge(chargeId)
+    const recomputed = await recomputeCharge(chargeId)
+    if (!recomputed) toast.error('No se pudo recalcular el cargo del mes')
     await loadReceipts(chargeId)
     onChanged()
   }
