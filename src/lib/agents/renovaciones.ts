@@ -9,7 +9,7 @@
 // hace el flip de estado y manda el aviso de renovación al inquilino.
 
 import { createServiceClient } from '@/lib/api-auth'
-import { sendWhatsAppText, whatsAppConfigured, buildRenewalMessage } from '@/lib/whatsapp'
+import { sendWhatsAppTemplate, whatsAppConfigured, buildRenewalTemplate } from '@/lib/whatsapp'
 import type { AgentRunContext, AgentRunResult, AgentRunner } from './types'
 
 const RENEWAL_WINDOW_DAYS = 30 // marca en_renovacion desde 30 días antes del vencimiento
@@ -113,8 +113,10 @@ export const renovacionesRunner: AgentRunner = {
       // 2. Aviso de renovación al inquilino (gated; no rompe si falta teléfono).
       let sent = false
       if (canSend && phone) {
-        const message = buildRenewalMessage({ name, unit: unitNumber, endDate: contract.end_date, daysUntil })
-        const res = await sendWhatsAppText(phone, message)
+        // Aviso proactivo → plantilla HSM aprobada (Meta rechaza texto libre
+        // fuera de la ventana de 24h, error 131047).
+        const template = buildRenewalTemplate({ name, unit: unitNumber, endDate: contract.end_date, daysUntil })
+        const res = await sendWhatsAppTemplate(phone, template)
         sent = res.ok
         if (res.ok) sentCount++
       }

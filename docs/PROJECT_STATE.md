@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-08 (ADR-022 Fases 0-2 mergeadas y aplicadas a prod; drift de `20260404_invoices.sql` rescatado a mano).
+> **Última actualización:** 2026-07-09 (WhatsApp proactivo migrado a plantillas HSM; antes: ADR-022 Fases 0-2 aplicadas a prod).
 
 ---
 
@@ -14,6 +14,17 @@ Los 4 PRs del stack ADR-022 (#149 Fase 0, #150 conserje, #151 Fase 1 liquidacion
 **Nota para entornos nuevos / audit de drift:** `20260404_invoices.sql` usa `CREATE TABLE invoices` (sin `IF NOT EXISTS`). En un entorno donde ya exista la tabla, re-correrlo falla — es esperado. El orden canónico de migraciones (20260404 antes de 20260704_02) lo maneja bien en un entorno limpio; prod requirió el rescate manual por el drift histórico. Pendiente sigue el audit completo de drift prod vs `supabase/migrations/` (ver §0 Public Listing).
 
 Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en Vercel o `organizations.settings.conserje_pin`).
+
+---
+
+## 0.-1 · WhatsApp de cobranza a plantillas HSM (2026-07-09, rama `feat/whatsapp-cobranza-templates`)
+
+**Contexto:** Meta solo permite texto libre dentro de la ventana de 24h posterior a un mensaje del cliente; TODO mensaje business-initiated (cobranza, comprobante, renovación) debe salir como **plantilla HSM pre-aprobada** o Meta lo rechaza (error 131047). El código enviaba texto libre en los 3 flujos.
+
+- **`src/lib/whatsapp.ts`**: nuevo `sendWhatsAppTemplate(to, {name, params})` (payload `type:'template'`, idioma `WHATSAPP_TEMPLATE_LANG` default `es_MX`, sanitiza params — Meta rechaza saltos de línea/4+ espacios) + 4 builders de plantilla: `buildReminderTemplate` (→ `cobranza_recordatorio`), `buildDunningTemplate` (→ `cobranza_mora`), `buildReceiptTemplate` (→ `pago_recibido`), `buildRenewalTemplate` (→ `contrato_renovacion`). Nombres sobreescribibles por env `WHATSAPP_TEMPLATE_*`.
+- **Runners migrados**: `cobranza.ts` (dunning + recordatorio; el texto libre queda SOLO como preview de auditoría), `payment-receipt.ts` (comprobante) y `renovaciones.ts` (aviso de renovación) ahora envían por plantilla. La persistencia de mora (`late_fee_*`) no cambia: sigue desacoplada del envío — `COBRANZA_WHATSAPP_ENABLED=true` sin credenciales de Meta persiste mora sin enviar nada.
+- **Pendiente de Fran en Meta Business Manager**: registrar las 4 plantillas (categoría UTILITY, español México) con los textos/párametros acordados en chat, + capturar `WHATSAPP_ACCESS_TOKEN` (token permanente de System User), `WHATSAPP_PHONE_NUMBER_ID` y `WHATSAPP_APP_SECRET` en Vercel. Luego `COBRANZA_WHATSAPP_ENABLED=true`.
+- Follow-up: `POST /api/whatsapp/notify` (plantillas locales mora_day1/5/10 en texto libre, con un "3%" de mora inconsistente con el motor) quedó fuera de alcance — probablemente superseded por el cron runner; evaluar retiro.
 
 ---
 
