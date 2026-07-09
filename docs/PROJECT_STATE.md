@@ -1,7 +1,19 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-04 (Fase 2 ADR-022: snapshots mensuales de uso por org; mismo día: Fases 0-1 y conserje).
+> **Última actualización:** 2026-07-08 (ADR-022 Fases 0-2 mergeadas y aplicadas a prod; drift de `20260404_invoices.sql` rescatado a mano).
+
+---
+
+## 0.0 · ADR-022 finanzas — CERRADO en prod (2026-07-08)
+
+Los 4 PRs del stack ADR-022 (#149 Fase 0, #150 conserje, #151 Fase 1 liquidaciones, #152 Fase 2 snapshots) están **mergeados a main y aplicados a Supabase prod** (`zlcgxmllaeweypyodvzk`), en orden, sin ventana de "código sin tabla". Migraciones aplicadas en prod: `20260704_02`, `20260704_03`, `20260704_04`.
+
+**⚠️ Drift rescatado — `20260404_invoices.sql` aplicado A MANO a prod (2026-07-08):** la tabla `invoices` nunca se había aplicado a prod (mismo patrón de drift de §0/Public-Listing). El Script 1 de Fase 0 (`20260704_02`) hace `ALTER TABLE invoices` y fallaba con 42P01. Fix operativo: se corrió primero el `CREATE TABLE` de `20260404_invoices.sql` (que la crea con `org_id TEXT DEFAULT 'baw'`) y enseguida `20260704_02` la convirtió a `uuid` con FK. Verificado en prod: `invoices.org_id` es uuid, `payment_ledger` con 0 filas huérfanas, RLS org-scoped activa en invoices/payment_ledger/expenses, y las 4 tablas de Fase 1 (`management_agreements`, `owner_statements`, `owner_payouts`, `service_providers`) + `org_usage_snapshots` creadas.
+
+**Nota para entornos nuevos / audit de drift:** `20260404_invoices.sql` usa `CREATE TABLE invoices` (sin `IF NOT EXISTS`). En un entorno donde ya exista la tabla, re-correrlo falla — es esperado. El orden canónico de migraciones (20260404 antes de 20260704_02) lo maneja bien en un entorno limpio; prod requirió el rescate manual por el drift histórico. Pendiente sigue el audit completo de drift prod vs `supabase/migrations/` (ver §0 Public Listing).
+
+Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en Vercel o `organizations.settings.conserje_pin`).
 
 ---
 
