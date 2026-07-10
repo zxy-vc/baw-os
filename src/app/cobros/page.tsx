@@ -377,6 +377,71 @@ export default function CobrosPage() {
   }
   const sortArrow = (key: typeof sortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '')
 
+  // Acciones por mes — compartidas entre la fila de la tabla (desktop) y la
+  // tarjeta (móvil) para no duplicar la lógica de estados.
+  function rowActions(row: BillingRow) {
+    return (
+      <>
+        {row.status !== 'pagado' ? (
+          <>
+            <button
+              onClick={() => setPayingRow(row)}
+              className="inline-flex items-center gap-1 px-3 py-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+            >
+              <Check className="w-3 h-3" />
+              Registrar pago
+            </button>
+            <button
+              onClick={() => quickPay(row)}
+              disabled={quickId === `${row.contract.id}|${row.month}`}
+              title="Marcar el mes pagado completo (renta + agua, sin mora)"
+              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              <Zap className="w-3 h-3" />
+              Rápido
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            {row.payment?.method === 'stripe' ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                Pagado por Stripe
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400 dark:text-gray-500">{methodLabel(row.payment?.method)}</span>
+            )}
+            {row.payment && (
+              <button
+                onClick={() => setInvoicingRow(row)}
+                className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
+                title="Generar factura CFDI"
+              >
+                <FileText className="w-3 h-3" />
+                Facturar
+              </button>
+            )}
+            <button
+              onClick={() => setPayingRow(row)}
+              title="Ver / editar abonos de este mes"
+              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+            >
+              <Pencil className="w-3 h-3" />
+              Editar
+            </button>
+          </div>
+        )}
+        <Link
+          href={`/cobros/${row.contract.id}`}
+          className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+          title="Cuenta del inquilino (estado de cuenta editable + PDF)"
+        >
+          <Receipt className="w-3 h-3" />
+          Cuenta
+        </Link>
+      </>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -540,7 +605,77 @@ export default function CobrosPage() {
           }
         />
       ) : (
-        <div className="card overflow-x-auto p-0">
+        <>
+          {/* Móvil: tarjetas (la tabla de 11 columnas es ilegible en teléfono) */}
+          <div className="md:hidden space-y-3">
+            {sorted.map((row) => {
+              const waterFee = row.payment?.water_fee ?? row.waterFee
+              const rentAmt = row.payment?.rent_amount ?? row.contract.monthly_amount
+              const total = row.payment ? row.payment.amount : row.contract.monthly_amount + row.waterFee
+              const rowKey = `${row.contract.id}|${row.month}`
+              return (
+                <div key={`${row.contract.id}-${row.month}`} className="card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {row.status !== 'pagado' && (
+                        <input
+                          type="checkbox"
+                          checked={selected.has(rowKey)}
+                          onChange={() => toggleRow(rowKey)}
+                          className="w-5 h-5 rounded border-gray-300 shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {row.contract.unit?.number || '—'}
+                          {row.contract.status === 'en_renovacion' && (
+                            <span
+                              className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/15 text-yellow-500 border border-yellow-500/20"
+                              title="Contrato en renovación"
+                            >
+                              &#9888;
+                            </span>
+                          )}
+                          <span className="ml-2 font-normal text-gray-500 dark:text-gray-400 capitalize">{monthLabel(row.month)}</span>
+                        </div>
+                        <Link
+                          href={`/cobros/${row.contract.id}`}
+                          className="block text-sm text-gray-600 dark:text-gray-300 truncate hover:underline"
+                        >
+                          {row.contract.occupant?.name || 'Sin inquilino'}
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="shrink-0">{statusBadge(row.status, row.moraAmount, row.remaining)}</div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[13px]">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Renta</p>
+                      <p className="text-gray-700 dark:text-gray-300">{formatCurrency(rentAmt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Agua</p>
+                      <p className="text-gray-700 dark:text-gray-300">{formatCurrency(waterFee)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Total</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(total)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>Vence día {row.contract.payment_day || '—'}</span>
+                    {row.payment?.confirmed_by && <span className="capitalize">Confirmó: {row.payment.confirmed_by}</span>}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-gray-800/60">
+                    {rowActions(row)}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Desktop: tabla completa */}
+          <div className="hidden md:block card overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-800">
@@ -631,71 +766,15 @@ export default function CobrosPage() {
                       {row.payment?.confirmed_by || '—'}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {row.status !== 'pagado' ? (
-                          <>
-                            <button
-                              onClick={() => setPayingRow(row)}
-                              className="inline-flex items-center gap-1 px-3 py-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
-                            >
-                              <Check className="w-3 h-3" />
-                              Registrar pago
-                            </button>
-                            <button
-                              onClick={() => quickPay(row)}
-                              disabled={quickId === `${row.contract.id}|${row.month}`}
-                              title="Marcar el mes pagado completo (renta + agua, sin mora)"
-                              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                            >
-                              <Zap className="w-3 h-3" />
-                              Rápido
-                            </button>
-                          </>
-                        ) : (
-                          <div className="flex items-center justify-center gap-2">
-                            {row.payment?.method === 'stripe' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                                Pagado por Stripe
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-400 dark:text-gray-500">{methodLabel(row.payment?.method)}</span>
-                            )}
-                            {row.payment && (
-                              <button
-                                onClick={() => setInvoicingRow(row)}
-                                className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
-                                title="Generar factura CFDI"
-                              >
-                                <FileText className="w-3 h-3" />
-                                Facturar
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setPayingRow(row)}
-                              title="Ver / editar abonos de este mes"
-                              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
-                            >
-                              <Pencil className="w-3 h-3" />
-                              Editar
-                            </button>
-                          </div>
-                        )}
-                        <Link
-                          href={`/cobros/${row.contract.id}`}
-                          className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
-                          title="Cuenta del inquilino (estado de cuenta editable + PDF)"
-                        >
-                          <Receipt className="w-3 h-3" />
-                          Cuenta
-                        </Link>
-                      </div>
+                      <div className="flex items-center justify-center gap-2">{rowActions(row)}</div>
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Invoice Modal */}

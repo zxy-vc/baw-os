@@ -176,6 +176,46 @@ export default function UnitsPage() {
     fetchUnits()
   }
 
+  // Acciones por fila compartidas entre la tabla (desktop) y las tarjetas (móvil)
+  function rowActions(unit: UnitWithBuilding) {
+    return (
+      <>
+        <button
+          onClick={() => handleEdit(unit)}
+          className="text-[12px] py-2.5 px-2 -mx-2 sm:p-0 sm:m-0"
+          style={{ color: 'var(--baw-primary)' }}
+        >
+          Editar
+        </button>
+        <select
+          value={unit.status}
+          onChange={(e) =>
+            handleStatusChange(unit.id, e.target.value as UnitStatus)
+          }
+          className="text-[12px] rounded px-2 py-2 sm:py-1"
+          style={{
+            backgroundColor: 'var(--baw-elevated)',
+            color: 'var(--baw-text)',
+            border: '1px solid var(--baw-border)',
+          }}
+        >
+          {(Object.keys(statusLabels) as UnitStatus[]).map((s) => (
+            <option key={s} value={s}>
+              {statusLabels[s]}
+            </option>
+          ))}
+        </select>
+        <LifecycleActions
+          entity="unit"
+          id={unit.id}
+          name={`Unidad ${unit.number}`}
+          archived={!!unit.archived_at}
+          onChanged={fetchUnits}
+        />
+      </>
+    )
+  }
+
   // Derivados de presentación
   const activeOrg = orgs.find((o) => o.id === activeOrgId)
   const showBuildingColumn = orgBuildings.length > 1
@@ -345,13 +385,73 @@ export default function UnitsPage() {
           actionHref={orgBuildings.length === 0 ? '/onboarding' : '/units'}
         />
       ) : (
-        <div
-          className="rounded-lg overflow-x-auto"
-          style={{
-            backgroundColor: 'var(--baw-surface)',
-            border: '1px solid var(--baw-border)',
-          }}
-        >
+        <>
+          {/* Móvil: tarjetas (la tabla de 7 columnas es ilegible en teléfono) */}
+          <div className="md:hidden space-y-3">
+            {filtered.map((unit) => (
+              <div key={unit.id} className="card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div
+                      className="font-semibold tabular-nums"
+                      style={{ color: 'var(--baw-text)' }}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {unit.number}
+                        {unit.archived_at && <ArchivedBadge />}
+                      </span>
+                    </div>
+                    {showBuildingColumn && (
+                      <p className="text-[12px] muted-text truncate">
+                        {unit.building?.name ?? '—'}
+                        {unit.building?.city && ` · ${unit.building.city}`}
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0">
+                    <StatusBadge
+                      status={STATUS_TO_KIND[unit.status]}
+                      label={statusLabels[unit.status]}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[13px]">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400">Piso</p>
+                    <p className="muted-text tabular-nums">{unit.floor ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400">Tipo</p>
+                    <p className="muted-text">{unit.type}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400">Detalles</p>
+                    <p className="muted-text">
+                      {[
+                        unit.bedrooms && `${unit.bedrooms} rec`,
+                        unit.bathrooms && `${unit.bathrooms} baño(s)`,
+                        unit.area_m2 && `${unit.area_m2} m²`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || '—'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-gray-800/60">
+                  {rowActions(unit)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: tabla completa */}
+          <div
+            className="hidden md:block rounded-lg overflow-x-auto"
+            style={{
+              backgroundColor: 'var(--baw-surface)',
+              border: '1px solid var(--baw-border)',
+            }}
+          >
           <table className="w-full text-[13px]">
             <thead className="table-header">
               <tr>
@@ -412,46 +512,14 @@ export default function UnitsPage() {
                       .join(' · ') || '—'}
                   </td>
                   <td className="px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEdit(unit)}
-                        className="text-[12px] py-2.5 px-2 -mx-2 sm:p-0 sm:m-0"
-                        style={{ color: 'var(--baw-primary)' }}
-                      >
-                        Editar
-                      </button>
-                      <select
-                        value={unit.status}
-                        onChange={(e) =>
-                          handleStatusChange(unit.id, e.target.value as UnitStatus)
-                        }
-                        className="text-[12px] rounded px-2 py-2 sm:py-1"
-                        style={{
-                          backgroundColor: 'var(--baw-elevated)',
-                          color: 'var(--baw-text)',
-                          border: '1px solid var(--baw-border)',
-                        }}
-                      >
-                        {(Object.keys(statusLabels) as UnitStatus[]).map((s) => (
-                          <option key={s} value={s}>
-                            {statusLabels[s]}
-                          </option>
-                        ))}
-                      </select>
-                      <LifecycleActions
-                        entity="unit"
-                        id={unit.id}
-                        name={`Unidad ${unit.number}`}
-                        archived={!!unit.archived_at}
-                        onChanged={fetchUnits}
-                      />
-                    </div>
+                    <div className="flex items-center gap-2">{rowActions(unit)}</div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {modalOpen && (

@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-10 (Cimientos móviles/touch — rama `fix/mobile-usability`).
+> **Última actualización:** 2026-07-10 (Móvil PR 2: tablas operativas → tarjetas — rama `fix/mobile-cards`).
 
 ---
 
@@ -14,6 +14,17 @@ Los 4 PRs del stack ADR-022 (#149 Fase 0, #150 conserje, #151 Fase 1 liquidacion
 **Nota para entornos nuevos / audit de drift:** `20260404_invoices.sql` usa `CREATE TABLE invoices` (sin `IF NOT EXISTS`). En un entorno donde ya exista la tabla, re-correrlo falla — es esperado. El orden canónico de migraciones (20260404 antes de 20260704_02) lo maneja bien en un entorno limpio; prod requirió el rescate manual por el drift histórico. Pendiente sigue el audit completo de drift prod vs `supabase/migrations/` (ver §0 Public Listing).
 
 Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en Vercel o `organizations.settings.conserje_pin`).
+
+---
+
+## 0.-4 · Móvil PR 2 — tablas operativas → tarjetas (2026-07-10, rama `fix/mobile-cards`)
+
+Segundo PR del plan móvil (§0.-3, mergeado como #158). Las 4 tablas operativas que Fran usa desde el teléfono se vuelven **tarjetas bajo `md` (768px)**; la tabla completa sigue intacta en escritorio (`hidden md:block`):
+
+- **/cobros** (11 col): tarjeta por mes con depto + mes + inquilino (link a la cuenta) + badge de status, grid Renta/Agua/Total, vence/confirmó, checkbox de selección masiva (los pendientes) y las MISMAS acciones — extraídas a `rowActions(row)` compartida entre tabla y tarjeta para no duplicar la lógica de estados.
+- **/cobros/[contractId]** (8 col, filas expandibles): componente `MonthCard` — header tocable que expande el `MonthDetail` (abonos + pago directo + borrar en dos pasos) DENTRO de la tarjeta, grid Cargo/Abonado/Saldo, acciones compartidas vía nuevo componente `MonthActions` (usado también por `FragmentRow` de la tabla).
+- **/units** y **/reservations**: mismo patrón (tarjeta con identidad + badges + grid de datos + acciones reutilizando los handlers de la fila; en reservations las acciones icon-only ganan etiqueta de texto en la tarjeta).
+- Sin cambios de lógica/fetches; sin migraciones. Follow-up: mora/gastos/ledger/invoices/reportes/estancias conservan su `overflow-x-auto` como fallback (menos críticas en teléfono) — tarjetas para ellas si Fran las pide.
 
 ---
 

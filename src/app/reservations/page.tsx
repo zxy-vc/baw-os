@@ -331,6 +331,75 @@ export default function ReservationsPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  // Acciones por reservación — compartidas entre la fila de la tabla (desktop)
+  // y la tarjeta (móvil) para no duplicar las condiciones de visibilidad.
+  function rowActions(r: (typeof reservations)[number], variant: 'table' | 'card') {
+    const isCard = variant === 'card'
+    const btnBase = isCard
+      ? 'inline-flex items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-medium transition-colors'
+      : 'p-2.5 sm:p-1.5 rounded-lg transition-colors'
+    return (
+      <>
+        {/* Copy portal link */}
+        {r.guest_token && (
+          <button
+            onClick={() => copyPortalLink(r.guest_token!)}
+            title="Copiar link portal huésped"
+            className={`${btnBase} hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400`}
+          >
+            {copiedId === r.guest_token ? (
+              <Check className="w-4 h-4 text-green-600" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+            {isCard && (copiedId === r.guest_token ? 'Copiado' : 'Copiar portal')}
+          </button>
+        )}
+        {/* Status transitions */}
+        {r.status === 'confirmed' && (
+          <button
+            onClick={() => updateStatus(r.id, 'checked_in')}
+            title="Marcar check-in"
+            className={`${btnBase} hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400`}
+          >
+            <ExternalLink className="w-4 h-4" />
+            {isCard && 'Check-in'}
+          </button>
+        )}
+        {r.status === 'checked_in' && (
+          <button
+            onClick={() => updateStatus(r.id, 'checked_out')}
+            title="Marcar check-out"
+            className={`${btnBase} hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400`}
+          >
+            <ExternalLink className="w-4 h-4" />
+            {isCard && 'Check-out'}
+          </button>
+        )}
+        {r.payment_status !== 'paid' && r.status !== 'cancelled' && (
+          <button
+            onClick={() => markPaid(r.id, r.total_price)}
+            title="Marcar como pagado"
+            className={`${btnBase} hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400`}
+          >
+            <Check className="w-4 h-4" />
+            {isCard && 'Marcar pagado'}
+          </button>
+        )}
+        {r.status !== 'cancelled' && r.status !== 'checked_out' && (
+          <button
+            onClick={() => cancelReservation(r.id)}
+            title="Cancelar"
+            className={`${btnBase} hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400`}
+          >
+            <Ban className="w-4 h-4" />
+            {isCard && 'Cancelar'}
+          </button>
+        )}
+      </>
+    )
+  }
+
   // ─── Filtered list ──────────────────────────────────────────────
   const filteredReservations = useMemo(() => {
     return reservations.filter((r) => {
@@ -764,7 +833,60 @@ export default function ReservationsPage() {
             <p className="mt-2 text-sm text-indigo-400">Usa el formulario de arriba para crear una reservación</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Móvil: tarjetas (la tabla de 8 columnas es ilegible en teléfono) */}
+            <div className="md:hidden space-y-3">
+              {filteredReservations.map((r) => (
+                <div key={r.id} className="card p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-white truncate">{r.guest_name}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {r.unit?.number || '—'}
+                        {r.platform && (
+                          <span className={`ml-2 inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_LABELS[r.platform]?.color || 'bg-gray-100 text-gray-800'}`}>
+                            {PLATFORM_LABELS[r.platform]?.label || r.platform}
+                          </span>
+                        )}
+                      </p>
+                      {r.guest_phone && <p className="text-xs text-gray-400">{r.guest_phone}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[r.status]}`}>
+                        {STATUS_LABELS[r.status]}
+                      </span>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${PAY_STATUS_COLORS[r.payment_status]}`}>
+                        {PAY_STATUS_LABELS[r.payment_status]}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[13px]">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Fechas</p>
+                      <p className="text-gray-700 dark:text-gray-300">{formatDate(r.check_in)}</p>
+                      <p className="text-xs text-gray-400">→ {formatDate(r.check_out)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Noches</p>
+                      <p className="text-gray-700 dark:text-gray-300">{diffDays(r.check_in, r.check_out)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Total</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(r.total_price)}</p>
+                      {r.payment_status === 'partial' && (
+                        <p className="text-xs text-gray-400">{formatCurrency(r.amount_paid)} pagado</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-gray-800/60">
+                    {rowActions(r, 'card')}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop: tabla completa */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
@@ -820,65 +942,14 @@ export default function ReservationsPage() {
                       )}
                     </td>
                     <td className="py-2.5">
-                      <div className="flex items-center gap-1">
-                        {/* Copy portal link */}
-                        {r.guest_token && (
-                          <button
-                            onClick={() => copyPortalLink(r.guest_token!)}
-                            title="Copiar link portal huésped"
-                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 transition-colors"
-                          >
-                            {copiedId === r.guest_token ? (
-                              <Check className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
-                        )}
-                        {/* Status transitions */}
-                        {r.status === 'confirmed' && (
-                          <button
-                            onClick={() => updateStatus(r.id, 'checked_in')}
-                            title="Marcar check-in"
-                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        )}
-                        {r.status === 'checked_in' && (
-                          <button
-                            onClick={() => updateStatus(r.id, 'checked_out')}
-                            title="Marcar check-out"
-                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        )}
-                        {r.payment_status !== 'paid' && r.status !== 'cancelled' && (
-                          <button
-                            onClick={() => markPaid(r.id, r.total_price)}
-                            title="Marcar como pagado"
-                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors"
-                          >
-                            <Check className="w-4 h-4" />
-                          </button>
-                        )}
-                        {r.status !== 'cancelled' && r.status !== 'checked_out' && (
-                          <button
-                            onClick={() => cancelReservation(r.id)}
-                            title="Cancelar"
-                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
-                          >
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
+                      <div className="flex items-center gap-1">{rowActions(r, 'table')}</div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>
