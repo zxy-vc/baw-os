@@ -11,10 +11,13 @@
 import { createServiceClient } from '@/lib/api-auth'
 import { calcMoraSurcharge, getMoraLevelOrder, type MoraLevel } from '@/lib/mora-engine'
 import {
-  sendWhatsAppText,
+  sendWhatsAppTemplate,
   whatsAppConfigured,
   buildReminderMessage,
   buildDunningMessage,
+  buildReminderTemplate,
+  buildDunningTemplate,
+  type WhatsAppTemplateSpec,
 } from '@/lib/whatsapp'
 import type { AgentRunContext, AgentRunResult, AgentRunner } from './types'
 
@@ -199,10 +202,14 @@ export const cobranzaRunner: AgentRunner = {
         }
 
         escalations[worstLevel] = (escalations[worstLevel] || 0) + 1
+        // El texto completo queda solo como preview/auditoría; el envío real
+        // sale por plantilla HSM (Meta rechaza texto libre fuera de la
+        // ventana de 24h — error 131047).
         const message = buildDunningMessage({ name, unit: unitNumber, amount: totalDue, daysPastDue: maxDays, level: worstLevel, portalUrl })
+        const template = buildDunningTemplate({ name, unit: unitNumber, amount: totalDue, daysPastDue: maxDays, level: worstLevel })
         await dispatch({
           ctx, supabase, kind: 'dunning', contract, name, unitNumber,
-          phone, message, canSend, daysPastDue: maxDays, level: worstLevel, totalDue,
+          phone, message, template, canSend, daysPastDue: maxDays, level: worstLevel, totalDue,
           onSent: () => sentCount++,
           onResult: (ok) => (ok ? actionsOk++ : actionsFailed++),
         })
@@ -215,10 +222,11 @@ export const cobranzaRunner: AgentRunner = {
         const daysUntil = -dayDiff(new Date(soonest.due_date), today)
         const amount = paymentAmount(soonest)
         const message = buildReminderMessage({ name, unit: unitNumber, amount, daysUntil, portalUrl })
+        const template = buildReminderTemplate({ name, unit: unitNumber, amount, daysUntil })
         escalations.reminder++
         await dispatch({
           ctx, supabase, kind: 'reminder', contract, name, unitNumber,
-          phone, message, canSend, daysPastDue: -daysUntil, level: 'reminder', totalDue: amount,
+          phone, message, template, canSend, daysPastDue: -daysUntil, level: 'reminder', totalDue: amount,
           onSent: () => sentCount++,
           onResult: (ok) => (ok ? actionsOk++ : actionsFailed++),
         })
@@ -253,7 +261,10 @@ async function dispatch(args: {
   name: string
   unitNumber: string
   phone: string | null
+  /** Texto humano — SOLO para preview/auditoría, no se envía */
   message: string
+  /** Plantilla HSM aprobada — esto es lo que realmente sale por Meta */
+  template: WhatsAppTemplateSpec
   canSend: boolean
   daysPastDue: number
   level: string
@@ -261,12 +272,12 @@ async function dispatch(args: {
   onSent: () => void
   onResult: (ok: boolean) => void
 }): Promise<void> {
-  const { ctx, supabase, kind, contract, name, unitNumber, phone, message, canSend, daysPastDue, level, totalDue } = args
+  const { ctx, supabase, kind, contract, name, unitNumber, phone, message, template, canSend, daysPastDue, level, totalDue } = args
 
   let sent = false
   let sendError: string | undefined
   if (canSend && phone) {
-    const res = await sendWhatsAppText(phone, message)
+    const res = await sendWhatsAppTemplate(phone, template)
     sent = res.ok
     sendError = res.error
     if (sent) args.onSent()

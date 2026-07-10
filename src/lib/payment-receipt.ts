@@ -7,10 +7,10 @@
 
 import { createServiceClient } from '@/lib/api-auth'
 import {
-  sendWhatsAppText,
+  sendWhatsAppTemplate,
   whatsAppConfigured,
   cobranzaWhatsAppEnabled,
-  buildReceiptMessage,
+  buildReceiptTemplate,
 } from '@/lib/whatsapp'
 
 export interface ReceiptResult {
@@ -58,7 +58,9 @@ export async function sendPaymentReceipt(paymentId: string, orgId?: string): Pro
     if (!phone) return { ok: false, reason: 'no_phone' }
 
     const paidAmount = Number(payment.amount_paid ?? payment.amount ?? 0)
-    const message = buildReceiptMessage({
+    // Comprobante = mensaje business-initiated → plantilla HSM aprobada
+    // (texto libre fuera de la ventana de 24h lo rechaza Meta, error 131047).
+    const template = buildReceiptTemplate({
       name: (occupant?.name as string) || 'inquilino',
       unit: (unit?.number as string) || '—',
       amount: paidAmount,
@@ -67,7 +69,7 @@ export async function sendPaymentReceipt(paymentId: string, orgId?: string): Pro
       date: payment.paid_date as string | null,
     })
 
-    const res = await sendWhatsAppText(phone, message)
+    const res = await sendWhatsAppTemplate(phone, template)
     if (!res.ok) return { ok: false, reason: res.error }
 
     await supabase.from('audit_log').insert({
