@@ -1,18 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Receipt, X, Save, Check, FileText, Zap, Pencil } from 'lucide-react'
+import Link from 'next/link'
+import { Receipt, Check, FileText, Zap, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
-import { calcMoraSurcharge } from '@/lib/mora-engine'
-import { mapPaymentMethod, referenceFor, resolveServiceRate, WATER_FEE_DEFAULT, type ServiceRate } from '@/lib/cobros'
+import { resolveServiceRate, WATER_FEE_DEFAULT, type ServiceRate } from '@/lib/cobros'
+import { quickPayMonth } from '@/lib/cobros-actions'
 import { scheduleMonths, computeMonthStatus, rankPayment, type BillingStatus } from '@/lib/billing'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 import InvoiceModal from '@/components/InvoiceModal'
-import PersonPicker, { type PickedPerson } from '@/components/PersonPicker'
+import AbonoModal from '@/components/cobros/AbonoModal'
 import EngagementsPanel from './EngagementsPanel'
 
 interface ContractRow {
@@ -45,16 +46,6 @@ interface PaymentRow {
   confirmed_by: string | null
 }
 
-// Un abono (movimiento de dinero) dentro del cargo de un mes.
-interface ReceiptRow {
-  id: string
-  amount: number
-  paid_date: string
-  method: string | null
-  reference: string | null
-  payerName: string | null
-}
-
 interface BillingRow {
   contract: ContractRow
   payment: PaymentRow | null
@@ -70,10 +61,6 @@ const MONTH_NAMES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'se
 
 function pad2(n: number) {
   return String(n).padStart(2, '0')
-}
-
-function dayDiff(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / 86_400_000)
 }
 
 function methodLabel(method: string | null | undefined): string {
@@ -97,14 +84,6 @@ function monthLabel(month: string): string {
 // scheduleMonths, rankPayment y computeMonthStatus viven en @/lib/billing
 // (fuente única que comparten Cobros, Mission Control y Morosidad).
 
-// Mora sugerida al registrar: respeta una mora ya guardada; si no, la calcula por
-// los días entre el vencimiento y la fecha de pago.
-function suggestedMora(rent: number, dueDate: string, paidDate: string, payment: PaymentRow | null): number {
-  if (payment && payment.late_fee_amount != null) return Number(payment.late_fee_amount)
-  const days = Math.max(0, dayDiff(new Date(`${dueDate}T00:00:00`), new Date(`${paidDate}T00:00:00`)))
-  return calcMoraSurcharge(rent, days).amount
-}
-
 export default function CobrosPage() {
   const toast = useToast()
   const [rows, setRows] = useState<BillingRow[]>([])
@@ -116,23 +95,10 @@ export default function CobrosPage() {
   })
   const { orgId } = useOrgContext()
 
-  // Modal state — payForm cubre el CARGO del mes (renta/agua/mora) + el abono
-  // que se está registrando (amount_paid = monto recibido en ESTE movimiento).
+  // Modal de abonos: aquí solo vive el mes objetivo; el formulario, los
+  // receipts y la escritura viven en <AbonoModal> (compartido con la cuenta
+  // del inquilino /cobros/[contractId]).
   const [payingRow, setPayingRow] = useState<BillingRow | null>(null)
-  const [chargeId, setChargeId] = useState<string | null>(null)
-  const [payForm, setPayForm] = useState({
-    rent_amount: 0,
-    water_fee: WATER_FEE_DEFAULT,
-    late_fee: 0,
-    method: 'Transferencia',
-    reference: '',
-    paid_date: new Date().toISOString().split('T')[0],
-    amount_paid: 0,
-  })
-  const [payer, setPayer] = useState<PickedPerson | null>(null)
-  const [receipts, setReceipts] = useState<ReceiptRow[]>([])
-  const [loadingReceipts, setLoadingReceipts] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [quickId, setQuickId] = useState<string | null>(null)
   const [nameFilter, setNameFilter] = useState('')
   const [fromMonth, setFromMonth] = useState('') // 'YYYY-MM' · '' = sin límite (Todo)
@@ -262,225 +228,16 @@ export default function CobrosPage() {
     })
   }, [])
 
-  function openPayModal(row: BillingRow) {
-    const c = row.contract
-    const today = new Date().toISOString().split('T')[0]
-    const rent = row.payment?.rent_amount ?? c.monthly_amount
-    const water = row.payment?.water_fee ?? row.waterFee
-    const lateFee = suggestedMora(rent, row.dueDate, today, row.payment)
-    const cid = row.payment?.id ?? null
-    const total = rent + water + lateFee
-    const alreadyPaid = Number(row.payment?.amount_paid ?? 0)
-    setPayingRow(row)
-    setChargeId(cid)
-    setPayForm({
-      rent_amount: rent,
-      water_fee: water,
-      late_fee: lateFee,
-      method: 'Transferencia',
-      reference: referenceFor(c.unit?.number, row.month),
-      paid_date: today,
-      amount_paid: Math.max(0, total - alreadyPaid), // sugiere la resta
-    })
-    setPayer(null)
-    setReceipts([])
-    if (cid) loadReceipts(cid)
-  }
-
-  async function loadReceipts(paymentId: string) {
-    setLoadingReceipts(true)
-    const { data } = await supabase
-      .from('payment_receipts')
-      .select('id, amount, paid_date, method, reference, payer:occupants(name)')
-      .eq('payment_id', paymentId)
-      .order('paid_date', { ascending: true })
-    setReceipts(
-      (data ?? []).map((r) => {
-        const payer = Array.isArray(r.payer) ? r.payer[0] : r.payer
-        return {
-          id: r.id,
-          amount: Number(r.amount),
-          paid_date: r.paid_date,
-          method: r.method,
-          reference: r.reference,
-          payerName: (payer as { name: string } | null)?.name ?? null,
-        }
-      }),
-    )
-    setLoadingReceipts(false)
-  }
-
-  // Recalcula la mora sugerida cuando cambia la fecha de pago (días de atraso).
-  function onPaidDateChange(paid_date: string) {
-    if (!payingRow) return
-    const lateFee = suggestedMora(payForm.rent_amount, payingRow.dueDate, paid_date, payingRow.payment)
-    setPayForm((f) => ({ ...f, paid_date, late_fee: lateFee }))
-  }
-
-  // Crea (o actualiza) el CARGO del mes con renta/agua/mora actuales. Devuelve su id.
-  async function ensureCharge(): Promise<string | null> {
-    if (!payingRow) return null
-    const c = payingRow.contract
-    const lateFee = Math.max(0, payForm.late_fee)
-    const daysLate = Math.max(
-      0,
-      dayDiff(new Date(`${payingRow.dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)),
-    )
-    const { level } = calcMoraSurcharge(payForm.rent_amount, daysLate)
-    const charge = {
-      amount: payForm.rent_amount + payForm.water_fee,
-      rent_amount: payForm.rent_amount,
-      water_fee: payForm.water_fee,
-      late_fee_amount: lateFee,
-      late_fee_level: lateFee > 0 ? level : null,
-    }
-    if (chargeId) {
-      await supabase.from('payments').update(charge).eq('id', chargeId)
-      return chargeId
-    }
-    const { data, error } = await supabase
-      .from('payments')
-      .insert({
-        ...charge,
-        org_id: orgId,
-        contract_id: c.id,
-        due_date: payingRow.dueDate,
-        amount_paid: 0,
-        status: 'pending',
-      })
-      .select('id')
-      .single()
-    if (error || !data) return null
-    setChargeId(data.id)
-    return data.id
-  }
-
-  // Recalcula amount_paid + status del cargo en el SERVER a partir de la suma
-  // de sus abonos (POST /api/payments/[id]/recompute — fuente única). El
-  // cálculo ya no vive en el cliente: aunque el browser muera a media
-  // secuencia, reintentar el recompute deja el cargo consistente.
-  async function recomputeCharge(paymentId: string) {
-    const res = await fetch(`/api/payments/${paymentId}/recompute`, { method: 'POST' })
-    if (!res.ok) toast.error('No se pudo recalcular el cargo del mes')
-  }
-
-  // Registra UN abono (movimiento). El mes acumula y deriva su estatus.
-  async function addReceipt() {
-    if (!payingRow || payForm.amount_paid <= 0) return
-    setSaving(true)
-    const cid = await ensureCharge()
-    if (!cid) {
-      setSaving(false)
-      toast.error('No se pudo crear el cargo del mes')
-      return
-    }
-    const c = payingRow.contract
-    const { methodEnum, paymentMethodEs } = mapPaymentMethod(payForm.method)
-    const { error } = await supabase.from('payment_receipts').insert({
-      org_id: orgId,
-      payment_id: cid,
-      contract_id: c.id,
-      amount: payForm.amount_paid,
-      paid_date: payForm.paid_date,
-      method: methodEnum,
-      payment_method: paymentMethodEs,
-      reference: payForm.reference || null,
-      payer_occupant_id: payer?.id ?? null,
-      confirmed_by: confirmedBy,
-    })
-    if (error) {
-      setSaving(false)
-      toast.error(`No se pudo registrar el abono: ${error.message}`)
-      return
-    }
-    await recomputeCharge(cid)
-    // Bitácora inmutable (auditoría): un asiento por abono.
-    await supabase.from('payment_ledger').insert({
-      org_id: orgId,
-      payment_id: cid,
-      contract_id: c.id,
-      unit_id: c.unit_id,
-      tenant_name: c.occupant?.name || null,
-      amount: payForm.rent_amount,
-      water_fee: payForm.water_fee,
-      total: payForm.amount_paid,
-      payment_method: paymentMethodEs,
-      confirmed_by: confirmedBy,
-      notes: payForm.reference || null,
-    })
-    await loadReceipts(cid)
-    // Prepara el siguiente abono: limpia monto/quién/referencia.
-    setPayer(null)
-    setPayForm((f) => ({ ...f, amount_paid: 0, reference: '' }))
-    setSaving(false)
-    toast.success('Abono registrado')
-    fetchBilling()
-  }
-
-  // Núcleo del pago rápido: marca el mes pagado completo (renta + agua, sin mora,
-  // fecha = vencimiento, ref "histórico"). SIN refrescar ni toast — para poder
-  // encadenarlo en lote. Devuelve true si quedó.
-  async function quickPayCore(row: BillingRow): Promise<boolean> {
-    const c = row.contract
-    const rent = row.payment?.rent_amount ?? c.monthly_amount
-    const water = row.payment?.water_fee ?? row.waterFee
-    const charge = {
-      amount: rent + water,
-      rent_amount: rent,
-      water_fee: water,
-      late_fee_amount: 0,
-      late_fee_level: null,
-    }
-    let cid = row.payment?.id ?? null
-    if (cid) {
-      await supabase.from('payments').update(charge).eq('id', cid)
-    } else {
-      const { data, error } = await supabase
-        .from('payments')
-        .insert({ ...charge, org_id: orgId, contract_id: c.id, due_date: row.dueDate, amount_paid: 0, status: 'pending' })
-        .select('id')
-        .single()
-      if (error || !data) return false
-      cid = data.id
-    }
-    const { methodEnum, paymentMethodEs } = mapPaymentMethod('Transferencia')
-    const { error } = await supabase.from('payment_receipts').insert({
-      org_id: orgId,
-      payment_id: cid,
-      contract_id: c.id,
-      amount: rent + water,
-      paid_date: row.dueDate,
-      method: methodEnum,
-      payment_method: paymentMethodEs,
-      reference: 'Histórico (pago rápido)',
-      payer_occupant_id: null,
-      confirmed_by: confirmedBy,
-    })
-    if (error) return false
-    await recomputeCharge(cid as string)
-    await supabase.from('payment_ledger').insert({
-      org_id: orgId,
-      payment_id: cid,
-      contract_id: c.id,
-      unit_id: c.unit_id,
-      tenant_name: c.occupant?.name || null,
-      amount: rent,
-      water_fee: water,
-      total: rent + water,
-      payment_method: paymentMethodEs,
-      confirmed_by: confirmedBy,
-      notes: 'Pago rápido (histórico)',
-    })
-    return true
-  }
-
   // Pago rápido de un solo mes (con refresco y toast).
   async function quickPay(row: BillingRow) {
     const key = `${row.contract.id}|${row.month}`
     setQuickId(key)
-    const ok = await quickPayCore(row)
+    const res = orgId
+      ? await quickPayMonth(orgId, row, confirmedBy)
+      : { ok: false, recomputeOk: true }
     setQuickId(null)
-    if (ok) {
+    if (res.ok) {
+      if (!res.recomputeOk) toast.error('No se pudo recalcular el cargo del mes')
       toast.success('Mes marcado pagado')
       fetchBilling()
     } else {
@@ -497,23 +254,11 @@ export default function CobrosPage() {
     setBulkRunning(true)
     let ok = 0
     for (const row of targets) {
-      if (await quickPayCore(row)) ok++
+      if (orgId && (await quickPayMonth(orgId, row, confirmedBy)).ok) ok++
     }
     setBulkRunning(false)
     setSelected(new Set())
     toast.success(`${ok} mes(es) marcados pagados`)
-    fetchBilling()
-  }
-
-  async function removeReceipt(id: string) {
-    if (!chargeId) return
-    const { error } = await supabase.from('payment_receipts').delete().eq('id', id)
-    if (error) {
-      toast.error('No se pudo eliminar el abono')
-      return
-    }
-    await recomputeCharge(chargeId)
-    await loadReceipts(chargeId)
     fetchBilling()
   }
 
@@ -631,14 +376,6 @@ export default function CobrosPage() {
     }
   }
   const sortArrow = (key: typeof sortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '')
-
-  // Días de atraso del pago que se está registrando (para el hint de mora).
-  const modalDaysLate = payingRow
-    ? Math.max(0, dayDiff(new Date(`${payingRow.dueDate}T00:00:00`), new Date(`${payForm.paid_date}T00:00:00`)))
-    : 0
-  const chargeTotal = payForm.rent_amount + payForm.water_fee + payForm.late_fee
-  const totalReceipts = receipts.reduce((s, r) => s + r.amount, 0)
-  const remainingDue = Math.max(0, chargeTotal - totalReceipts)
 
   return (
     <div className="space-y-6">
@@ -874,8 +611,14 @@ export default function CobrosPage() {
                     <td className="px-4 py-3 text-gray-700 dark:text-gray-300 capitalize whitespace-nowrap">
                       {monthLabel(row.month)}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      {row.contract.occupant?.name || 'Sin inquilino'}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Link
+                        href={`/cobros/${row.contract.id}`}
+                        className="text-gray-700 dark:text-gray-300 hover:underline"
+                        title="Abrir cuenta del inquilino"
+                      >
+                        {row.contract.occupant?.name || 'Sin inquilino'}
+                      </Link>
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(rentAmt)}</td>
                     <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(waterFee)}</td>
@@ -892,7 +635,7 @@ export default function CobrosPage() {
                         {row.status !== 'pagado' ? (
                           <>
                             <button
-                              onClick={() => openPayModal(row)}
+                              onClick={() => setPayingRow(row)}
                               className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
                             >
                               <Check className="w-3 h-3" />
@@ -928,7 +671,7 @@ export default function CobrosPage() {
                               </button>
                             )}
                             <button
-                              onClick={() => openPayModal(row)}
+                              onClick={() => setPayingRow(row)}
                               title="Ver / editar abonos de este mes"
                               className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
                             >
@@ -937,16 +680,14 @@ export default function CobrosPage() {
                             </button>
                           </div>
                         )}
-                        <a
-                          href={`/api/contracts/${row.contract.id}/estado-cuenta?periodo=${row.month}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <Link
+                          href={`/cobros/${row.contract.id}`}
                           className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
-                          title="Estado de cuenta (PDF)"
+                          title="Cuenta del inquilino (estado de cuenta editable + PDF)"
                         >
                           <Receipt className="w-3 h-3" />
-                          Estado
-                        </a>
+                          Cuenta
+                        </Link>
                       </div>
                     </td>
                   </tr>
@@ -969,194 +710,17 @@ export default function CobrosPage() {
         />
       )}
 
-      {/* Pay Modal */}
+      {/* Pay Modal (compartido con /cobros/[contractId]) */}
       {payingRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setPayingRow(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-              Registrar pago — {payingRow.contract.unit?.number || ''}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {payingRow.contract.occupant?.name || 'Sin inquilino'} ·{' '}
-              <span className="capitalize">{monthLabel(payingRow.month)}</span> · vence {payingRow.dueDate}
-            </p>
-            <div className="space-y-4">
-              {/* ── Cargo del mes (renta + agua + mora) ── */}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cargo del mes</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta</label>
-                  <input
-                    type="number"
-                    value={payForm.rent_amount}
-                    onChange={(e) => setPayForm((f) => ({ ...f, rent_amount: Number(e.target.value) }))}
-                    className="input-field w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
-                  <input
-                    type="number"
-                    value={payForm.water_fee}
-                    onChange={(e) => setPayForm((f) => ({ ...f, water_fee: Number(e.target.value) }))}
-                    className="input-field w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
-                  Mora{' '}
-                  <span className="text-xs text-gray-400">
-                    ({modalDaysLate} día{modalDaysLate === 1 ? '' : 's'} de atraso · editable)
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  value={payForm.late_fee}
-                  onChange={(e) => setPayForm((f) => ({ ...f, late_fee: Number(e.target.value) }))}
-                  className="input-field w-full"
-                />
-                <p className="text-xs text-gray-400 mt-1">Ponlo en 0 para condonarlo.</p>
-              </div>
-              <div className="flex justify-between border-t border-gray-100 dark:border-gray-800 pt-2 text-sm">
-                <span className="text-gray-500 dark:text-gray-400">Total del mes</span>
-                <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(chargeTotal)}</span>
-              </div>
-
-              {/* ── Abonos ya registrados ── */}
-              {(loadingReceipts || receipts.length > 0) && (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-2.5">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                    Abonos registrados
-                  </p>
-                  {loadingReceipts ? (
-                    <p className="text-xs text-gray-400">Cargando…</p>
-                  ) : (
-                    <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {receipts.map((r) => (
-                        <li key={r.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
-                          <div className="min-w-0">
-                            <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(r.amount)}</span>
-                            <span className="text-xs text-gray-400">
-                              {' · '}
-                              {r.paid_date}
-                              {r.payerName ? ` · ${r.payerName}` : ''}
-                              {r.reference ? ` · ${r.reference}` : ''}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => removeReceipt(r.id)}
-                            title="Eliminar abono"
-                            className="shrink-0 p-2 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="flex justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5 mt-1 text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">Abonado</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(totalReceipts)} · resta {formatCurrency(remainingDue)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Nuevo abono (un movimiento) ── */}
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Nuevo abono</p>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto recibido</label>
-                <input
-                  type="number"
-                  value={payForm.amount_paid}
-                  onChange={(e) => setPayForm((f) => ({ ...f, amount_paid: Number(e.target.value) }))}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Pagó (quién)</label>
-                <PersonPicker
-                  orgId={orgId}
-                  value={payer}
-                  onChange={setPayer}
-                  newType="both"
-                  placeholder="Buscar quién pagó (opcional)…"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Método</label>
-                  <select
-                    value={payForm.method}
-                    onChange={(e) => setPayForm((f) => ({ ...f, method: e.target.value }))}
-                    className="input-field w-full"
-                  >
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Deposito">Depósito</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Fecha de pago</label>
-                  <input
-                    type="date"
-                    value={payForm.paid_date}
-                    onChange={(e) => onPaidDateChange(e.target.value)}
-                    className="input-field w-full"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Referencia / comprobante</label>
-                <input
-                  type="text"
-                  value={payForm.reference}
-                  onChange={(e) => setPayForm((f) => ({ ...f, reference: e.target.value }))}
-                  className="input-field w-full"
-                  placeholder="Ej. SPEI 00169, Foto 00071…"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Confirmado por</label>
-                <select
-                  value={confirmedBy}
-                  onChange={(e) => setConfirmedBy(e.target.value)}
-                  className="input-field w-full"
-                >
-                  {userLabel && <option value={userLabel}>{userLabel} (tú)</option>}
-                  <option value="alicia">Alicia</option>
-                  <option value="enrique">Enrique</option>
-                  <option value="fran">Fran</option>
-                  <option value="system">Sistema</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setPayingRow(null)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
-                >
-                  Cerrar
-                </button>
-                <button
-                  onClick={addReceipt}
-                  disabled={saving || payForm.amount_paid <= 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  Guardar abono
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AbonoModal
+          orgId={orgId}
+          target={payingRow}
+          confirmedBy={confirmedBy}
+          userLabel={userLabel}
+          onConfirmedByChange={setConfirmedBy}
+          onClose={() => setPayingRow(null)}
+          onChanged={fetchBilling}
+        />
       )}
     </div>
   )

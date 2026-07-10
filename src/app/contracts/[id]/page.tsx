@@ -24,7 +24,6 @@ export default function ContractDetailPage() {
   const [loading, setLoading] = useState(true)
   const [deleteOccupantTarget, setDeleteOccupantTarget] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [markingPaid, setMarkingPaid] = useState<string | null>(null)
   const [driveFolderUrl, setDriveFolderUrl] = useState('')
   const [savingDrive, setSavingDrive] = useState(false)
   const [togglingPortal, setTogglingPortal] = useState(false)
@@ -126,26 +125,6 @@ export default function ContractDetailPage() {
     setDeleteOccupantTarget(false)
     setSaving(false)
     router.push('/contracts')
-  }
-
-  async function handleMarkPaid(payment: Payment) {
-    setMarkingPaid(payment.id)
-    const today = new Date().toISOString().split('T')[0]
-    const { error } = await supabase
-      .from('payments')
-      .update({
-        status: 'paid',
-        amount_paid: payment.amount,
-        paid_date: today,
-      })
-      .eq('id', payment.id)
-    setMarkingPaid(null)
-    if (error) {
-      toast.error('Error al guardar — intenta de nuevo')
-    } else {
-      toast.success('Pago registrado correctamente')
-    }
-    fetchData()
   }
 
   async function handleTogglePortal() {
@@ -498,6 +477,14 @@ export default function ContractDetailPage() {
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Historial de pagos
           </h3>
+          <Link
+            href={`/cobros/${contract.id}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-xs font-medium transition-colors"
+            title="Cuenta del inquilino: registrar abonos, ver saldo y estado de cuenta"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Ver cuenta / registrar pago
+          </Link>
           <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
             <span>
               Cobrado: <span className="text-emerald-400 font-medium">{formatCurrency(totalPaid)}</span>
@@ -510,7 +497,7 @@ export default function ContractDetailPage() {
         {payments.length === 0 ? (
           <p className="text-gray-400 dark:text-gray-500 text-sm">
             No hay pagos registrados para este contrato.{' '}
-            <Link href="/cobros" className="text-indigo-400 hover:text-indigo-300">
+            <Link href={`/cobros/${contract.id}`} className="text-indigo-400 hover:text-indigo-300">
               Registrar pago
             </Link>
           </p>
@@ -551,14 +538,13 @@ export default function ContractDetailPage() {
                   </td>
                   <td className="py-2">
                     {(p.status === 'pending' || p.status === 'late') && (
-                      <button
-                        onClick={() => handleMarkPaid(p)}
-                        disabled={markingPaid === p.id}
-                        title="Marcar como pagado"
-                        className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors disabled:opacity-50"
+                      <Link
+                        href={`/cobros/${contract.id}`}
+                        title="Registrar pago en la cuenta del inquilino (abonos + bitácora)"
+                        className="inline-flex p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors"
                       >
                         <Check className="w-4 h-4" />
-                      </button>
+                      </Link>
                     )}
                   </td>
                 </tr>

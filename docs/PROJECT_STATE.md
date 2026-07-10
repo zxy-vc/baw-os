@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-09 (WhatsApp proactivo migrado a plantillas HSM; antes: ADR-022 Fases 0-2 aplicadas a prod).
+> **Última actualización:** 2026-07-09 (Cuenta del inquilino `/cobros/[contractId]`; mismo día: WhatsApp a plantillas HSM).
 
 ---
 
@@ -14,6 +14,17 @@ Los 4 PRs del stack ADR-022 (#149 Fase 0, #150 conserje, #151 Fase 1 liquidacion
 **Nota para entornos nuevos / audit de drift:** `20260404_invoices.sql` usa `CREATE TABLE invoices` (sin `IF NOT EXISTS`). En un entorno donde ya exista la tabla, re-correrlo falla — es esperado. El orden canónico de migraciones (20260404 antes de 20260704_02) lo maneja bien en un entorno limpio; prod requirió el rescate manual por el drift histórico. Pendiente sigue el audit completo de drift prod vs `supabase/migrations/` (ver §0 Public Listing).
 
 Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en Vercel o `organizations.settings.conserje_pin`).
+
+---
+
+## 0.-2 · Cuenta del inquilino (2026-07-09, rama `feat/cuenta-inquilino`, pedida por Fran en chat)
+
+**Nueva página `/cobros/[contractId]`** — gestión financiera operativa por inquilino/contrato en una sola pantalla: calendario completo de cargos proyectado con `@/lib/billing` (misma fuente única que /cobros/dashboard/morosidad), vencimientos por mes y "próximo vencimiento", saldo pendiente hoy (Σ `owed`), mora activa, abonos totales/parciales con fecha/método/referencia/pagador≠inquilino, historial de abonos expandible por mes (con quién pagó y quién confirmó), pago rápido, factura CFDI, **comprobante WhatsApp por mes pagado** (`POST /api/payments/[id]/receipt`) y **PDF de estado de cuenta por periodo** (selector + por fila).
+
+- **Refactor anti-duplicación (AGENTS.md §1.3):** el modal "Registrar pago" de /cobros se extrajo LITERAL a `src/components/cobros/AbonoModal.tsx` y el pago rápido + recompute a `src/lib/cobros-actions.ts` (`quickPayMonth`, `recomputeCharge`); /cobros pasó de 1163 → 724 líneas usando ambos. El pipeline de escritura no cambia: cargo `payments` + abonos `payment_receipts` + asiento `payment_ledger` + recompute server-side.
+- **Navegación:** en /cobros el link "Estado" (que abría el PDF) ahora es "Cuenta" → `/cobros/[contractId]` (el PDF vive dentro de la cuenta, global y por mes); el nombre del inquilino también linkea. Sin cambios a `SIDEBAR_SECTIONS` (la ruta cae bajo el prefijo `/cobros`).
+- **Consistencia:** `/contracts/[id]` perdió su "Marcar como pagado" (update directo a `payments` sin abonos/bitácora/recompute — el modelo viejo que ADR-022 D1 retiró de /payments/new); ahora linkea a la cuenta del inquilino.
+- Sin migraciones.
 
 ---
 
