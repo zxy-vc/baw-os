@@ -29,7 +29,17 @@ export const metadata: Metadata = {
   title: 'BaW OS',
   description: 'Property Management System — Built by ZXY Ventures',
   icons: {
-    icon: '/favicon.svg',
+    // iOS ignora favicons SVG al crear el acceso directo de pantalla de
+    // inicio: sin apple-touch-icon PNG pinta una letra genérica. Los PNG
+    // salen de public/baw-mark.svg (blanco sobre #0a0a0a).
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    title: 'BaW OS',
   },
 }
 
