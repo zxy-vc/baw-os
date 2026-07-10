@@ -675,23 +675,7 @@ function FragmentRow({
         <tr className="border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/60 dark:bg-gray-900/40">
           <td />
           <td colSpan={7} className="px-4 py-3">
-            {row.receipts.length === 0 ? (
-              <p className="text-xs text-gray-400">Sin abonos registrados en este mes.</p>
-            ) : (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                {row.receipts.map((r) => (
-                  <li key={r.id} className="py-1.5 text-sm flex flex-wrap items-center gap-x-2">
-                    <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(r.amount)}</span>
-                    <span className="text-xs text-gray-400">
-                      {r.paid_date} · {methodLabel(r.method)}
-                      {r.payerName ? ` · pagó ${r.payerName}` : ''}
-                      {r.reference ? ` · ${r.reference}` : ''}
-                      {r.confirmed_by ? ` · confirmó ${r.confirmed_by}` : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <MonthDetail row={row} paid={paid} />
             {row.payment?.late_fee_amount ? (
               <p className="text-xs text-gray-400 mt-2">
                 Mora registrada en el cargo: {formatCurrency(Number(row.payment.late_fee_amount))}
@@ -700,6 +684,60 @@ function FragmentRow({
             ) : null}
           </td>
         </tr>
+      )}
+    </>
+  )
+}
+
+// Detalle expandido del mes: abonos del libro (payment_receipts) + el "pago
+// directo" cuando hay dinero registrado en el cargo SIN abonos que lo
+// desglosen — pagos anteriores al libro de abonos (PR #131, jun 2026), Stripe
+// y conserje marcan `payments` directo. Ese dinero es real y debe verse con
+// su fecha/método/referencia/confirmó, que viven en la fila del cargo.
+function MonthDetail({ row, paid }: { row: MonthRow; paid: number }) {
+  const receiptsSum = row.receipts.reduce((s, r) => s + r.amount, 0)
+  const directPaid = Math.max(0, paid - receiptsSum)
+  const p = row.payment
+  const hasDirect = directPaid > 0.005 && p
+
+  if (row.receipts.length === 0 && !hasDirect) {
+    return <p className="text-xs text-gray-400">Sin abonos registrados en este mes.</p>
+  }
+
+  return (
+    <>
+      {row.receipts.length > 0 && (
+        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+          {row.receipts.map((r) => (
+            <li key={r.id} className="py-1.5 text-sm flex flex-wrap items-center gap-x-2">
+              <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(r.amount)}</span>
+              <span className="text-xs text-gray-400">
+                {r.paid_date} · {methodLabel(r.method)}
+                {r.payerName ? ` · pagó ${r.payerName}` : ''}
+                {r.reference ? ` · ${r.reference}` : ''}
+                {r.confirmed_by ? ` · confirmó ${r.confirmed_by}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {hasDirect && (
+        <div className={row.receipts.length > 0 ? 'mt-2 pt-2 border-t border-gray-100 dark:border-gray-800' : ''}>
+          <p className="py-1 text-sm flex flex-wrap items-center gap-x-2">
+            <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(directPaid)}</span>
+            <span className="text-xs text-gray-400">
+              {p!.paid_date || 'sin fecha'} · {methodLabel(p!.method)}
+              {p!.reference ? ` · ${p!.reference}` : ''}
+              {p!.confirmed_by ? ` · confirmó ${p!.confirmed_by}` : ''}
+            </span>
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20">
+              pago directo en el cargo
+            </span>
+          </p>
+          <p className="text-[11px] text-gray-400">
+            Registrado sin desglose de abonos (histórico anterior al libro de abonos, Stripe o conserje).
+          </p>
+        </div>
       )}
     </>
   )
