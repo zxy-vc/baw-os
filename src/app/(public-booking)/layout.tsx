@@ -64,7 +64,7 @@ export default function PublicBookingLayout({
       data-pb-root
       className={`${outfit.variable} ${plexMono.variable}`}
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--bg)',

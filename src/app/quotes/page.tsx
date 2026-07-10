@@ -296,7 +296,7 @@ export default function QuotesPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Modalidad
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(['LTR', 'STR', 'Corporativo'] as Modality[]).map((m) => (
                     <button
                       key={m}

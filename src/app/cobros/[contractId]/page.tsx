@@ -658,7 +658,7 @@ function FragmentRow({
               <>
                 <button
                   onClick={onPay}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+                  className="inline-flex items-center gap-1 px-3 py-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
                 >
                   <Check className="w-3 h-3" />
                   Registrar pago
@@ -667,7 +667,7 @@ function FragmentRow({
                   onClick={onQuick}
                   disabled={quickBusy}
                   title="Marcar el mes pagado completo (renta + agua, sin mora)"
-                  className="inline-flex items-center gap-1 px-2 py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   <Zap className="w-3 h-3" />
                   Rápido
@@ -680,7 +680,7 @@ function FragmentRow({
                   <>
                     <button
                       onClick={onInvoice}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
                       title="Generar factura CFDI"
                     >
                       <FileText className="w-3 h-3" />
@@ -689,7 +689,7 @@ function FragmentRow({
                     <button
                       onClick={onReceipt}
                       disabled={receiptBusy}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-emerald-500 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                      className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-emerald-500 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
                       title="Enviar comprobante por WhatsApp"
                     >
                       <MessageCircle className="w-3 h-3" />
@@ -700,7 +700,7 @@ function FragmentRow({
                 <button
                   onClick={onPay}
                   title="Ver / editar abonos de este mes"
-                  className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                  className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
                   Editar
@@ -711,7 +711,7 @@ function FragmentRow({
               href={`/api/contracts/${contractId}/estado-cuenta?periodo=${row.month}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
               title="PDF del estado de cuenta a este periodo"
             >
               <Receipt className="w-3 h-3" />

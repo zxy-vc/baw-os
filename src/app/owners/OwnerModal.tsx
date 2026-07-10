@@ -35,8 +35,8 @@ export default function OwnerModal({ owner, onSave, onDelete, onClose }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 rounded-xl w-full max-w-lg mx-4">
+    <div className="modal-wrap">
+      <div className="modal-panel bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 w-full max-w-lg">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {owner ? 'Editar propietario' : 'Nuevo propietario'}
@@ -81,6 +81,7 @@ export default function OwnerModal({ owner, onSave, onDelete, onClose }: Props) 
               </label>
               <input
                 type="tel"
+                inputMode="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="input-field"

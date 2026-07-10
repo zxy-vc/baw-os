@@ -39,11 +39,12 @@ export default function ConfirmModal({
       : 'bg-indigo-600 hover:bg-indigo-700 text-white'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+    <div className="modal-wrap" onClick={onClose}>
       {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+      <div
+        className="modal-panel relative bg-white dark:bg-gray-800 shadow-xl max-w-md w-full p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{description}</p>
         <div className="mt-6 flex justify-end gap-3">

@@ -277,8 +277,8 @@ export default function MaintenancePage() {
 
       {/* Delete Confirmation */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar incidencia</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               ¿Eliminar <strong className="text-gray-900 dark:text-white">{deleteTarget.title}</strong>? Esta acción no se puede deshacer.

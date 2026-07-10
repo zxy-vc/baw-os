@@ -399,7 +399,7 @@ export default function TenantPortalPage() {
                     <button
                       onClick={() => handleStripePay(p)}
                       disabled={payingId === p.id}
-                      className="mt-2 w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs rounded-lg px-3 py-2 transition-all duration-200 flex items-center justify-center gap-2"
+                      className="mt-2 w-full min-h-[44px] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg px-3 py-2.5 transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       {payingId === p.id ? (
                         <>

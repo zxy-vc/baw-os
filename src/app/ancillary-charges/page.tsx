@@ -344,8 +344,8 @@ export default function AncillaryChargesPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4 relative max-h-[90vh] overflow-y-auto">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-lg relative">
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -410,6 +410,7 @@ export default function AncillaryChargesPage() {
                   <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto c/u</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
                     className="input-field w-full"
@@ -507,8 +508,8 @@ export default function AncillaryChargesPage() {
 
       {/* Delete Confirmation */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar cargo</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               ¿Eliminar el cargo de <strong className="text-gray-900 dark:text-white">{formatCurrency(Number(deleteTarget.amount))}</strong> ({KIND_LABELS[deleteTarget.kind]})? Esta acción no se puede deshacer.

@@ -54,8 +54,8 @@ export default function StakeModal({
 
   if (buildings.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 rounded-xl w-full max-w-md mx-4 p-6">
+      <div className="modal-wrap">
+        <div className="modal-panel bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Sin edificios disponibles
@@ -81,8 +81,8 @@ export default function StakeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 rounded-xl w-full max-w-lg mx-4">
+    <div className="modal-wrap">
+      <div className="modal-panel bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 w-full max-w-lg">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {stake ? 'Editar propiedad' : 'Asignar edificio'}
@@ -131,6 +131,7 @@ export default function StakeModal({
             <div className="flex items-center gap-2">
               <input
                 type="number"
+                inputMode="decimal"
                 required
                 step="0.01"
                 min="0.01"

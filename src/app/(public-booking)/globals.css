@@ -223,3 +223,14 @@ html[data-brand='809'] .pb-skeleton {
   animation: pb-shimmer 1.6s ease-in-out infinite;
   border-radius: var(--r-2);
 }
+
+
+/* iOS auto-zoom: piso de 16px en móvil para los campos del wizard de reserva
+   (mismo criterio que la app interna). */
+@media (max-width: 767px) {
+  html[data-brand='809'] .pb-input,
+  html[data-brand='809'] select.pb-input,
+  html[data-brand='809'] textarea.pb-input {
+    font-size: 16px !important;
+  }
+}

@@ -38,6 +38,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // 'cover' expone env(safe-area-inset-*) en iPhone (sin esto valen 0 y
+  // todas las utilidades safe-area-* son no-op). Los elementos fijos del
+  // chrome (header, hamburguesa, bottom bars, dock) ya compensan sus insets.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

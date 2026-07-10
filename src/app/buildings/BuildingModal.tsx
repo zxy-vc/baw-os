@@ -53,8 +53,8 @@ export default function BuildingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 rounded-xl w-full max-w-lg mx-4">
+    <div className="modal-wrap">
+      <div className="modal-panel bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800 w-full max-w-lg">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {building ? 'Editar edificio' : 'Nuevo edificio'}

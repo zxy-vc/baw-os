@@ -636,7 +636,7 @@ export default function CobrosPage() {
                           <>
                             <button
                               onClick={() => setPayingRow(row)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+                              className="inline-flex items-center gap-1 px-3 py-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
                             >
                               <Check className="w-3 h-3" />
                               Registrar pago
@@ -645,7 +645,7 @@ export default function CobrosPage() {
                               onClick={() => quickPay(row)}
                               disabled={quickId === `${row.contract.id}|${row.month}`}
                               title="Marcar el mes pagado completo (renta + agua, sin mora)"
-                              className="inline-flex items-center gap-1 px-2 py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                             >
                               <Zap className="w-3 h-3" />
                               Rápido
@@ -663,7 +663,7 @@ export default function CobrosPage() {
                             {row.payment && (
                               <button
                                 onClick={() => setInvoicingRow(row)}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
+                                className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
                                 title="Generar factura CFDI"
                               >
                                 <FileText className="w-3 h-3" />
@@ -673,7 +673,7 @@ export default function CobrosPage() {
                             <button
                               onClick={() => setPayingRow(row)}
                               title="Ver / editar abonos de este mes"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
                             >
                               <Pencil className="w-3 h-3" />
                               Editar
@@ -682,7 +682,7 @@ export default function CobrosPage() {
                         )}
                         <Link
                           href={`/cobros/${row.contract.id}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
                           title="Cuenta del inquilino (estado de cuenta editable + PDF)"
                         >
                           <Receipt className="w-3 h-3" />

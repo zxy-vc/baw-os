@@ -372,8 +372,8 @@ export default function LedgerPage() {
 
       {/* Modal — Registrar cobro */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4 relative">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md relative">
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -405,6 +405,7 @@ export default function LedgerPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto renta</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })}
                   className="input-field w-full"
@@ -416,6 +417,7 @@ export default function LedgerPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={form.water_fee}
                   onChange={(e) => setForm({ ...form, water_fee: Number(e.target.value) })}
                   className="input-field w-full"

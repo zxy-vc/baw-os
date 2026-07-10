@@ -440,8 +440,8 @@ export default function ContractsPage() {
 
       {/* Edit Modal */}
       {editingContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4 relative">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-lg relative">
             <button
               onClick={() => setEditingContract(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -456,6 +456,7 @@ export default function ContractsPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta mensual</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={editForm.monthly_amount}
                   onChange={(e) => setEditForm({ ...editForm, monthly_amount: Number(e.target.value) })}
                   className="input-field w-full"
@@ -608,8 +609,8 @@ export default function ContractsPage() {
 
       {/* Renew Modal */}
       {renewTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4 relative max-h-[90vh] overflow-y-auto">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-lg relative">
             <button
               onClick={() => setRenewTarget(null)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -627,6 +628,7 @@ export default function ContractsPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta mensual</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={renewForm.monthly_amount}
                   onChange={(e) => setRenewForm({ ...renewForm, monthly_amount: Number(e.target.value) })}
                   className="input-field w-full"
@@ -665,6 +667,7 @@ export default function ContractsPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Depósito</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={renewForm.deposit_amount}
                   onChange={(e) => setRenewForm({ ...renewForm, deposit_amount: Number(e.target.value) })}
                   className="input-field w-full"

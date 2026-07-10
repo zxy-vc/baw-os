@@ -199,7 +199,7 @@ export default function TasksPage() {
                         {col.key === 'pending' && (
                           <button
                             onClick={() => moveTask(task.id, 'in_progress')}
-                            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                            className="min-h-[44px] sm:min-h-0 text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
                           >
                             <ArrowRight className="w-3 h-3" /> En proceso
                           </button>
@@ -207,7 +207,7 @@ export default function TasksPage() {
                         {col.key === 'in_progress' && (
                           <button
                             onClick={() => moveTask(task.id, 'done')}
-                            className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                            className="min-h-[44px] sm:min-h-0 text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                           >
                             <ArrowRight className="w-3 h-3" /> Hecho
                           </button>
@@ -215,7 +215,7 @@ export default function TasksPage() {
                         {col.key === 'done' && (
                           <button
                             onClick={() => moveTask(task.id, 'pending')}
-                            className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                            className="min-h-[44px] sm:min-h-0 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
                           >
                             <ArrowRight className="w-3 h-3" /> Reabrir
                           </button>
@@ -232,8 +232,8 @@ export default function TasksPage() {
 
       {/* New task modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="card w-full max-w-md mx-4 p-6 space-y-4">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold section-title">
                 Nueva tarea

@@ -190,7 +190,7 @@ export default function MoraPage() {
 
       {/* Total amount */}
       <div className="card">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Monto total vencido</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(totalAmount)}</p>
