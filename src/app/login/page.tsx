@@ -118,7 +118,7 @@ function LoginForm() {
     window.location.href = safeNext
   }
 
-  const subtitle = role === 'owner' ? 'Portal Propietario' : 'Property Management'
+  const subtitle = role === 'owner' ? 'Portal Propietario' : 'Building Always Working'
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[--baw-bg]">
