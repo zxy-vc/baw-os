@@ -516,8 +516,38 @@ export default function CuentaInquilinoPage() {
         </div>
       </div>
 
-      {/* Calendario de cargos */}
-      <div className="card overflow-hidden p-0">
+      {/* Calendario de cargos — móvil: tarjetas expandibles */}
+      <div className="md:hidden space-y-3">
+        {rows.map((row) => {
+          const base = row.payment?.amount ?? contract.monthly_amount + row.waterFee
+          const fee = row.status === 'mora' ? row.moraAmount : Number(row.payment?.late_fee_amount || 0)
+          const paid = Number(row.payment?.amount_paid || 0)
+          const isOpen = expanded === row.month
+          return (
+            <MonthCard
+              key={row.month}
+              row={row}
+              base={base}
+              fee={fee}
+              paid={paid}
+              isOpen={isOpen}
+              quickBusy={quickMonth === row.month}
+              receiptBusy={sendingReceipt === row.month}
+              onToggle={() => setExpanded(isOpen ? null : row.month)}
+              onPay={() => setPayingRow(row)}
+              onQuick={() => quickPay(row)}
+              onInvoice={() => setInvoicingRow(row)}
+              onReceipt={() => sendReceipt(row)}
+              onDeleteReceipt={deleteReceipt}
+              onClearDirect={() => clearDirectPayment(row)}
+              contractId={contract.id}
+            />
+          )
+        })}
+      </div>
+
+      {/* Calendario de cargos — desktop: tabla */}
+      <div className="hidden md:block card overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -654,69 +684,16 @@ function FragmentRow({
         <td className="px-4 py-3 text-center">{statusBadge(row.status, row.moraAmount, row.remaining)}</td>
         <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-center gap-2">
-            {row.status !== 'pagado' ? (
-              <>
-                <button
-                  onClick={onPay}
-                  className="inline-flex items-center gap-1 px-3 py-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
-                >
-                  <Check className="w-3 h-3" />
-                  Registrar pago
-                </button>
-                <button
-                  onClick={onQuick}
-                  disabled={quickBusy}
-                  title="Marcar el mes pagado completo (renta + agua, sin mora)"
-                  className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                >
-                  <Zap className="w-3 h-3" />
-                  Rápido
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-xs text-gray-400 dark:text-gray-500">{methodLabel(row.payment?.method)}</span>
-                {row.payment && (
-                  <>
-                    <button
-                      onClick={onInvoice}
-                      className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
-                      title="Generar factura CFDI"
-                    >
-                      <FileText className="w-3 h-3" />
-                      Facturar
-                    </button>
-                    <button
-                      onClick={onReceipt}
-                      disabled={receiptBusy}
-                      className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-emerald-500 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
-                      title="Enviar comprobante por WhatsApp"
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                      {receiptBusy ? 'Enviando…' : 'Comprobante'}
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={onPay}
-                  title="Ver / editar abonos de este mes"
-                  className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
-                >
-                  <Pencil className="w-3 h-3" />
-                  Editar
-                </button>
-              </>
-            )}
-            <a
-              href={`/api/contracts/${contractId}/estado-cuenta?periodo=${row.month}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
-              title="PDF del estado de cuenta a este periodo"
-            >
-              <Receipt className="w-3 h-3" />
-              PDF
-            </a>
+            <MonthActions
+              row={row}
+              quickBusy={quickBusy}
+              receiptBusy={receiptBusy}
+              onPay={onPay}
+              onQuick={onQuick}
+              onInvoice={onInvoice}
+              onReceipt={onReceipt}
+              contractId={contractId}
+            />
           </div>
         </td>
       </tr>
@@ -740,6 +717,188 @@ function FragmentRow({
         </tr>
       )}
     </>
+  )
+}
+
+// Acciones por mes — compartidas entre la fila de la tabla (desktop) y la
+// tarjeta (móvil) para no duplicar la lógica de estados.
+function MonthActions({
+  row,
+  quickBusy,
+  receiptBusy,
+  onPay,
+  onQuick,
+  onInvoice,
+  onReceipt,
+  contractId,
+}: {
+  row: MonthRow
+  quickBusy: boolean
+  receiptBusy: boolean
+  onPay: () => void
+  onQuick: () => void
+  onInvoice: () => void
+  onReceipt: () => void
+  contractId: string
+}) {
+  return (
+    <>
+      {row.status !== 'pagado' ? (
+        <>
+          <button
+            onClick={onPay}
+            className="inline-flex items-center gap-1 px-3 py-2.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            <Check className="w-3 h-3" />
+            Registrar pago
+          </button>
+          <button
+            onClick={onQuick}
+            disabled={quickBusy}
+            title="Marcar el mes pagado completo (renta + agua, sin mora)"
+            className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1.5 border border-emerald-600/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+          >
+            <Zap className="w-3 h-3" />
+            Rápido
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{methodLabel(row.payment?.method)}</span>
+          {row.payment && (
+            <>
+              <button
+                onClick={onInvoice}
+                className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 bg-indigo-600/10 hover:bg-indigo-600/20 text-gray-400 rounded text-[11px] font-medium transition-colors"
+                title="Generar factura CFDI"
+              >
+                <FileText className="w-3 h-3" />
+                Facturar
+              </button>
+              <button
+                onClick={onReceipt}
+                disabled={receiptBusy}
+                className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-emerald-500 rounded text-[11px] font-medium transition-colors disabled:opacity-50"
+                title="Enviar comprobante por WhatsApp"
+              >
+                <MessageCircle className="w-3 h-3" />
+                {receiptBusy ? 'Enviando…' : 'Comprobante'}
+              </button>
+            </>
+          )}
+          <button
+            onClick={onPay}
+            title="Ver / editar abonos de este mes"
+            className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+          >
+            <Pencil className="w-3 h-3" />
+            Editar
+          </button>
+        </>
+      )}
+      <a
+        href={`/api/contracts/${contractId}/estado-cuenta?periodo=${row.month}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 px-2 py-2.5 sm:py-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded text-[11px] font-medium transition-colors"
+        title="PDF del estado de cuenta a este periodo"
+      >
+        <Receipt className="w-3 h-3" />
+        PDF
+      </a>
+    </>
+  )
+}
+
+// Tarjeta por mes para pantallas chicas — misma información y acciones que la
+// fila de la tabla, con el detalle de abonos expandible dentro de la tarjeta.
+function MonthCard({
+  row,
+  base,
+  fee,
+  paid,
+  isOpen,
+  quickBusy,
+  receiptBusy,
+  onToggle,
+  onPay,
+  onQuick,
+  onInvoice,
+  onReceipt,
+  onDeleteReceipt,
+  onClearDirect,
+  contractId,
+}: {
+  row: MonthRow
+  base: number
+  fee: number
+  paid: number
+  isOpen: boolean
+  quickBusy: boolean
+  receiptBusy: boolean
+  onToggle: () => void
+  onPay: () => void
+  onQuick: () => void
+  onInvoice: () => void
+  onReceipt: () => void
+  onDeleteReceipt: (receipt: ReceiptItem) => void
+  onClearDirect: () => void
+  contractId: string
+}) {
+  return (
+    <div className="card p-4 space-y-3">
+      <button type="button" onClick={onToggle} className="w-full flex items-start justify-between gap-2 text-left">
+        <div className="min-w-0">
+          <p className="font-semibold capitalize text-gray-900 dark:text-white">{monthLabel(row.month)}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Vence {row.dueDate}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {statusBadge(row.status, row.moraAmount, row.remaining)}
+          {isOpen ? (
+            <ChevronUp className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          )}
+        </div>
+      </button>
+      <div className="grid grid-cols-3 gap-2 text-[13px]">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">Cargo</p>
+          <p className="text-gray-700 dark:text-gray-300">{formatCurrency(base + fee)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">Abonado</p>
+          <p className="text-gray-700 dark:text-gray-300">{formatCurrency(paid)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">Saldo</p>
+          <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(row.owed)}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-gray-800/60">
+        <MonthActions
+          row={row}
+          quickBusy={quickBusy}
+          receiptBusy={receiptBusy}
+          onPay={onPay}
+          onQuick={onQuick}
+          onInvoice={onInvoice}
+          onReceipt={onReceipt}
+          contractId={contractId}
+        />
+      </div>
+      {isOpen && (
+        <div className="pt-2 border-t border-gray-100 dark:border-gray-800/60">
+          <MonthDetail row={row} paid={paid} onDeleteReceipt={onDeleteReceipt} onClearDirect={onClearDirect} />
+          {row.payment?.late_fee_amount ? (
+            <p className="text-xs text-gray-400 mt-2">
+              Mora registrada en el cargo: {formatCurrency(Number(row.payment.late_fee_amount))}
+              {row.payment.late_fee_level ? ` (${row.payment.late_fee_level})` : ''}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </div>
   )
 }
 
