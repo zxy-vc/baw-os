@@ -24,6 +24,7 @@ Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en
 - **Refactor anti-duplicación (AGENTS.md §1.3):** el modal "Registrar pago" de /cobros se extrajo LITERAL a `src/components/cobros/AbonoModal.tsx` y el pago rápido + recompute a `src/lib/cobros-actions.ts` (`quickPayMonth`, `recomputeCharge`); /cobros pasó de 1163 → 724 líneas usando ambos. El pipeline de escritura no cambia: cargo `payments` + abonos `payment_receipts` + asiento `payment_ledger` + recompute server-side.
 - **Navegación:** en /cobros el link "Estado" (que abría el PDF) ahora es "Cuenta" → `/cobros/[contractId]` (el PDF vive dentro de la cuenta, global y por mes); el nombre del inquilino también linkea. Sin cambios a `SIDEBAR_SECTIONS` (la ruta cae bajo el prefijo `/cobros`).
 - **Consistencia:** `/contracts/[id]` perdió su "Marcar como pagado" (update directo a `payments` sin abonos/bitácora/recompute — el modelo viejo que ADR-022 D1 retiró de /payments/new); ahora linkea a la cuenta del inquilino.
+- **Fix post-lanzamiento (2026-07-10, rama `fix/cuenta-pagos-directos`, reporte de Fran con datos reales):** los meses pagados ANTES del libro de abonos (o vía Stripe/conserje, que marcan `payments` directo) mostraban "Sin abonos registrados" en el detalle. Ahora el dinero registrado en el cargo sin desglose se muestra como "pago directo en el cargo" con fecha/método/referencia/confirmó tomados de la fila `payments` (y si conviven abonos + pago directo, se listan ambos; la diferencia paid − Σreceipts es el directo).
 - Sin migraciones.
 
 ---
