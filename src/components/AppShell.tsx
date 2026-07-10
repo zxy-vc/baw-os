@@ -111,8 +111,10 @@ function GlobalHeader({ pathname }: { pathname: string }) {
   }, [fetchUnread])
 
   return (
+    // pl-16: la hamburguesa fija (left-3 + 44px) termina en 56px; con pl-14
+    // el título quedaba pegado a ella — 64px deja 8px de aire.
     <header
-      className="sticky top-0 z-30 pl-14 pr-4 md:pl-4 md:pr-6 safe-area-top"
+      className="sticky top-0 z-30 pl-16 pr-4 md:pl-4 md:pr-6 safe-area-top"
       style={{
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',

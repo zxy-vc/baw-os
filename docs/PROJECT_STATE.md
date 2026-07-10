@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-10 (Móvil PR 2: tablas operativas → tarjetas — rama `fix/mobile-cards`).
+> **Última actualización:** 2026-07-10 (Ícono iOS + manifest PWA #160; gap hamburguesa↔título — rama `fix/header-hamburger-gap`).
 
 ---
 
@@ -14,6 +14,13 @@ Los 4 PRs del stack ADR-022 (#149 Fase 0, #150 conserje, #151 Fase 1 liquidacion
 **Nota para entornos nuevos / audit de drift:** `20260404_invoices.sql` usa `CREATE TABLE invoices` (sin `IF NOT EXISTS`). En un entorno donde ya exista la tabla, re-correrlo falla — es esperado. El orden canónico de migraciones (20260404 antes de 20260704_02) lo maneja bien en un entorno limpio; prod requirió el rescate manual por el drift histórico. Pendiente sigue el audit completo de drift prod vs `supabase/migrations/` (ver §0 Public Listing).
 
 Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en Vercel o `organizations.settings.conserje_pin`).
+
+---
+
+## 0.-5 · Identidad de app instalada + retoques móviles (2026-07-10)
+
+- **PR #160 (`fix/ios-app-icon`, mergeado):** "Agregar a pantalla de inicio" en iOS pintaba una "B" genérica — Safari ignora el favicon SVG y no había `apple-touch-icon` PNG. Ahora: `public/apple-touch-icon.png` (180) + `icon-192/512.png` generados desde `baw-mark.svg` (blanco sobre `#0a0a0a`), declarados en `metadata.icons`/`appleWebApp`, y `src/app/manifest.ts` (name/short_name "BaW OS", `display: 'standalone'` — abre como app sin chrome de Safari). Para ver el ícono nuevo hay que borrar y re-agregar el acceso directo (iOS lo cachea). El login además cambió su tagline: "Property Management" → **"Building Always Working"** (pedido de Fran).
+- **Rama `fix/header-hamburger-gap`:** la hamburguesa fija (left-3 + 44px tras §0.-3) termina en 56px y el header usaba `pl-14` (56px) — el título quedaba pegado al botón (screenshot de Fran). Fix: `pl-16` en móvil.
 
 ---
 
