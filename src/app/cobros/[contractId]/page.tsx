@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Pencil,
   Receipt,
+  X,
   Zap,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -28,7 +29,7 @@ import { useOrgContext } from '@/hooks/useOrgContext'
 import { useToast } from '@/components/Toast'
 import { formatCurrency } from '@/lib/utils'
 import { resolveServiceRate, WATER_FEE_DEFAULT, type ServiceRate } from '@/lib/cobros'
-import { quickPayMonth } from '@/lib/cobros-actions'
+import { quickPayMonth, recomputeCharge } from '@/lib/cobros-actions'
 import { computeMonthStatus, rankPayment, scheduleMonths, type BillingStatus } from '@/lib/billing'
 import { SkeletonTable } from '@/components/Skeleton'
 import AbonoModal, { type AbonoTarget } from '@/components/cobros/AbonoModal'
@@ -334,6 +335,48 @@ export default function CuentaInquilinoPage() {
     }
   }
 
+  // Borra un abono del libro (misma escritura que la ✕ del modal): delete del
+  // receipt + recompute server-side del cargo. La bitácora conserva su asiento.
+  async function deleteReceipt(receipt: ReceiptItem) {
+    const { error } = await supabase.from('payment_receipts').delete().eq('id', receipt.id)
+    if (error) {
+      toast.error('No se pudo eliminar el abono')
+      return
+    }
+    const ok = await recomputeCharge(receipt.payment_id)
+    if (!ok) toast.error('No se pudo recalcular el cargo del mes')
+    toast.success('Abono eliminado')
+    fetchAll()
+  }
+
+  // Quita un "pago directo en el cargo" (histórico pre-abonos / Stripe /
+  // conserje): limpia los campos de pago de la fila `payments` y recalcula —
+  // el mes queda listo para re-registrarse con el formato nuevo, sin SQL.
+  async function clearDirectPayment(row: MonthRow) {
+    if (!row.payment) return
+    const { error } = await supabase
+      .from('payments')
+      .update({
+        amount_paid: 0,
+        status: 'pending',
+        paid_date: null,
+        method: null,
+        payment_method: null,
+        reference: null,
+        confirmed_by: null,
+        confirmed_at: null,
+      })
+      .eq('id', row.payment.id)
+    if (error) {
+      toast.error('No se pudo quitar el pago directo')
+      return
+    }
+    const ok = await recomputeCharge(row.payment.id)
+    if (!ok) toast.error('No se pudo recalcular el cargo del mes')
+    toast.success('Pago directo eliminado — re-regístralo con "Registrar pago"')
+    fetchAll()
+  }
+
   // Comprobante de pago por WhatsApp (POST /api/payments/[id]/receipt) —
   // gateado en el server por credenciales de Meta + COBRANZA_WHATSAPP_ENABLED.
   async function sendReceipt(row: MonthRow) {
@@ -510,6 +553,8 @@ export default function CuentaInquilinoPage() {
                     onQuick={() => quickPay(row)}
                     onInvoice={() => setInvoicingRow(row)}
                     onReceipt={() => sendReceipt(row)}
+                    onDeleteReceipt={deleteReceipt}
+                    onClearDirect={() => clearDirectPayment(row)}
                     contractId={contract.id}
                   />
                 )
@@ -568,6 +613,8 @@ function FragmentRow({
   onQuick,
   onInvoice,
   onReceipt,
+  onDeleteReceipt,
+  onClearDirect,
   contractId,
 }: {
   row: MonthRow
@@ -582,6 +629,8 @@ function FragmentRow({
   onQuick: () => void
   onInvoice: () => void
   onReceipt: () => void
+  onDeleteReceipt: (receipt: ReceiptItem) => void
+  onClearDirect: () => void
   contractId: string
 }) {
   return (
@@ -675,7 +724,12 @@ function FragmentRow({
         <tr className="border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/60 dark:bg-gray-900/40">
           <td />
           <td colSpan={7} className="px-4 py-3">
-            <MonthDetail row={row} paid={paid} />
+            <MonthDetail
+              row={row}
+              paid={paid}
+              onDeleteReceipt={onDeleteReceipt}
+              onClearDirect={onClearDirect}
+            />
             {row.payment?.late_fee_amount ? (
               <p className="text-xs text-gray-400 mt-2">
                 Mora registrada en el cargo: {formatCurrency(Number(row.payment.late_fee_amount))}
@@ -694,7 +748,20 @@ function FragmentRow({
 // desglosen — pagos anteriores al libro de abonos (PR #131, jun 2026), Stripe
 // y conserje marcan `payments` directo. Ese dinero es real y debe verse con
 // su fecha/método/referencia/confirmó, que viven en la fila del cargo.
-function MonthDetail({ row, paid }: { row: MonthRow; paid: number }) {
+function MonthDetail({
+  row,
+  paid,
+  onDeleteReceipt,
+  onClearDirect,
+}: {
+  row: MonthRow
+  paid: number
+  onDeleteReceipt: (receipt: ReceiptItem) => void
+  onClearDirect: () => void
+}) {
+  // Confirmación en dos pasos: primer clic arma el botón, segundo ejecuta.
+  // ('__direct__' = el pago directo del cargo)
+  const [confirming, setConfirming] = useState<string | null>(null)
   const receiptsSum = row.receipts.reduce((s, r) => s + r.amount, 0)
   const directPaid = Math.max(0, paid - receiptsSum)
   const p = row.payment
@@ -703,6 +770,32 @@ function MonthDetail({ row, paid }: { row: MonthRow; paid: number }) {
   if (row.receipts.length === 0 && !hasDirect) {
     return <p className="text-xs text-gray-400">Sin abonos registrados en este mes.</p>
   }
+
+  const confirmButtons = (key: string, onConfirm: () => void, title: string) =>
+    confirming === key ? (
+      <span className="inline-flex items-center gap-1">
+        <button
+          onClick={onConfirm}
+          className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-medium"
+        >
+          Confirmar borrar
+        </button>
+        <button
+          onClick={() => setConfirming(null)}
+          className="px-1.5 py-0.5 rounded text-[11px] text-gray-400 hover:text-gray-200"
+        >
+          Cancelar
+        </button>
+      </span>
+    ) : (
+      <button
+        onClick={() => setConfirming(key)}
+        title={title}
+        className="p-1.5 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    )
 
   return (
     <>
@@ -717,6 +810,7 @@ function MonthDetail({ row, paid }: { row: MonthRow; paid: number }) {
                 {r.reference ? ` · ${r.reference}` : ''}
                 {r.confirmed_by ? ` · confirmó ${r.confirmed_by}` : ''}
               </span>
+              {confirmButtons(r.id, () => onDeleteReceipt(r), 'Eliminar este abono')}
             </li>
           ))}
         </ul>
@@ -733,12 +827,22 @@ function MonthDetail({ row, paid }: { row: MonthRow; paid: number }) {
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20">
               pago directo en el cargo
             </span>
+            {confirmButtons(
+              '__direct__',
+              onClearDirect,
+              'Quitar el pago directo (el mes queda sin pagar, para re-registrarlo con abonos)',
+            )}
           </p>
           <p className="text-[11px] text-gray-400">
             Registrado sin desglose de abonos (histórico anterior al libro de abonos, Stripe o conserje).
+            Para migrarlo al formato nuevo: bórralo con la ✕ y re-regístralo con &quot;Registrar pago&quot;.
           </p>
         </div>
       )}
+      <p className="text-[11px] text-gray-400 mt-2">
+        Para corregir un abono: bórralo y vuelve a registrarlo (los abonos no se editan — la bitácora
+        conserva el rastro de ambos movimientos).
+      </p>
     </>
   )
 }
