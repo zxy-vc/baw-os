@@ -188,7 +188,8 @@ export default function WhatsAppPage() {
           <div>
             <label className="block text-xs font-medium text-gray-400 [html.light_&]:text-gray-600 mb-1">Teléfono (+52...)</label>
             <input
-              type="text"
+              type="tel"
+              inputMode="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+524464790229"

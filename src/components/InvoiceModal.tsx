@@ -94,8 +94,8 @@ export default function InvoiceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="card w-full max-w-lg mx-4 relative max-h-[90vh] overflow-y-auto">
+    <div className="modal-wrap">
+      <div className="card modal-panel w-full max-w-lg relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"

@@ -112,7 +112,7 @@ function GlobalHeader({ pathname }: { pathname: string }) {
 
   return (
     <header
-      className="sticky top-0 z-30 pl-14 pr-4 md:pl-4 md:pr-6"
+      className="sticky top-0 z-30 pl-14 pr-4 md:pl-4 md:pr-6 safe-area-top"
       style={{
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',

@@ -171,8 +171,11 @@ export default function Sidebar() {
     <>
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 p-2 rounded-md md:hidden"
+        className="fixed left-3 z-50 flex items-center justify-center min-w-[44px] min-h-[44px] rounded-md md:hidden"
         style={{
+          // 44px de alto centrado en el header de 56px, empujado bajo el notch
+          // (viewportFit: 'cover' en layout.tsx hace que env() sea > 0 en iPhone).
+          top: 'calc(0.375rem + env(safe-area-inset-top))',
           backgroundColor: 'var(--baw-surface)',
           border: '1px solid var(--baw-border)',
           color: 'var(--baw-text)',
@@ -200,6 +203,8 @@ export default function Sidebar() {
         )}
         style={{
           width: mobileOpen ? EXPANDED_WIDTH : width,
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
           backgroundColor: 'var(--baw-sidebar-bg)',
           borderRight: '1px solid var(--baw-sidebar-border)',
         }}
@@ -239,7 +244,7 @@ export default function Sidebar() {
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
-                className="p-2 md:hidden"
+                className="flex items-center justify-center min-w-[44px] min-h-[44px] md:hidden"
                 style={{ color: 'var(--baw-muted)' }}
                 aria-label="Cerrar menú"
               >

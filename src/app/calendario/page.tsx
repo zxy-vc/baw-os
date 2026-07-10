@@ -902,6 +902,10 @@ export default function CalendarioPage() {
                               <button
                                 key={b.stay.key}
                                 onPointerDown={(e) => {
+                                  // En touch chico el drag es inoperable (~19px/día)
+                                  // y pelea con el scroll (ver .tl-bar pan-y en
+                                  // globals.css); tap → detalle vía onPointerUp.
+                                  if (e.pointerType === 'touch' && window.innerWidth < 768) return
                                   if (!draggable) return
                                   const track = e.currentTarget.parentElement as HTMLElement
                                   const rect = e.currentTarget.getBoundingClientRect()
@@ -936,10 +940,22 @@ export default function CalendarioPage() {
                                     return { ...prev, delta, moved }
                                   })
                                 }}
-                                onPointerUp={() => {
+                                onPointerUp={(e) => {
                                   const d = drag
                                   setDrag(null)
-                                  if (!d || d.key !== b.stay.key) return
+                                  if (!d || d.key !== b.stay.key) {
+                                    // Tap en touch chico: el pointerdown salió sin
+                                    // armar drag, así que el detalle se abre aquí.
+                                    if (
+                                      !d &&
+                                      draggable &&
+                                      e.pointerType === 'touch' &&
+                                      window.innerWidth < 768
+                                    ) {
+                                      setSelected(b.stay)
+                                    }
+                                    return
+                                  }
                                   if (!d.moved || d.delta === 0) {
                                     setSelected(b.stay)
                                     return

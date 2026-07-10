@@ -415,7 +415,7 @@ export default function UnitsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleEdit(unit)}
-                        className="text-[12px]"
+                        className="text-[12px] py-2.5 px-2 -mx-2 sm:p-0 sm:m-0"
                         style={{ color: 'var(--baw-primary)' }}
                       >
                         Editar
@@ -425,7 +425,7 @@ export default function UnitsPage() {
                         onChange={(e) =>
                           handleStatusChange(unit.id, e.target.value as UnitStatus)
                         }
-                        className="text-[12px] rounded px-2 py-1"
+                        className="text-[12px] rounded px-2 py-2 sm:py-1"
                         style={{
                           backgroundColor: 'var(--baw-elevated)',
                           color: 'var(--baw-text)',

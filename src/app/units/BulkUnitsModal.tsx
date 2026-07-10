@@ -145,9 +145,9 @@ export default function BulkUnitsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="modal-wrap">
       <div
-        className="w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col rounded-xl"
+        className="modal-panel w-full max-w-3xl overflow-hidden flex flex-col"
         style={{
           backgroundColor: 'var(--baw-surface)',
           border: '1px solid var(--baw-border)',

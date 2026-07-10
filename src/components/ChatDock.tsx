@@ -43,8 +43,11 @@ export default function ChatDock() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full px-4 py-3 shadow-xl text-white ring-2 ring-white/20 transition-transform hover:scale-105"
-          style={{ backgroundColor: 'var(--baw-primary)' }}
+          className="fixed right-5 z-40 flex items-center gap-2 rounded-full px-4 py-3 min-h-[44px] shadow-xl text-white ring-2 ring-white/20 transition-transform hover:scale-105"
+          style={{
+            bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+            backgroundColor: 'var(--baw-primary)',
+          }}
           title="Chat con tus agentes"
           aria-label="Abrir chat con tus agentes"
         >
@@ -57,7 +60,12 @@ export default function ChatDock() {
       {open && (
         <div
           className="fixed top-0 right-0 z-50 h-[100dvh] w-full sm:w-[240px] shadow-2xl"
-          style={{ borderLeft: '1px solid rgba(255,255,255,0.1)' }}
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            backgroundColor: 'var(--baw-sidebar-bg)',
+            borderLeft: '1px solid rgba(255,255,255,0.1)',
+          }}
         >
           <ChatPanel dark onClose={() => setOpen(false)} />
         </div>

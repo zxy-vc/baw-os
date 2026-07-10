@@ -307,8 +307,8 @@ export default function HousekeepingPage() {
 
       {/* New task modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="card w-full max-w-md mx-4 p-6 space-y-4">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Nueva tarea de housekeeping

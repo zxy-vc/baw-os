@@ -381,7 +381,7 @@ main h1 {
 
   /* ── Form inputs ── */
   .input-field {
-    @apply w-full rounded-md px-3 py-2 text-[13px] transition-colors;
+    @apply w-full rounded-md px-3 py-2 text-base md:text-[13px] transition-colors;
     background-color: var(--baw-surface);
     border: 1px solid var(--baw-border);
     color: var(--baw-text);
@@ -646,6 +646,12 @@ main h1 {
   /* pointer events de drag también en touch */
   touch-action: none;
 }
+/* En pantallas táctiles chicas el drag de barras (~19px/día) es inoperable y
+   touch-action:none secuestra el scroll vertical de la página al tocar una
+   barra. Se deja pan-y: tap abre el detalle, el drag queda para desktop. */
+@media (max-width: 767px) {
+  .tl-bar { touch-action: pan-y; }
+}
 .tl-bar:hover { background: color-mix(in oklab, var(--bar) 26%, var(--surface)); }
 .tl-bar .cap {
   font-family: var(--font-mono);
@@ -764,4 +770,76 @@ main h1 {
   outline: 1.5px dashed var(--brand-400);
   outline-offset: -1.5px;
   background: color-mix(in oklch, var(--brand-500) 8%, transparent) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Cimientos móviles (auditoría touch 2026-07-10)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* iOS Safari hace auto-zoom al enfocar cualquier campo con font-size <16px.
+   Piso global en móvil (el !important vence a los utility text-xs/text-sm de
+   los ~306 call-sites sin tocarlos); en ≥768px vuelve la densidad de
+   escritorio vía cada clase (.input-field, text-sm, etc.). */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Utilidades de safe-area (requieren viewportFit:'cover' en el layout; sin
+   cover, env() = 0 y son no-op — la clase safe-area-bottom del conserje era
+   fantasma hasta hoy). */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Patrón sheet: en teléfono los modales anclan ABAJO (alcanzables con el
+   pulgar, el teclado no los tapa: el contenido scrollea dentro), con esquinas
+   superiores redondeadas y padding para el home-indicator. Desde sm: vuelven
+   al diálogo centrado clásico. Uso: overlay → .modal-wrap · panel → .card
+   .modal-panel [sm:max-w-*]. */
+.modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background-color: rgb(0 0 0 / 0.6);
+  backdrop-filter: blur(4px);
+}
+.modal-panel {
+  width: 100%;
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1rem 1rem 0 0;
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) {
+  .modal-wrap {
+    align-items: center;
+  }
+  .modal-panel {
+    /* El ancho máximo lo pone cada modal con max-w-md/lg/2xl… (en teléfono
+       ninguno de esos aprieta: 28rem+ > ~390px, así que el sheet sigue
+       full-width). Definirlo aquí pisaría esas utilities por orden de cascada. */
+    margin-left: 1rem;
+    margin-right: 1rem;
+    max-height: 90vh;
+    border-radius: 0.75rem;
+    padding-bottom: 1.25rem;
+  }
+}
+
+/* El rubber-banding del body no debe arrastrar la página detrás de un modal
+   o drawer abierto. */
+body {
+  overscroll-behavior-y: none;
 }

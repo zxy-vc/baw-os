@@ -520,9 +520,9 @@ function PayoutModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div className="modal-wrap">
       <div
-        className="w-full max-w-sm rounded-lg p-5 space-y-3"
+        className="modal-panel w-full max-w-sm p-5 space-y-3"
         style={{
           backgroundColor: 'var(--baw-surface)',
           border: '1px solid var(--baw-border)',
@@ -538,6 +538,7 @@ function PayoutModal({
           Monto
           <input
             type="number"
+            inputMode="decimal"
             min="0"
             step="0.01"
             value={amount}

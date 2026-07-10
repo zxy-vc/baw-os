@@ -625,8 +625,8 @@ export default function ContractDetailPage() {
 
       {/* Signature Modal */}
       {signatureModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4 relative">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md relative">
             <button
               onClick={() => setSignatureModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -768,8 +768,8 @@ export default function ContractDetailPage() {
 
       {/* Delete Occupant Confirmation */}
       {deleteOccupantTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar inquilino</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               ¿Eliminar a <strong className="text-gray-900 dark:text-white">{occupant?.name || '—'}</strong>? Esta acción no se puede deshacer y también eliminará contratos asociados.

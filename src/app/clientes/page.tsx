@@ -663,14 +663,14 @@ function NewContactModal({ orgId, onClose, onCreated }: { orgId: string; onClose
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="card w-full max-w-md relative" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-wrap" onClick={onClose}>
+      <div className="card modal-panel w-full max-w-md relative" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"><X className="w-5 h-5" /></button>
         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Nuevo contacto</h2>
         <div className="space-y-3">
           <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="input-field w-full" placeholder="Nombre *" />
           <div className="grid grid-cols-2 gap-3">
-            <input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} className="input-field w-full" placeholder="Teléfono" />
+            <input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} inputMode="tel" className="input-field w-full" placeholder="Teléfono" />
             <input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} className="input-field w-full" placeholder="Email" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -775,7 +775,7 @@ function NewOppModal({
             </datalist>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <input value={f.est_monthly} onChange={(e) => setF({ ...f, est_monthly: e.target.value })} type="number" className="input-field w-full" placeholder="Renta est./mes" />
+            <input value={f.est_monthly} onChange={(e) => setF({ ...f, est_monthly: e.target.value })} type="number" inputMode="decimal" className="input-field w-full" placeholder="Renta est./mes" />
             <input type="date" value={f.next_followup_at} onChange={(e) => setF({ ...f, next_followup_at: e.target.value })} className="input-field w-full" />
           </div>
           <textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} rows={2} className="input-field w-full" placeholder="Notas" />

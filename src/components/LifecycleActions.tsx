@@ -317,13 +317,9 @@ function MenuItem({
 
 function Dialog({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-      onClick={onClose}
-    >
+    <div className="modal-wrap" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-xl p-5"
+        className="modal-panel w-full max-w-md p-5"
         style={{ backgroundColor: 'var(--baw-surface)', border: '1px solid var(--baw-border)' }}
         onClick={(e) => e.stopPropagation()}
       >

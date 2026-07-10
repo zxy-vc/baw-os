@@ -262,8 +262,8 @@ export default function AbonoModal({
   const remainingDue = Math.max(0, chargeTotal - totalReceipts)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="card w-full max-w-md mx-4 relative max-h-[90vh] overflow-y-auto">
+    <div className="modal-wrap">
+      <div className="card modal-panel w-full max-w-md relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -285,6 +285,7 @@ export default function AbonoModal({
               <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Renta</label>
               <input
                 type="number"
+                inputMode="decimal"
                 value={payForm.rent_amount}
                 onChange={(e) => setPayForm((f) => ({ ...f, rent_amount: Number(e.target.value) }))}
                 className="input-field w-full"
@@ -294,6 +295,7 @@ export default function AbonoModal({
               <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Agua</label>
               <input
                 type="number"
+                inputMode="decimal"
                 value={payForm.water_fee}
                 onChange={(e) => setPayForm((f) => ({ ...f, water_fee: Number(e.target.value) }))}
                 className="input-field w-full"
@@ -309,6 +311,7 @@ export default function AbonoModal({
             </label>
             <input
               type="number"
+              inputMode="decimal"
               value={payForm.late_fee}
               onChange={(e) => setPayForm((f) => ({ ...f, late_fee: Number(e.target.value) }))}
               className="input-field w-full"
@@ -367,6 +370,7 @@ export default function AbonoModal({
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Monto recibido</label>
             <input
               type="number"
+              inputMode="decimal"
               value={payForm.amount_paid}
               onChange={(e) => setPayForm((f) => ({ ...f, amount_paid: Number(e.target.value) }))}
               className="input-field w-full"

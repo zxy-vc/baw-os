@@ -475,7 +475,7 @@ export default function ReservationsPage() {
             {/* Booking mode */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modo de reserva</label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {(['full', 'room', 'bed'] as BookingMode[]).map((m) => (
                   <button
                     key={m}
@@ -826,7 +826,7 @@ export default function ReservationsPage() {
                           <button
                             onClick={() => copyPortalLink(r.guest_token!)}
                             title="Copiar link portal huésped"
-                            className="p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 transition-colors"
+                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 transition-colors"
                           >
                             {copiedId === r.guest_token ? (
                               <Check className="w-4 h-4 text-green-600" />
@@ -840,7 +840,7 @@ export default function ReservationsPage() {
                           <button
                             onClick={() => updateStatus(r.id, 'checked_in')}
                             title="Marcar check-in"
-                            className="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
+                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 transition-colors"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </button>
@@ -849,7 +849,7 @@ export default function ReservationsPage() {
                           <button
                             onClick={() => updateStatus(r.id, 'checked_out')}
                             title="Marcar check-out"
-                            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </button>
@@ -858,7 +858,7 @@ export default function ReservationsPage() {
                           <button
                             onClick={() => markPaid(r.id, r.total_price)}
                             title="Marcar como pagado"
-                            className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors"
+                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 transition-colors"
                           >
                             <Check className="w-4 h-4" />
                           </button>
@@ -867,7 +867,7 @@ export default function ReservationsPage() {
                           <button
                             onClick={() => cancelReservation(r.id)}
                             title="Cancelar"
-                            className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                            className="p-2.5 sm:p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
                           >
                             <Ban className="w-4 h-4" />
                           </button>

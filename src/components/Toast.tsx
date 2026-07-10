@@ -62,7 +62,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+      <div
+        className="fixed left-4 right-4 sm:left-auto z-[100] flex flex-col gap-2 sm:max-w-sm"
+        style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+      >
         {toasts.map((t) => {
           const Icon = TYPE_ICONS[t.type]
           return (
@@ -74,7 +77,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               <span className="flex-1">{t.message}</span>
               <button
                 onClick={() => dismiss(t.id)}
-                className="p-0.5 rounded hover:opacity-70 transition-opacity shrink-0"
+                className="p-2 -m-1.5 rounded hover:opacity-70 transition-opacity shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>

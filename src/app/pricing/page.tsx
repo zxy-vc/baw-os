@@ -260,6 +260,7 @@ export default function PricingPage() {
                           {isEditing ? (
                             <input
                               type="number"
+                              inputMode="decimal"
                               value={editing[u.id].monthly_rate_mxn ?? ''}
                               onChange={(e) => updateField(u.id, 'monthly_rate_mxn', e.target.value)}
                               className="input-field w-28"
@@ -277,6 +278,7 @@ export default function PricingPage() {
                           {isEditing ? (
                             <input
                               type="number"
+                              inputMode="decimal"
                               value={editing[u.id].base_rate_mxn ?? ''}
                               onChange={(e) => updateField(u.id, 'base_rate_mxn', e.target.value)}
                               className="input-field w-28"
@@ -294,6 +296,7 @@ export default function PricingPage() {
                           {isEditing ? (
                             <input
                               type="number"
+                              inputMode="decimal"
                               value={editing[u.id].cleaning_fee_mxn ?? ''}
                               onChange={(e) => updateField(u.id, 'cleaning_fee_mxn', e.target.value)}
                               className="input-field w-24"
@@ -312,7 +315,7 @@ export default function PricingPage() {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => saveUnit(u.id)}
-                                className="text-xs text-emerald-500 hover:text-emerald-400 font-medium"
+                                className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-xs text-emerald-500 hover:text-emerald-400 font-medium"
                               >
                                 <Save className="w-4 h-4" />
                               </button>
@@ -447,8 +450,8 @@ export default function PricingPage() {
 
       {/* Season Modal */}
       {showSeasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4 relative">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md relative">
             <button
               onClick={() => setShowSeasonModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -495,6 +498,7 @@ export default function PricingPage() {
                 </label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="0.05"
                   min="0.5"
                   max="3"
@@ -536,8 +540,8 @@ export default function PricingPage() {
 
       {/* Delete Season Confirmation */}
       {deletingSeason && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-md">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Eliminar temporada</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               ¿Eliminar <strong className="text-gray-900 dark:text-white">{deletingSeason.name}</strong>? Esta acción no se puede deshacer.

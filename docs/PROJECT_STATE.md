@@ -1,7 +1,7 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-09 (Cuenta del inquilino `/cobros/[contractId]`; mismo día: WhatsApp a plantillas HSM).
+> **Última actualización:** 2026-07-10 (Cimientos móviles/touch — rama `fix/mobile-usability`).
 
 ---
 
@@ -14,6 +14,20 @@ Los 4 PRs del stack ADR-022 (#149 Fase 0, #150 conserje, #151 Fase 1 liquidacion
 **Nota para entornos nuevos / audit de drift:** `20260404_invoices.sql` usa `CREATE TABLE invoices` (sin `IF NOT EXISTS`). En un entorno donde ya exista la tabla, re-correrlo falla — es esperado. El orden canónico de migraciones (20260404 antes de 20260704_02) lo maneja bien en un entorno limpio; prod requirió el rescate manual por el drift histórico. Pendiente sigue el audit completo de drift prod vs `supabase/migrations/` (ver §0 Public Listing).
 
 Pendiente de Fran (config, no código): PIN real del conserje (`CONSERJE_PIN` en Vercel o `organizations.settings.conserje_pin`).
+
+---
+
+## 0.-3 · Cimientos móviles/touch (2026-07-10, rama `fix/mobile-usability`, pedido por Fran desde su iPhone 17 Pro Max)
+
+Segunda pasada de mobile (la primera fue §0.quater): tres auditorías paralelas sobre TODO `src/` (finanzas, resto de pantallas internas, chrome + portales públicos) y este PR aplica los **cimientos de mayor apalancamiento**. Las tablas operativas → tarjetas en `<sm` (Cobros, cuenta del inquilino, unidades, reservaciones…) quedan para el PR 2.
+
+- **Anti-zoom iOS (la causa #1 de "se siente rota en teléfono"):** iOS Safari hace auto-zoom al enfocar cualquier campo con font-size <16px. `globals.css` ahora fija `input/select/textarea { font-size:16px !important }` bajo 768px (los ~306 call-sites de `.input-field`/text-sm quedan intactos y recuperan su densidad en escritorio); `.input-field` pasó a `text-base md:text-[13px]`. Mismo piso para `.pb-input` del sitio público.
+- **Patrón sheet para modales:** clases `.modal-wrap`/`.modal-panel` en `globals.css` — en teléfono el modal ancla ABAJO (alcanzable con el pulgar), scrollea por dentro (`max-height:92dvh` + `overscroll-contain`; antes varios modales NO scrolleaban: registrar cobro de /ledger, PayoutModal, temporada de /pricing, edición de contrato…), respeta el home-indicator (`env(safe-area-inset-bottom)`); desde `sm` vuelve al diálogo centrado. **Los ~31 modales de la app migrados** (AbonoModal, InvoiceModal, ledger, liquidaciones, gastos, ancillary ×4, EngagementsPanel ×2, pricing ×2, contracts ×4, maintenance, housekeeping, tasks, units ×2, buildings, ConfirmModal, LifecycleActions, contacts, clientes, owners ×3). Excepción documentada: `NewOppModal` de /clientes usa `z-[60]` sobre el drawer y se queda con el patrón viejo.
+- **Safe-areas reales:** `viewport.viewportFit:'cover'` en `layout.tsx` (sin cover, `env()` = 0 y la clase `safe-area-bottom` del conserje era fantasma) + utilidades `.safe-area-top/bottom` + compensación en el chrome: header global, SectionTopNav (su `top` fijo se metía bajo el notch), hamburguesa (además ahora 44px), sidebar, launcher/panel de ChatDock y Toasts (en móvil ancho completo `left-4 right-4`).
+- **Teclados correctos:** `inputMode="decimal"` en inputs de montos (abonos, ledger, payouts, gastos, ancillary, clientes, stakes) y `type="tel"/inputMode="tel"` en teléfonos (whatsapp, contacts, clientes, owners).
+- **Calendario en touch:** `.tl-bar` tenía `touch-action:none` — tocar cualquier barra secuestraba el scroll de la página. Bajo 768px pasa a `pan-y` y el drag&drop se desactiva (a ~19px/día era inoperable); tap sigue abriendo el detalle.
+- **Objetivos táctiles ≥40-44px** en las acciones de fila más usadas (cobros, cuenta del inquilino, reservaciones, unidades, tasks, botón guardar de pricing, botón de pago del portal del inquilino — todos con `sm:` para conservar la densidad desktop) + `flex-wrap` en toolbars que desbordaban (reportes, mora, quotes, reservations) + `body { overscroll-behavior-y:none }` (sin rubber-banding raro tras modales) + `100vh→100dvh` en el layout del sitio público.
+- Sin migraciones. PR 2 pendiente: tarjetas `<sm` para las tablas operativas anchas (cobros 11 col, cuenta 8 col, units, reservations, mora/gastos/ledger/invoices/reportes/estancias).
 
 ---
 

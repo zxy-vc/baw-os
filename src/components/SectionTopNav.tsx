@@ -23,8 +23,11 @@ export default function SectionTopNav() {
 
   return (
     <div
-      className="sticky top-14 z-20 px-4 md:px-6"
+      className="sticky z-20 px-4 md:px-6"
       style={{
+        // El header mide 56px + safe-area (viewportFit: 'cover'); un top-14
+        // fijo se metería debajo del notch en iPhone.
+        top: 'calc(3.5rem + env(safe-area-inset-top))',
         backgroundColor: 'var(--baw-bg)',
         borderBottom: '1px solid var(--baw-border)',
       }}
@@ -40,7 +43,7 @@ export default function SectionTopNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                'inline-flex items-center h-7 px-3 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors'
+                'inline-flex items-center h-9 sm:h-7 px-3.5 sm:px-3 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors'
               )}
               style={{
                 backgroundColor: active ? 'var(--baw-surface)' : 'transparent',

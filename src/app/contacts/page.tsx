@@ -250,8 +250,8 @@ export default function ContactsPage() {
       : []
 
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="card w-full max-w-lg mx-4 relative">
+      <div className="modal-wrap">
+        <div className="card modal-panel w-full max-w-lg relative">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-200"
@@ -318,6 +318,7 @@ export default function ContactsPage() {
                 <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Teléfono</label>
                 <input
                   type="tel"
+                  inputMode="tel"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="+52 442..."

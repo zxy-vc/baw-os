@@ -261,8 +261,8 @@ export default function EngagementsPanel({
 
       {/* Modal: crear cuenta combinada */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card w-full max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">Nueva cuenta combinada</h3>
               <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-200">
@@ -324,8 +324,8 @@ export default function EngagementsPanel({
 
       {/* Modal: estado de cuenta consolidado */}
       {detailFor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card w-full max-w-3xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+        <div className="modal-wrap">
+          <div className="card modal-panel w-full max-w-3xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold">{detailFor.name}</h3>
