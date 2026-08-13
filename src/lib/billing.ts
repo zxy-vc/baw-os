@@ -6,18 +6,12 @@
 // centraliza el cálculo: dado un contrato y un mes, ¿cuál es su estatus y cuánto
 // se debe? Sin React ni DB.
 
-import { calcMoraSurcharge } from '@/lib/mora-engine'
-
 export type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
 
 export const MAX_MONTHS_BACK = 24
 
 export function pad2(n: number): string {
   return String(n).padStart(2, '0')
-}
-
-function dayDiff(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / 86_400_000)
 }
 
 /**
@@ -91,10 +85,10 @@ export function computeMonthStatus(i: MonthStatusInput): MonthStatusResult {
   if (todayMid < due) {
     return { status: 'pendiente', moraAmount: 0, remaining: 0, owed: 0 }
   }
-  const daysPastDue = dayDiff(due, todayMid)
-  const { amount: surcharge } = calcMoraSurcharge(i.monthlyAmount, daysPastDue)
-  if (surcharge > 0) {
-    return { status: 'mora', moraAmount: surcharge, remaining: 0, owed: base + surcharge }
+  // El recargo es un hecho contable persistido por el cron diario. La UI no lo
+  // proyecta: así nunca muestra un saldo distinto al guardado en payments.
+  if (fee > 0) {
+    return { status: 'mora', moraAmount: fee, remaining: 0, owed: base + fee }
   }
   return { status: 'vencido', moraAmount: 0, remaining: 0, owed: base }
 }

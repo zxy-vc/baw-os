@@ -58,6 +58,85 @@ function dayDiff(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / 86_400_000)
 }
 
+type LateFeeCalculation = {
+  days: number
+  fee: number
+  level: MoraLevel
+}
+
+type LateFeeSyncResult = {
+  calculations: Map<string, LateFeeCalculation>
+  attempted: number
+  updated: number
+  failedPaymentIds: Set<string>
+}
+
+/**
+ * Sincroniza el hecho contable antes de cualquier decisión de mensajería.
+ * No recibe dryRun ni canSend: la persistencia de mora es siempre idempotente.
+ */
+async function syncLateFees(args: {
+  ctx: AgentRunContext
+  supabase: ReturnType<typeof createServiceClient>
+  payments: PaymentRow[]
+  today: Date
+}): Promise<LateFeeSyncResult> {
+  const { ctx, supabase, payments, today } = args
+  const calculations = new Map<string, LateFeeCalculation>()
+  const failedPaymentIds = new Set<string>()
+  const overdue = payments.filter((payment) => new Date(payment.due_date) <= today)
+  const updatedAt = new Date().toISOString()
+  let updated = 0
+
+  for (const payment of overdue) {
+    const days = dayDiff(new Date(payment.due_date), today)
+    const { level, amount: fee } = calcMoraSurcharge(paymentAmount(payment), days)
+    calculations.set(payment.id, { days, fee, level })
+
+    const { error } = await supabase
+      .from('payments')
+      .update({
+        late_fee_amount: fee,
+        late_fee_level: level,
+        late_fee_updated_at: updatedAt,
+      })
+      .eq('org_id', ctx.orgId)
+      .eq('id', payment.id)
+      .is('confirmed_at', null)
+      .neq('status', 'paid')
+
+    if (error) {
+      failedPaymentIds.add(payment.id)
+      console.error('[cobranza] No se pudo persistir la mora', {
+        orgId: ctx.orgId,
+        paymentId: payment.id,
+        error: error.message,
+      })
+      continue
+    }
+    updated++
+  }
+
+  if (overdue.length > 0) {
+    const failed = failedPaymentIds.size
+    await ctx.recordAction({
+      action_type: 'mora.sync_late_fees',
+      entity_type: 'payment',
+      status: failed > 0 ? 'failed' : 'ok',
+      payload: { attempted: overdue.length },
+      result: { updated, failed },
+      error: failed > 0 ? `${failed} cargo(s) de mora no se pudieron persistir` : undefined,
+    })
+  }
+
+  return {
+    calculations,
+    attempted: overdue.length,
+    updated,
+    failedPaymentIds,
+  }
+}
+
 export const cobranzaRunner: AgentRunner = {
   agentId: 'cobranza',
 
@@ -106,6 +185,10 @@ export const cobranzaRunner: AgentRunner = {
       }
     }
 
+    // La sincronización contable corre siempre. dryRun controla exclusivamente
+    // el envío de WhatsApp y nunca debe impedir que el saldo quede persistido.
+    const lateFeeSync = await syncLateFees({ ctx, supabase, payments: rows, today })
+
     // 2. Agrupar por contrato
     const byContract = new Map<string, PaymentRow[]>()
     for (const p of rows) {
@@ -142,8 +225,8 @@ export const cobranzaRunner: AgentRunner = {
       for (const u of data || []) unitsMap.set(u.id as string, (u.number as string) || '—')
     }
 
-    let actionsOk = 0
-    let actionsFailed = 0
+    let actionsOk = lateFeeSync.attempted > 0 && lateFeeSync.failedPaymentIds.size === 0 ? 1 : 0
+    let actionsFailed = lateFeeSync.failedPaymentIds.size > 0 ? 1 : 0
     let actionsSkipped = 0
     let sentCount = 0
     const escalations: Record<string, number> = { reminder: 0, warning: 0, critical: 0, legal: 0, abogado: 0 }
@@ -167,25 +250,27 @@ export const cobranzaRunner: AgentRunner = {
         let maxDays = 0
 
         for (const p of overdue) {
-          const days = dayDiff(new Date(p.due_date), today)
           const base = paymentAmount(p)
-          const { level, amount: fee } = calcMoraSurcharge(base, days)
-          // Persistir el cargo (solo en modo real; dry-run no muta saldos).
-          // Idempotente: cada corrida fija el cargo del nivel ACTUAL del pago,
-          // no lo acumula día a día.
-          if (!dryRun) {
-            await supabase
-              .from('payments')
-              .update({
-                late_fee_amount: fee,
-                late_fee_level: level,
-                late_fee_updated_at: new Date().toISOString(),
-              })
-              .eq('id', p.id)
-          }
+          const calculation = lateFeeSync.calculations.get(p.id)
+          if (!calculation) continue
+          const { days, fee, level } = calculation
           totalDue += base + fee
           if (getMoraLevelOrder(level) < getMoraLevelOrder(worstLevel)) worstLevel = level
           if (days > maxDays) maxDays = days
+        }
+
+        // Nunca se comunica un saldo que no logró quedar guardado.
+        const failedPayments = overdue.filter((p) => lateFeeSync.failedPaymentIds.has(p.id))
+        if (failedPayments.length > 0) {
+          await ctx.recordAction({
+            action_type: 'cobranza.skip_late_fee_persistence_failed',
+            entity_type: 'contract',
+            entity_id: contract.id,
+            status: 'skipped',
+            payload: { payment_ids: failedPayments.map((p) => p.id) },
+          })
+          actionsSkipped++
+          continue
         }
 
         // En gracia (1-5 días): no se molesta al inquilino todavía.
@@ -239,6 +324,11 @@ export const cobranzaRunner: AgentRunner = {
         contracts_processed: contracts.length,
         escalations,
         sent_count: sentCount,
+        late_fee_sync: {
+          attempted: lateFeeSync.attempted,
+          updated: lateFeeSync.updated,
+          failed: lateFeeSync.failedPaymentIds.size,
+        },
         dry_run: dryRun,
         whatsapp_enabled: canSend,
       },
