@@ -1,0 +1,57 @@
+name: Migrations
+
+# Drift check: reconstruye la BD desde cero con supabase/migrations/ en un
+# Postgres efímero del runner. NO usa secrets ni se conecta a ningún proyecto
+# remoto (prod incluido) — solo Docker local.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db-reset:
+    name: db-reset
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+
+      # db start levanta solo el contenedor de Postgres (sin auth/storage/etc.)
+      # y ya aplica las migraciones sobre un contenedor nuevo.
+      - name: Start local Postgres
+        run: supabase db start
+
+      - name: supabase db reset
+        run: supabase db reset --local
+
+      - name: Verify every migration was applied
+        run: |
+          expected=$(ls supabase/migrations/*.sql | wc -l)
+          applied=$(docker exec supabase_db_baw-os psql -U postgres -Atc \
+            "select count(*) from supabase_migrations.schema_migrations")
+          echo "Migration files: $expected · applied: $applied"
+          if [ "$applied" -ne "$expected" ]; then
+            echo "::error::Solo se aplicaron $applied de $expected migraciones"
+            exit 1
+          fi
+
+      - name: Stop
+        if: always()
+        run: supabase stop --no-backup

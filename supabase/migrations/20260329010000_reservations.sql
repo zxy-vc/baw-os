@@ -1,6 +1,6 @@
 -- BaW OS — Reservations table (Booking Engine Fase 1)
 
-CREATE TABLE reservations (
+CREATE TABLE IF NOT EXISTS reservations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   unit_id uuid REFERENCES units(id),
   organization_id uuid REFERENCES organizations(id),

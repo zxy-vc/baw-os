@@ -7,9 +7,9 @@
 --   2. Capa Buildings entre Organizations y Units.
 --   3. Capa Property Owners + ownership_stakes (validación sum<=100 por building).
 --   4. RLS endurecido por org_id en todas las tablas nuevas usando los roles
---      pm_* (declarados en la migración 20260429_01).
+--      pm_* (declarados en la migración 20260429041148).
 --
--- Pre-requisito: la migración 20260429_01_member_role_pm_values.sql debe haberse
+-- Pre-requisito: la migración 20260429041148_member_role_pm_values.sql debe haberse
 -- aplicado antes (los valores pm_* del enum no pueden usarse en la misma tx
 -- donde se agregaron).
 -- =============================================================================
@@ -18,25 +18,28 @@
 -- 1) WIPE de tablas operativas
 -- -----------------------------------------------------------------------------
 
-TRUNCATE TABLE
-  public.payment_ledger,
-  public.payments,
-  public.contracts,
-  public.reservations,
-  public.tenant_applications,
-  public.occupants,
-  public.unit_prices,
-  public.pricing_config,
-  public.str_seasons,
-  public.expenses,
-  public.incidents,
-  public.tasks,
-  public.escalation_rules,
-  public.audit_log,
-  public.webhook_events,
-  public.whatsapp_notifications,
-  public.units
-RESTART IDENTITY CASCADE;
+-- unit_prices y escalation_rules existen en prod pero ninguna migración del
+-- repo las crea: se truncan solo si existen para que un rebuild desde cero
+-- no aborte con 42P01.
+DO $$
+DECLARE
+  v_tables text;
+BEGIN
+  SELECT string_agg(format('public.%I', t), ', ' ORDER BY ord)
+    INTO v_tables
+    FROM unnest(ARRAY[
+      'payment_ledger', 'payments', 'contracts', 'reservations',
+      'tenant_applications', 'occupants', 'unit_prices', 'pricing_config',
+      'str_seasons', 'expenses', 'incidents', 'tasks', 'escalation_rules',
+      'audit_log', 'webhook_events', 'whatsapp_notifications', 'units'
+    ]) WITH ORDINALITY AS x(t, ord)
+   WHERE to_regclass(format('public.%I', t)) IS NOT NULL;
+
+  IF v_tables IS NOT NULL THEN
+    EXECUTE format('TRUNCATE TABLE %s RESTART IDENTITY CASCADE', v_tables);
+  END IF;
+END;
+$$;
 
 DELETE FROM public.org_members;
 DELETE FROM public.organizations;

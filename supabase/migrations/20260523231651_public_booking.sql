@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS public.reservation_holds (
 );
 
 -- EXCLUDE en holds (separado del CREATE TABLE para poder usar DO/EXCEPTION)
+-- Sin predicado: `WHERE (expires_at > now())` no es válido en un índice
+-- (now() no es IMMUTABLE → ERROR 42P17, que DO/EXCEPTION no atrapa y abortaba
+-- toda la migración). La purga de holds vencidos vive en el trigger
+-- trg_purge_expired_holds de 20260703020000_reservation_holds_now_fix.sql.
 DO $$
 BEGIN
   ALTER TABLE public.reservation_holds
@@ -70,7 +74,7 @@ BEGIN
     EXCLUDE USING gist (
       unit_id WITH =,
       daterange(from_date, to_date, '[)') WITH &&
-    ) WHERE (expires_at > now());
+    );
 EXCEPTION
   WHEN duplicate_object THEN NULL;
   WHEN duplicate_table  THEN NULL;

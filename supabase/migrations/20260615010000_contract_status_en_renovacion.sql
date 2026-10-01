@@ -1,7 +1,7 @@
 -- BaW OS — Fix: agregar 'en_renovacion' al enum contract_status.
 --
 -- BUG: el código usa status='en_renovacion' (contracts/page.tsx, renovación,
--- alertas) y la migración 20260330_contracts_legal.sql afirma que es "valid
+-- alertas) y la migración 20260330010000_contracts_legal.sql afirma que es "valid
 -- value" pero NUNCA lo agregó al tipo. Si la columna sigue siendo el ENUM
 -- contract_status, cualquier UPDATE a 'en_renovacion' falla (invalid input
 -- value for enum). Esto rompe el flujo de renovación de contratos.

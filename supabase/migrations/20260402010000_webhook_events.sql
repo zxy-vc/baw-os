@@ -8,6 +8,6 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_webhook_events_org ON webhook_events(org_id);
-CREATE INDEX idx_webhook_events_type ON webhook_events(event_type);
-CREATE INDEX idx_webhook_events_read ON webhook_events(read);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_org ON webhook_events(org_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_type ON webhook_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_read ON webhook_events(read);

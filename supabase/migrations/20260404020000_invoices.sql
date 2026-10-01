@@ -1,5 +1,5 @@
 -- BaW OS — Invoices / CFDI (FacturAPI)
-CREATE TABLE invoices (
+CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id TEXT NOT NULL DEFAULT 'baw',
   payment_id UUID REFERENCES payments(id),
