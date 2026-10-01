@@ -8,7 +8,7 @@
 -- IF EXISTS, para que la migración sirva en cualquier entorno.
 --
 -- Cubre 12 de las 14 tablas con qual/with_check = true. Las otras 2 (tasks,
--- tenant_applications) van en 20261001_02 porque requieren deploy de código.
+-- tenant_applications) van en 20261001020000 porque requieren deploy de código.
 --
 --   tabla                 policy abierta en prod (roles)              acción
 --   reservations          allow_all_reservations (public)             DROP → 4 policies por organization_id
@@ -371,7 +371,7 @@ COMMIT;
 -- ============================================================================
 -- V1. Policies abiertas restantes para roles distintos de service_role.
 --     Esperado tras (a): SOLO tasks.allow_all y tenant_applications.anon_*
---     (se cierran en 20261001_02).
+--     (se cierran en 20261001020000).
 --
 --   SELECT tablename, policyname, roles, cmd, qual, with_check
 --   FROM pg_policies

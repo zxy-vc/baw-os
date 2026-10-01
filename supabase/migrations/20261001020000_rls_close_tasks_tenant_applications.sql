@@ -1,7 +1,7 @@
 -- BAW-1 · RLS (b) — Cierre que REQUIERE deploy de código primero
 -- ============================================================================
 -- Las 2 tablas restantes de las 14 con qual/with_check = true en prod.
--- Correr DESPUÉS de 20261001_01 y SOLO cuando el código de este mismo PR esté
+-- Correr DESPUÉS de 20261001010000 y SOLO cuando el código de este mismo PR esté
 -- desplegado en producción.
 --
 --   tabla                policy abierta en prod (roles)            acción

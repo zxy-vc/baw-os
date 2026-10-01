@@ -2,7 +2,7 @@
 //
 // Carga la aplicación por `token` con service-role, filtrando por token en la
 // query (igual que /api/intake). anon ya no tiene acceso a tenant_applications
-// (20261001_02_rls_close_tasks_tenant_applications.sql): el token de la URL
+// (20261001020000_rls_close_tasks_tenant_applications.sql): el token de la URL
 // nunca llega a Postgres, así que RLS no podía filtrar por él.
 //
 // - Si el token no existe → notFound() (renderea not-found.tsx)
