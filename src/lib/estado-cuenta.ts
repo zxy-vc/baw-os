@@ -289,19 +289,22 @@ export function folioFor(unitNumber: string | null | undefined, periodo: string)
 }
 
 /**
- * Carga datos reales y arma el documento. Filtra SIEMPRE por org_id del
- * contrato (invariante multi-tenant). Usa un client con permiso de lectura
- * sobre las tablas (server/service).
+ * Carga datos reales y arma el documento. El contrato se busca dentro de
+ * `orgId` (la org del caller) y los pagos por el org_id del contrato
+ * (invariante multi-tenant). Usa un client con permiso de lectura sobre las
+ * tablas (server/service).
  */
 export async function getEstadoCuentaData(
   supabase: SupabaseClient,
   contractId: string,
   periodo: string,
+  orgId: string,
 ): Promise<EstadoCuentaDoc | null> {
   const { data: contract } = await supabase
     .from('contracts')
     .select('id, org_id, occupant_id, unit_id')
     .eq('id', contractId)
+    .eq('org_id', orgId)
     .maybeSingle()
   if (!contract) return null
 
