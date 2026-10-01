@@ -94,7 +94,7 @@ export default function ClientesPage() {
   }, [orgId, fetchData])
 
   // El CRM y el directorio (occupants) se mantienen 1:1 automáticamente vía
-  // trigger en la DB (ver migración 20260625_crm_occupant_sync). Ya no hace falta
+  // trigger en la DB (ver migración 20260625010000_crm_occupant_sync). Ya no hace falta
   // "importar" — toda persona aparece sola.
 
   const filtered = contacts.filter((c) => {

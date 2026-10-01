@@ -234,7 +234,7 @@ export default function CalendarioPage() {
 
         const unitRows = (unitsRes.data ?? []) as UnitRow[]
 
-        // Bloqueos operativos (fase 3). Si la migración 20260703_03 no está
+        // Bloqueos operativos (fase 3). Si la migración 20260703030000 no está
         // aplicada aún, la query falla y seguimos sin bloqueos (degradación).
         const blocksRes = await supabase
           .from('unit_blocks')

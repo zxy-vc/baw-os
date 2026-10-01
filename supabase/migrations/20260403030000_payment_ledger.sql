@@ -26,8 +26,8 @@ CREATE POLICY ledger_select ON payment_ledger FOR SELECT USING (true);
 CREATE POLICY ledger_insert ON payment_ledger FOR INSERT WITH CHECK (true);
 -- NO policies for UPDATE/DELETE = efectivamente inmutable
 
-CREATE INDEX idx_ledger_contract_id ON payment_ledger(contract_id);
-CREATE INDEX idx_ledger_created_at ON payment_ledger(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ledger_contract_id ON payment_ledger(contract_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_created_at ON payment_ledger(created_at DESC);
 
 -- Agregar campos confirmed_by a payments
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS confirmed_by TEXT;

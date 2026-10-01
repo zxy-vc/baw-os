@@ -1,3 +1,12 @@
+-- =============================================================================
+-- NO EJECUTABLE — referencia histórica, ver supabase/migrations/20260326000000_baseline.sql
+-- =============================================================================
+-- Este archivo NO refleja el schema real de producción ni se aplica en ningún
+-- entorno. La fuente de verdad del schema son las migraciones en
+-- supabase/migrations/ (empezando por el baseline). No lo corras: falla
+-- (p.ej. CREATE POLICY sobre org_members antes de crearla) y duplicaría objetos.
+-- =============================================================================
+
 -- BaW OS — Database Schema v0.1
 -- Supabase (PostgreSQL) con Row Level Security por organización
 -- BaW Design Lab · ZXY Ventures · Marzo 2026
@@ -137,7 +146,7 @@ CREATE POLICY "payments_org_isolation" ON payments
   ));
 
 -- ============================================
--- ANCILLARY (Estacionamiento + Espectaculares) — ver migración 20260616_02
+-- ANCILLARY (Estacionamiento + Espectaculares) — ver migración 20260616020000
 -- ============================================
 -- Pool de estacionamiento (informativo): buildings.parking_total y
 -- units.parking_included. El cobro de cajones extra y espectaculares vive en
@@ -191,7 +200,7 @@ ALTER TABLE ancillary_charges ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "ancillary_charges_org_isolation" ON ancillary_charges
   USING (org_id IN (SELECT org_id FROM org_members WHERE user_id = auth.uid()));
 
--- Enlace pago ↔ cargo accesorio (ver migración 20260616_03). NULL = renta normal.
+-- Enlace pago ↔ cargo accesorio (ver migración 20260616030000). NULL = renta normal.
 ALTER TABLE payments
   ADD COLUMN IF NOT EXISTS ancillary_charge_id UUID REFERENCES ancillary_charges(id) ON DELETE SET NULL;
 

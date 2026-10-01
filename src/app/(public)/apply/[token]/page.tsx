@@ -1,7 +1,7 @@
 // BaW OS — Solicitud pública de arrendamiento (Server Component)
 //
 // Carga la aplicación por `token` con el cliente anon de Supabase (RLS permite
-// SELECT a anon, ver migration 20260404_tenant_intake.sql líneas 51-61).
+// SELECT a anon, ver migration 20260404050000_tenant_intake.sql líneas 51-61).
 //
 // - Si el token no existe → notFound() (renderea not-found.tsx)
 // - Si la tabla no existe en este entorno → schemaMissing fallback (mismo

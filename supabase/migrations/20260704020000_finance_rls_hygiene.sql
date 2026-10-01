@@ -6,7 +6,7 @@
 -- D4: RLS abierta o ausente en tablas de dinero:
 --     - invoices: políticas USING(true) para select/insert/update
 --     - payment_ledger: select/insert USING(true) sin aislar org
---     - expenses: RLS habilitada (20260404_rls_hardening) pero solo con
+--     - expenses: RLS habilitada (20260404030000_rls_hardening) pero solo con
 --       política service_role → el cliente autenticado quedaba sin política
 --       explícita de org
 --     Se reemplazan por políticas org-scoped reutilizando los helpers
@@ -93,7 +93,7 @@ CREATE POLICY ledger_insert_member ON public.payment_ledger
 -- =====================================================================
 -- 3) expenses — políticas de org para el cliente autenticado
 -- =====================================================================
--- Quitar el default hardcodeado a una org concreta (20260401_expenses.sql):
+-- Quitar el default hardcodeado a una org concreta (20260401010000_expenses.sql):
 -- todo insert debe traer org_id explícito.
 ALTER TABLE public.expenses ALTER COLUMN org_id DROP DEFAULT;
 
@@ -116,6 +116,6 @@ CREATE POLICY expenses_update_member ON public.expenses
   WITH CHECK (org_id IN (SELECT public.user_org_ids(auth.uid())));
 
 -- DELETE se hace vía API (service_role) — sin política de delete para clientes.
--- La política service_role_expenses de 20260404_rls_hardening sigue vigente.
+-- La política service_role_expenses de 20260404030000_rls_hardening sigue vigente.
 
 COMMIT;

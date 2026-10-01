@@ -1,7 +1,7 @@
 -- ============================================================
 -- BaW OS · Fix: constraint anti double-booking de reservation_holds
 --
--- BUG: 20260523_public_booking.sql define el EXCLUDE de holds con
+-- BUG: 20260523020000_public_booking.sql define el EXCLUDE de holds con
 --   WHERE (expires_at > now())
 -- y Postgres NO permite funciones no-inmutables (now() es STABLE) en
 -- predicados de índice → ERROR 42P17. La migración de mayo nunca pudo
@@ -18,6 +18,39 @@
 --   ALTER TABLE public.reservation_holds DROP CONSTRAINT IF EXISTS no_overlap_per_hold;
 -- ============================================================
 BEGIN;
+
+-- Garantiza que las tablas de 20260523020000_public_booking.sql existan aunque esa
+-- migración nunca se haya aplicado completa (mismas definiciones; no-op si ya
+-- existen).
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE IF NOT EXISTS public.reservation_holds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  unit_id uuid NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
+  from_date date NOT NULL,
+  to_date date NOT NULL,
+  guests_count integer NOT NULL DEFAULT 1,
+  guest_email text,
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '15 minutes'),
+  stripe_session_id text UNIQUE,
+  idempotency_key text UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (to_date > from_date)
+);
+
+CREATE TABLE IF NOT EXISTS public.stripe_processed_events (
+  event_id text PRIMARY KEY,
+  event_type text NOT NULL,
+  processed_at timestamptz NOT NULL DEFAULT now(),
+  payload jsonb
+);
+
+CREATE TABLE IF NOT EXISTS public.checkout_idempotency (
+  key text PRIMARY KEY,
+  response jsonb NOT NULL,
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '24 hours'),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
 DO $$
 BEGIN

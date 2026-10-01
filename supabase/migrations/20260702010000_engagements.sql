@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_engagements_org ON public.engagements (org_id, st
 
 -- Membresía: el contrato apunta a su engagement. FK directa a engagements (no
 -- introduce una segunda FK contracts→occupants, así que no rompe los embeds
--- PostgREST occupant:occupants(...) — ver nota en 20260627_party_kind_payer).
+-- PostgREST occupant:occupants(...) — ver nota en 20260627010000_party_kind_payer).
 ALTER TABLE public.contracts
   ADD COLUMN IF NOT EXISTS engagement_id uuid REFERENCES public.engagements(id);
 

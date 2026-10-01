@@ -14,7 +14,7 @@ export const GET = v1Read({
     const supabase = createServiceClient()
 
     // OJO: reservations usa organization_id (no org_id como el resto de tablas)
-    // y sus columnas reales vienen de 20260329_reservations.sql. El select
+    // y sus columnas reales vienen de 20260329010000_reservations.sql. El select
     // anterior pedía columnas fantasma de docs/schema.sql (aspiracional, nunca
     // migrado) — org_id/guest_id/nights/nightly_rate/total_amount/cleaning_fee
     // no existen y todo GET devolvía 500.

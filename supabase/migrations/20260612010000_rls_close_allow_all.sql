@@ -1,5 +1,5 @@
 -- BaW OS — Security audit 2026-06-12: cerrar RLS allow_all en org_members y
--- user_profiles (introducidas en 20260416_settings_mvp.sql).
+-- user_profiles (introducidas en 20260416010000_settings_mvp.sql).
 --
 -- BUG CRÍTICO que esto corrige: con `org_members_allow_all` (USING true,
 -- WITH CHECK true), cualquier usuario autenticado podía leer/editar/borrar

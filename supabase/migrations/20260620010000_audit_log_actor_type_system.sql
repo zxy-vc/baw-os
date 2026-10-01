@@ -5,7 +5,7 @@
 -- permitted 'human' | 'agent', so system events could never be stored and the
 -- filter was always empty. Widen the constraint to include 'system'.
 --
--- The constraint was created inline in 20260403_audit_log.sql, so Postgres named
+-- The constraint was created inline in 20260403010000_audit_log.sql, so Postgres named
 -- it audit_log_actor_type_check. Drop defensively (covers any rename) before
 -- re-adding the widened version.
 

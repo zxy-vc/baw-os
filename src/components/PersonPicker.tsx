@@ -9,7 +9,7 @@
 // ofrece crearla, avisando antes si el teléfono/email ya pertenece a alguien.
 //
 // El alta nueva dispara el trigger de DB que mantiene el CRM 1:1 (migración
-// 20260625_crm_occupant_sync), así que toda persona creada aquí aparece sola en
+// 20260625010000_crm_occupant_sync), así que toda persona creada aquí aparece sola en
 // Contactos y en el CRM.
 
 import { useState, useEffect, useRef, useCallback } from 'react'

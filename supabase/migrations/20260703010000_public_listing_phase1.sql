@@ -14,7 +14,7 @@
 -- Aditiva + idempotente. Rollback:
 --   DROP VIEW IF EXISTS public.v_public_unit_media;
 --   ALTER TABLE public.units DROP COLUMN IF EXISTS monthly_rate_mxn;
---   (y re-correr la sección 7 de 20260523_public_booking.sql)
+--   (y re-correr la sección 7 de 20260523020000_public_booking.sql)
 -- ============================================================
 BEGIN;
 
