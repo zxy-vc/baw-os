@@ -113,7 +113,7 @@ export const POST = v1Write<PaymentRecordBody>({
     })
 
     // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza)
-    void sendPaymentReceipt(data.id as string)
+    void sendPaymentReceipt(data.id as string, auth.orgId)
 
     return v1Ok(data)
   },

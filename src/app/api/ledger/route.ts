@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiOk, apiError, getOrgId } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
+import { canFinance } from '@/lib/finance-permissions'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -28,11 +30,18 @@ export async function GET(request: NextRequest) {
   return apiOk(data)
 }
 
+// BAW-2: POST solo con sesión de un miembro con finance.record_receipt. El
+// contrato, la unidad y el pago deben ser de su org (antes API key global →
+// podía marcar como pagado un pago de cualquier org por id).
 export async function POST(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
+  if (!auth.isPlatformAdmin && !canFinance(auth.role, 'finance.record_receipt')) {
+    return apiError('Tu rol no puede registrar pagos', 403)
+  }
 
   const supabase = createServiceClient()
-  const orgId = getOrgId()
+  const orgId = auth.orgId
   const body = await request.json()
 
   const { contract_id, unit_id, payment_id, tenant_name, amount, water_fee, payment_method, confirmed_by, notes } = body
@@ -43,12 +52,24 @@ export async function POST(request: NextRequest) {
 
   const total = (amount || 0) + (water_fee || 0)
 
+  const [{ data: contract }, { data: unit }, { data: payment }] = await Promise.all([
+    supabase.from('contracts').select('id').eq('id', contract_id).eq('org_id', orgId).maybeSingle(),
+    supabase.from('units').select('id').eq('id', unit_id).eq('org_id', orgId).maybeSingle(),
+    payment_id
+      ? supabase.from('payments').select('id').eq('id', payment_id).eq('org_id', orgId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  if (!contract) return apiError('Contract not found', 404)
+  if (!unit) return apiError('Unit not found', 404)
+  if (payment_id && !payment) return apiError('Payment not found', 404)
+
   // Check duplicate: if payment_id already has a ledger entry
   if (payment_id) {
     const { data: existing } = await supabase
       .from('payment_ledger')
       .select('id')
       .eq('payment_id', payment_id)
+      .eq('org_id', orgId)
       .limit(1)
 
     if (existing && existing.length > 0) {
@@ -89,6 +110,7 @@ export async function POST(request: NextRequest) {
         payment_method: payment_method || 'efectivo',
       })
       .eq('id', payment_id)
+      .eq('org_id', orgId)
   }
 
   // 3. Audit log
