@@ -1,7 +1,9 @@
 // BaW OS — Solicitud pública de arrendamiento (Server Component)
 //
-// Carga la aplicación por `token` con el cliente anon de Supabase (RLS permite
-// SELECT a anon, ver migration 20260404_tenant_intake.sql líneas 51-61).
+// Carga la aplicación por `token` con service-role, filtrando por token en la
+// query (igual que /api/intake). anon ya no tiene acceso a tenant_applications
+// (20261001_02_rls_close_tasks_tenant_applications.sql): el token de la URL
+// nunca llega a Postgres, así que RLS no podía filtrar por él.
 //
 // - Si el token no existe → notFound() (renderea not-found.tsx)
 // - Si la tabla no existe en este entorno → schemaMissing fallback (mismo
@@ -10,7 +12,7 @@
 // - Si todo OK → pasa la row inicial al Client Component <ApplyForm/>.
 
 import { notFound } from 'next/navigation'
-import { createSupabaseServer } from '@/lib/supabase-server'
+import { createServiceClient } from '@/lib/api-auth'
 import type { TenantApplication } from '@/types'
 import ApplyForm from './ApplyForm'
 import BawGrid from '@/components/BawGrid'
@@ -24,7 +26,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function ApplyPage({ params }: PageProps) {
   const { token } = params
-  const supabase = createSupabaseServer()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('tenant_applications')
