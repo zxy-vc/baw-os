@@ -1,7 +1,7 @@
 -- ============================================================
 -- BaW OS · Fix: constraint anti double-booking de reservation_holds
 --
--- BUG: 20260523020000_public_booking.sql define el EXCLUDE de holds con
+-- BUG: 20260523231651_public_booking.sql define el EXCLUDE de holds con
 --   WHERE (expires_at > now())
 -- y Postgres NO permite funciones no-inmutables (now() es STABLE) en
 -- predicados de índice → ERROR 42P17. La migración de mayo nunca pudo
@@ -19,7 +19,7 @@
 -- ============================================================
 BEGIN;
 
--- Garantiza que las tablas de 20260523020000_public_booking.sql existan aunque esa
+-- Garantiza que las tablas de 20260523231651_public_booking.sql existan aunque esa
 -- migración nunca se haya aplicado completa (mismas definiciones; no-op si ya
 -- existen).
 CREATE EXTENSION IF NOT EXISTS btree_gist;

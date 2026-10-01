@@ -23,7 +23,7 @@ Corolarios:
 
 ### 1. Registrar al agente en el catálogo (`agents` table)
 
-Si el agente es nuevo (no está en `supabase/migrations/20260502010000_agents_roster_v02.sql`), añadirlo via migración nueva. **No hacerlo via dashboard de Supabase** — todo el catálogo vive en migraciones para reproducibilidad.
+Si el agente es nuevo (no está en `supabase/migrations/20260502133814_agents_roster_v02.sql`), añadirlo via migración nueva. **No hacerlo via dashboard de Supabase** — todo el catálogo vive en migraciones para reproducibilidad.
 
 ```sql
 INSERT INTO public.agents (

@@ -1,6 +1,6 @@
 -- BaW OS — API v1 infrastructure (Fase 2 del Agent Platform Roadmap)
 -- Tablas de soporte: idempotency_keys, agent_approvals, agent_policies.
--- Dependencias: agent_credentials (20260503010000_agent_credentials.sql), agents, agent_runs.
+-- Dependencias: agent_credentials (20260503132839_agent_credentials.sql), agents, agent_runs.
 
 BEGIN;
 

@@ -227,7 +227,7 @@ Agentes externos que **operan en nombre de la org BaW** vía API pública con id
 
 - [ ] Agregar `andres-cto` a `agents` table (third-party, status='planned').
 - [ ] Agregar `rafa-research` a `agents` table (third-party, status='planned').
-- [ ] Verificar que los 5 ZXY originales estén en `family='third-party'` (ya hecho por `20260502020000_agents_third_party_family.sql`).
+- [ ] Verificar que los 5 ZXY originales estén en `family='third-party'` (ya hecho por `20260502132844_agents_third_party_family.sql`).
 
 ---
 

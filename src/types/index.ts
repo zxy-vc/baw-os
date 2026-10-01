@@ -37,7 +37,7 @@ export interface Building {
   archived_at?: string | null
   created_at: string
   updated_at: string
-  // Campos públicos (listing público — 20260523020000_public_booking.sql)
+  // Campos públicos (listing público — 20260523231651_public_booking.sql)
   slug?: string | null
   public_name?: string | null
   public_description?: string | null

@@ -46,7 +46,7 @@ Connect Alicia (ZXY Agent OS, OpenClaw, on Fran's M1) to BaW OS production so th
 | `src/lib/agents/attribution.ts` | ✅ Done | withAgentAttribution + Discord embeds |
 | `src/lib/agents/auth.ts` | ✅ Extended | verifyAgentBearer + requireAgentAuth HOF |
 | `src/app/api/agents/discord-interactions/route.ts` | ✅ Done | Endpoint Discord Interactions |
-| `supabase/migrations/20260523010000_agents_discord_interactions.sql` | ✅ Applied to prod | agent_interactions table + attribution columns |
+| `supabase/migrations/20260523232305_agents_discord_interactions.sql` | ✅ Applied to prod | agent_interactions table + attribution columns |
 | `tests/agents/discord-verify.test.mjs` | ✅ 8/8 pass | |
 | `tests/agents/auth.test.mjs` | ✅ 13/13 pass | |
 | `tests/agents/attribution.test.mjs` | ✅ 18/18 pass | |

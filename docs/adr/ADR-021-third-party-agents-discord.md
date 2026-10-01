@@ -135,5 +135,5 @@ Ejemplos:
 - Verificación: `src/lib/agents/discord-verify.ts`
 - Autenticación: `src/lib/agents/auth.ts` (verifyAgentBearer + requireAgentAuth HOF)
 - Atribución: `src/lib/agents/attribution.ts`
-- Migración: `supabase/migrations/20260523010000_agents_discord_interactions.sql`
+- Migración: `supabase/migrations/20260523232305_agents_discord_interactions.sql`
 - Tests: `tests/agents/` (39 tests, 3 suites)

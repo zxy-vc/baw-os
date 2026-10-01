@@ -7,9 +7,9 @@
 --   2. Capa Buildings entre Organizations y Units.
 --   3. Capa Property Owners + ownership_stakes (validación sum<=100 por building).
 --   4. RLS endurecido por org_id en todas las tablas nuevas usando los roles
---      pm_* (declarados en la migración 20260429010000).
+--      pm_* (declarados en la migración 20260429041148).
 --
--- Pre-requisito: la migración 20260429010000_member_role_pm_values.sql debe haberse
+-- Pre-requisito: la migración 20260429041148_member_role_pm_values.sql debe haberse
 -- aplicado antes (los valores pm_* del enum no pueden usarse en la misma tx
 -- donde se agregaron).
 -- =============================================================================
