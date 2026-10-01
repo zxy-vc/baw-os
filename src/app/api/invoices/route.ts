@@ -1,10 +1,15 @@
 // BaW OS — Invoices API: GET list + POST create CFDI
+// BAW-2: solo sesión de un miembro de la org activa (antes API key global sin
+// tenant: el GET listaba facturas de todas las orgs). Todo acotado a auth.orgId.
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgIdAsync } from '@/lib/api-auth'
+import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
+import { canFinance } from '@/lib/finance-permissions'
 import { createInvoice, isMockMode } from '@/lib/facturapi'
 
 export async function GET(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const url = new URL(request.url)
   const contractId = url.searchParams.get('contract_id')
@@ -14,6 +19,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('invoices')
     .select('*')
+    .eq('org_id', auth.orgId)
     .order('created_at', { ascending: false })
 
   if (contractId) query = query.eq('contract_id', contractId)
@@ -33,7 +39,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
+  if (!auth.isPlatformAdmin && !canFinance(auth.role, 'finance.emit_cfdi')) {
+    return apiError('Tu rol no puede emitir CFDI', 403)
+  }
   const supabase = createServiceClient()
   const body = await request.json()
 
@@ -47,6 +57,7 @@ export async function POST(request: NextRequest) {
     .from('payments')
     .select('*, contract:contracts(*, unit:units(*), occupant:occupants(*))')
     .eq('id', payment_id)
+    .eq('org_id', auth.orgId)
     .single()
 
   if (payErr || !payment) return apiError('Payment not found', 404)
@@ -102,12 +113,10 @@ export async function POST(request: NextRequest) {
 
   // Save to DB
   const invoiceStatus = facturapiResult._mock ? 'draft' : 'valid'
-  // La factura hereda la org del contrato (D3 de ADR-022: antes 'baw' hardcodeado)
-  const orgId = contract.org_id || (await getOrgIdAsync())
   const { data: invoice, error: insErr } = await supabase
     .from('invoices')
     .insert({
-      org_id: orgId,
+      org_id: auth.orgId,
       payment_id,
       contract_id: contract.id,
       facturapi_id: facturapiResult.id,
