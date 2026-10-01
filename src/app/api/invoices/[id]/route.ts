@@ -1,19 +1,25 @@
 // BaW OS — Invoice detail: GET + DELETE (cancel)
+// BAW-2: solo sesión de un miembro de la org activa (antes API key global sin
+// tenant: se podía leer o CANCELAR en FacturAPI la factura de cualquier org).
 import { NextRequest } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk } from '@/lib/api-auth'
+import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
+import { canFinance } from '@/lib/finance-permissions'
 import { cancelInvoice, isMockMode } from '@/lib/facturapi'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!validateApiKey(_request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('invoices')
     .select('*')
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .single()
 
   if (error || !data) return apiError('Invoice not found', 404)
@@ -26,6 +32,7 @@ export async function GET(
       .from('contracts')
       .select('*, unit:units(*), occupant:occupants(*)')
       .eq('id', data.contract_id)
+      .eq('org_id', auth.orgId)
       .single()
     contract = c
   }
@@ -34,6 +41,7 @@ export async function GET(
       .from('payments')
       .select('*')
       .eq('id', data.payment_id)
+      .eq('org_id', auth.orgId)
       .single()
     payment = p
   }
@@ -45,13 +53,18 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!validateApiKey(_request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
+  if (!auth.isPlatformAdmin && !canFinance(auth.role, 'finance.emit_cfdi')) {
+    return apiError('Tu rol no puede cancelar CFDI', 403)
+  }
   const supabase = createServiceClient()
 
   const { data: invoice, error } = await supabase
     .from('invoices')
     .select('*')
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .single()
 
   if (error || !invoice) return apiError('Invoice not found', 404)
@@ -72,6 +85,7 @@ export async function DELETE(
     .from('invoices')
     .update({ status: 'cancelled' })
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .select()
     .single()
 
