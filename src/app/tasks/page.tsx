@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckSquare, Plus, X, Calendar, ArrowRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/Toast'
+import { useOrgContext } from '@/hooks/useOrgContext'
 
 interface Task {
   id: string
@@ -47,6 +48,7 @@ const EMPTY_FORM = {
 
 export default function TasksPage() {
   const toast = useToast()
+  const { orgId } = useOrgContext()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -70,8 +72,13 @@ export default function TasksPage() {
 
   async function createTask() {
     if (!form.title.trim()) return
+    if (!orgId) {
+      toast.error('No hay organización activa')
+      return
+    }
     setSaving(true)
     const { error } = await supabase.from('tasks').insert({
+      org_id: orgId,
       title: form.title.trim(),
       description: form.description.trim() || null,
       assigned_to: form.assigned_to || null,
