@@ -5,6 +5,7 @@
 > **Alcance:** solo diagnóstico. Nada de este documento escribe en la base. Todo el SQL de §4 es de **solo lectura**. El SQL de §6 es un **esqueleto** de la Fase B que **no se ejecuta** sin el OK de Fran.
 > **Org:** DuVa ReEs · `81a011c4-4ea6-4b79-924d-73dbe6d35e14`. Según el reporte del ticket (2-oct-2026) es la única org en prod; Q1 lo verifica.
 > **Base del análisis:** `origin/main` @ `2d73e27` (2026-10-01).
+> **Seguimiento 2026-10-15 (Stripe intent):** según la Q0.a que corrió Fran en prod, `payments.stripe_payment_intent_id` **no existe**; los tres estatus son ENUM. Las citas nuevas de este ajuste se verificaron contra `origin/main` @ `ad7a34c`; los archivos que citan no cambiaron desde `2d73e27`.
 
 **Convención:**
 
@@ -56,9 +57,9 @@
 | 9 | «Quitar pago directo» (cuenta del inquilino) | Regresa la fila a `pending`, `amount_paid = 0` y limpia los datos del pago | `src/app/cobros/[contractId]/page.tsx:355-374` |
 | 10 | Borrar abono | DELETE del abono + recompute; **la bitácora conserva su asiento** | `src/app/cobros/[contractId]/page.tsx:338-346` |
 | 11 | `POST /api/payments/[id]/recompute` | Deriva `amount_paid`/`status` **solo** de la suma de `payment_receipts` | `src/app/api/payments/[id]/recompute/route.ts:28-59` |
-| 12 | Webhook de Stripe / conserje | Marcan `paid` **con** `amount_paid` = total | `src/app/api/webhooks/stripe/route.ts:42-58`, `src/app/api/conserje/cobros/[id]/route.ts:44-58` |
+| 12 | Webhook de Stripe / conserje | Marcan `paid` **con** `amount_paid` = total. El webhook (evento `payment_intent.succeeded`) guarda además el id del intent en `payments.reference` | `src/app/api/webhooks/stripe/route.ts:27-29`, `src/app/api/webhooks/stripe/route.ts:42-58`, `src/app/api/conserje/cobros/[id]/route.ts:44-58` |
 | 13 | `POST /api/ledger` | Marca `status='paid'` **sin tocar** `amount_paid`: conserva el valor previo, típicamente 0/null. Mission Control la lee como `parcial` por `cargo + mora − amount_paid` (§3.3) | `src/app/api/ledger/route.ts:82-91` |
-| 14 | `POST /api/payments/checkout` | Guarda `stripe_payment_intent_id` al **crear** el intent, antes de que se cobre nada | `src/app/api/payments/checkout/route.ts:18-36` |
+| 14 | `POST /api/payments/checkout` | **Intenta** guardar `stripe_payment_intent_id` al crear el intent. Esa columna la define `supabase/migrations/20260408_mifiel_signature.sql:5-6`, pero **no existe en prod** (Q0.a de Fran; drift). El UPDATE falla y nadie revisa el error, porque el resultado no se lee | `src/app/api/payments/checkout/route.ts:18-36` |
 | 15 | Runner de cobranza (cron diario) | Selecciona filas de la org no `paid`, sin `confirmed_at` y con vencimiento ≤ hoy UTC + 5 días. A las **ya vencidas** les persiste `late_fee_amount`. Desde PR #162 (mergeado el 2026-08-13) lo hace también en dry-run | `src/lib/agents/cobranza.ts:144-161`, `src/lib/agents/cobranza.ts:87-106`, `src/lib/agents/cobranza.ts:188-190` |
 
 ### 1.2 Qué respeta y qué no respeta el cron
@@ -220,7 +221,8 @@ La réplica es la **consulta Q4** de §4. Reproduce los pasos 1-8 y entrega el d
   - en Q5, Q7 y Q8, `today_utc`: fecha UTC real, porque el runner de cobranza calcula su horizonte en UTC (`src/lib/agents/cobranza.ts:147-150`). Las columnas de cobranza describen **hoy**, no la foto;
   - en Q4 y Q11, también `building_id` (NULL = «Todos los edificios»).
 - Los estatus se comparan como `::text` porque en prod pueden ser ENUM o TEXT (drift; ver Q0). Además, `'cancelled'` y `'void'` no existen en los ENUM documentados (`docs/schema.sql:84`, `docs/schema.sql:113`), y comparar un ENUM contra una etiqueta que no existe truena.
-- Si Q0 muestra que falta alguna columna (`billing_start_date`, `archived_at`, `late_fee_amount`, `ancillary_charge_id`, `amount_paid`, `stripe_payment_intent_id`, `confirmed_at`), detente y avisa: las demás consultas las usan.
+- Si Q0 muestra que falta alguna columna (`billing_start_date`, `archived_at`, `late_fee_amount`, `ancillary_charge_id`, `amount_paid`, `confirmed_at`, `reference`), detente y avisa: las demás consultas las usan.
+- **`payments.stripe_payment_intent_id` no existe en prod** (Q0.a de Fran, 15-oct-2026), aunque `supabase/migrations/20260408_mifiel_signature.sql:5-6` la define. Ninguna consulta ni el esqueleto de §6 la usan. La señal de Stripe sale de `payments.reference` y de la bitácora (ver Q10).
 - **Validación previa (sin datos de prod):** Q0-Q11 se corrieron dentro de `BEGIN READ ONLY … ROLLBACK` en un Postgres 16 local, con un esquema mínimo que usa ENUMs para los estatus (el peor caso de drift) y datos sintéticos estilo `mateos-809.sql`.
   - Ninguna consulta falló; una escritura habría abortado la transacción de solo lectura.
   - Con D203 en `payment_day = 15` y factura desde 2025-02, Q4 reproduce los 594 días. Con D302 desde 2024-03, reproduce 700/670/639/608. El total de Q11 coincide con el de Q4.
@@ -246,7 +248,7 @@ FROM information_schema.columns
 WHERE table_schema = 'public'
   AND (table_name, column_name) IN (
     ('payments','status'), ('payments','amount_paid'), ('payments','late_fee_amount'),
-    ('payments','ancillary_charge_id'), ('payments','stripe_payment_intent_id'),
+    ('payments','ancillary_charge_id'), ('payments','reference'),
     ('payments','confirmed_at'), ('payments','rent_amount'), ('payments','water_fee'),
     ('contracts','status'), ('contracts','billing_start_date'), ('contracts','archived_at'),
     ('contracts','rent_type'), ('contracts','payment_day'),
@@ -833,8 +835,11 @@ FROM p;
 - `PAID_SIN_MONTO`: fila `paid` con `amount_paid` menor que cargo + mora. Mission Control la ve como `parcial` (`src/lib/billing.ts:77-79`). La produce `/api/ledger` (`src/app/api/ledger/route.ts:82-91`).
 - `PAGO_FECHADO_HOY`: fila `paid` con `due_date = paid_date = fecha de creación`. Es el patrón de la API y los agentes (`src/app/api/payments/route.ts:47-48`, `src/lib/agents/v1/dispatcher.ts:142-143`); el pago puede corresponder a otro mes.
 - `ABONOS_DESFASADOS`: la suma de abonos no coincide con `amount_paid`. El recompute solo suma abonos (`src/app/api/payments/[id]/recompute/route.ts:28-40`), así que esto indica un recompute fallido o una edición directa. Un `partial` con `amount_paid` igual a sus abonos **no** se lista: es deuda correctamente registrada.
-- `SENAL_EXTERNA` (**por revisar, no prueba de pago**): fila sin `paid`/`partial` pero con asiento de bitácora, CFDI o `stripe_payment_intent_id`.
-  - El id de Stripe se guarda al **crear** el intent, antes de cobrar (`src/app/api/payments/checkout/route.ts:18-36`).
+- `SENAL_EXTERNA` (**por revisar, no prueba de pago**): fila sin `paid`/`partial` pero con asiento de bitácora, CFDI o un intent de Stripe confirmado (`stripe_pi`, ver abajo).
+  - `stripe_pi` **no** sale de `payments.stripe_payment_intent_id`, que no existe en prod. Sale de `payments.reference` cuando empieza con `pi_`, porque ahí lo guarda el webhook al recibir `payment_intent.succeeded` (`src/app/api/webhooks/stripe/route.ts:27-29`, `src/app/api/webhooks/stripe/route.ts:54-55`).
+  - Si `reference` está vacío, se busca con un LEFT JOIN en la nota `Stripe PI: …` de la bitácora (`src/app/api/webhooks/stripe/route.ts:64-75`). **Hipótesis:** esos asientos no existen en prod, porque el webhook manda `payment_method: 'stripe'` y el CHECK documentado de `payment_ledger` no lo admite (`supabase/migrations/20260403_payment_ledger.sql:14`). El LEFT JOIN cubre el caso de que en prod el CHECK sea distinto.
+  - No se usan `stripe_processed_events` (`supabase/migrations/20260523_public_booking.sql:87-92`) ni `reservation_holds.stripe_session_id` (`supabase/migrations/20260523_public_booking.sql:59`). La primera solo la escribe el webhook del booking público (`src/app/api/public/v1/webhooks/stripe/route.ts:46-52`). La segunda guarda la sesión de checkout de holds STR (`src/app/api/public/v1/bookings/checkout/route.ts:154-156`, `src/app/api/public/v1/bookings/checkout/route.ts:175-178`). Ninguna de las dos se liga a una fila de `payments`.
+  - A diferencia de la columna original, que se llenaba al **crear** el intent, este `pi_` solo se escribe cuando Stripe **confirma** el cobro. Si la fila ya no está `paid`, alguien cambió el estatus después; el PATCH permite tocar `status` y `reference` (`src/app/api/payments/[id]/route.ts:7-11`). Es una señal más fuerte, pero sigue «por revisar».
   - La bitácora conserva su asiento aunque se borre el abono (`src/app/cobros/[contractId]/page.tsx:338-346`).
 - `BITACORA_SIN_CARGO`: asientos de `payment_ledger` sin `payment_id`. Mission Control solo lee `payments` (`src/app/page.tsx:150-171`) y solo descuenta lo que está en `amount_paid` de la fila del mes (`src/lib/billing.ts:71-79`), así que ese dinero anotado no salda ningún mes.
 
@@ -847,9 +852,19 @@ ev AS (
          (SELECT COALESCE(sum(r.amount), 0) FROM payment_receipts r WHERE r.payment_id = py.id) AS abonos,
          (SELECT count(*) FROM payment_receipts r WHERE r.payment_id = py.id) AS n_abonos,
          (SELECT count(*) FROM payment_ledger l WHERE l.payment_id = py.id) AS asientos,
-         (SELECT count(*) FROM invoices i WHERE i.payment_id = py.id AND COALESCE(i.status, '') <> 'cancelled') AS cfdis
+         (SELECT count(*) FROM invoices i WHERE i.payment_id = py.id AND COALESCE(i.status, '') <> 'cancelled') AS cfdis,
+         -- Intent de Stripe confirmado: payments.reference (webhook) o nota 'Stripe PI: …' de la bitácora.
+         -- payments.stripe_payment_intent_id NO existe en prod (Q0.a); no se usa.
+         COALESCE(CASE WHEN py.reference LIKE 'pi\_%' THEN py.reference END, lpi.stripe_pi) AS stripe_pi
   FROM payments py
   CROSS JOIN p
+  LEFT JOIN LATERAL (
+    SELECT substring(l.notes FROM 'Stripe PI: (pi_[A-Za-z0-9_]+)') AS stripe_pi
+    FROM payment_ledger l
+    WHERE l.payment_id = py.id AND l.notes LIKE 'Stripe PI: %'
+    ORDER BY l.created_at DESC
+    LIMIT 1
+  ) lpi ON true
   WHERE py.org_id = p.org_id
 )
 SELECT 'DUPLICADO' AS hallazgo, u.number AS unidad, py.contract_id, py.id AS payment_id,
@@ -909,7 +924,7 @@ UNION ALL
 SELECT 'SENAL_EXTERNA', u.number, py.contract_id, py.id, to_char(py.due_date, 'YYYY-MM'), py.status::text,
        py.amount, py.amount_paid,
        'asientos=' || ev.asientos || ' cfdis=' || ev.cfdis
-         || ' stripe_intent=' || COALESCE(py.stripe_payment_intent_id, '-') || ' (por revisar; no prueba pago)'
+         || ' stripe_pi=' || COALESCE(ev.stripe_pi, '-') || ' (por revisar; no prueba pago)'
 FROM payments py
 CROSS JOIN p
 JOIN ev ON ev.payment_id = py.id
@@ -917,7 +932,7 @@ LEFT JOIN contracts c ON c.id = py.contract_id
 LEFT JOIN units u ON u.id = c.unit_id
 WHERE py.org_id = p.org_id
   AND py.status::text NOT IN ('paid', 'partial')
-  AND (ev.asientos > 0 OR ev.cfdis > 0 OR py.stripe_payment_intent_id IS NOT NULL)
+  AND (ev.asientos > 0 OR ev.cfdis > 0 OR ev.stripe_pi IS NOT NULL)
 
 UNION ALL
 SELECT 'BITACORA_SIN_CARGO', u.number, l.contract_id, NULL, to_char(l.created_at, 'YYYY-MM'), NULL,
@@ -983,7 +998,8 @@ pay AS (
   SELECT DISTINCT ON (pr.contract_id, pr.ms)
          pr.contract_id, pr.ms AS month_start,
          pr.id AS payment_id, pr.status::text AS payment_status, pr.amount AS payment_amount,
-         pr.amount_paid, pr.late_fee_amount, pr.ancillary_charge_id, pr.stripe_payment_intent_id
+         pr.amount_paid, pr.late_fee_amount, pr.ancillary_charge_id,
+         CASE WHEN pr.reference LIKE 'pi\_%' THEN pr.reference END AS ref_pi  -- intent confirmado (webhook)
   FROM pr
   ORDER BY pr.contract_id, pr.ms, pr.rk DESC, pr.created_at
 ),
@@ -1004,7 +1020,7 @@ ctr AS (
 ),
 x AS (
   SELECT m.*, pay.payment_id, pay.payment_status, pay.payment_amount, pay.amount_paid,
-         pay.late_fee_amount, pay.ancillary_charge_id, pay.stripe_payment_intent_id,
+         pay.late_fee_amount, pay.ancillary_charge_id, pay.ref_pi,
          (m.month_start + (COALESCE(NULLIF(m.payment_day, 0), 1) - 1))::date AS due_date,
          COALESCE((
            SELECT sr.amount FROM service_rates sr
@@ -1054,9 +1070,18 @@ o AS (
              AND c2.org_id = (SELECT org_id FROM p)
              AND c2.status::text IN ('active','en_renovacion')
              AND date_trunc('month', COALESCE(c2.billing_start_date, c2.start_date)) <= v.month_start
-         ) AS otro_contrato_factura_mismo_mes
+         ) AS otro_contrato_factura_mismo_mes,
+         -- payments.stripe_payment_intent_id NO existe en prod (Q0.a): el intent sale de reference o de la bitácora.
+         COALESCE(v.ref_pi, lpi.stripe_pi) AS stripe_pi
   FROM v
   JOIN ctr ON ctr.contract_id = v.contract_id
+  LEFT JOIN LATERAL (
+    SELECT substring(l.notes FROM 'Stripe PI: (pi_[A-Za-z0-9_]+)') AS stripe_pi
+    FROM payment_ledger l
+    WHERE l.payment_id = v.payment_id AND l.notes LIKE 'Stripe PI: %'
+    ORDER BY l.created_at DESC
+    LIMIT 1
+  ) lpi ON true
   WHERE v.mc_status IN ('mora', 'vencido', 'parcial')
 ),
 k AS (
@@ -1085,10 +1110,10 @@ k AS (
              THEN 'P4 PAGADO POR FUERA? · histórico anterior al primer pago registrado del contrato'
            WHEN o.month_start < (SELECT mes_golive FROM golive)
              THEN 'P5 FRAN DECIDE · mes anterior al arranque de BaW OS en la org'
-           -- SEÑAL EXTERNA: hay rastro (Stripe/bitácora/CFDI) pero no prueba pago
+           -- SEÑAL EXTERNA: hay rastro (bitácora/CFDI/intent Stripe confirmado en reference) pero no prueba pago
            WHEN (o.payment_status IS NULL OR o.payment_status NOT IN ('paid', 'partial'))
-                AND (o.asientos > 0 OR o.cfdis > 0 OR o.stripe_payment_intent_id IS NOT NULL)
-             THEN 'S1 REVISAR · señal externa (Stripe/bitácora/CFDI), no prueba pago'
+                AND (o.asientos > 0 OR o.cfdis > 0 OR o.stripe_pi IS NOT NULL)
+             THEN 'S1 REVISAR · señal externa (bitácora/CFDI/Stripe en reference), no prueba pago'
            -- DEUDA REAL (probable)
            WHEN o.end_date IS NOT NULL AND o.month_start > date_trunc('month', o.end_date)
              THEN 'R2 DEUDA REAL? · en_renovacion tras end_date (confirmar que sigue el inquilino)'
@@ -1138,7 +1163,7 @@ Cada **contrato-mes** que Mission Control cuenta como vencido cae en **un** buck
 | P3? | El contrato tiene pagos que no saldan su mes: dos en el mismo mes, o anteriores al calendario | El dinero entró, pero en otro mes: la API registra con `due_date = hoy` (`src/app/api/payments/route.ts:47-48`) y el PATCH puede mover `due_date` (`src/app/api/payments/[id]/route.ts:7-11`) | Reasignarlo al mes correcto desde la UI: «quitar pago directo» (`src/app/cobros/[contractId]/page.tsx:355-374`) y registrar el abono en el mes que corresponde |
 | P4? | Mes anterior al primer pago registrado del contrato, con pagos posteriores | Patrón de «histórico previo a BaW OS» | Si Fran lo confirma: `billing_start_date` = primer mes que administra BaW OS (UI de contratos, `src/app/contracts/page.tsx:101-115`) |
 | P5 | Mes anterior al arranque de BaW OS en la org (Q9.b) | **Hipótesis:** antes de esa fecha los pagos se registraban fuera de BaW OS. El repo solo acredita que `billing_start_date` existe para no facturar histórico no verificado (`supabase/migrations/20260628_contracts_billing_start.sql:1-6`) | **Fran decide** con estados de cuenta o la bitácora de Notion. Si se pagó: `billing_start_date`. Si se debe: pasa a deuda real |
-| S1 | Sin `paid`/`partial`, pero con asiento de bitácora, CFDI o id de Stripe | **No prueba pago.** El id de Stripe se guarda al crear el intent (`src/app/api/payments/checkout/route.ts:18-36`) y la bitácora conserva asientos de abonos borrados (`src/app/cobros/[contractId]/page.tsx:338-346`) | Fran revisa contra Stripe, el CFDI o el banco; luego reclasifica |
+| S1 | Sin `paid`/`partial`, pero con asiento de bitácora, CFDI o intent de Stripe confirmado (`payments.reference` = `pi_…`) | **No prueba pago.** La bitácora conserva asientos de abonos borrados (`src/app/cobros/[contractId]/page.tsx:338-346`). El `pi_` en `reference` lo escribe el webhook cuando Stripe confirma el cobro (`src/app/api/webhooks/stripe/route.ts:54-55`), pero el estatus pudo cambiar después vía PATCH (`src/app/api/payments/[id]/route.ts:7-11`). `stripe_payment_intent_id` no existe en prod | Fran revisa contra Stripe, el CFDI o el banco; luego reclasifica |
 
 ### Deuda real
 
@@ -1264,7 +1289,7 @@ BEGIN
     AND py.amount = pl.esperado_amount
     AND py.status::text NOT IN ('paid', 'partial', 'void')
     AND COALESCE(py.amount_paid, 0) = 0
-    AND py.stripe_payment_intent_id IS NULL
+    AND COALESCE(py.reference, '') NOT LIKE 'pi\_%'   -- sin intent Stripe confirmado (stripe_payment_intent_id no existe en prod)
     AND NOT EXISTS (SELECT 1 FROM payment_receipts r WHERE r.payment_id = py.id)
     AND NOT EXISTS (SELECT 1 FROM payment_ledger   l WHERE l.payment_id = py.id)
     AND NOT EXISTS (SELECT 1 FROM invoices         i WHERE i.payment_id = py.id AND COALESCE(i.status,'') <> 'cancelled');
@@ -1298,7 +1323,7 @@ BEGIN
     AND py.status::text = pl.esperado_status
     AND py.amount = pl.esperado_amount
     AND COALESCE(py.amount_paid, 0) = 0
-    AND py.stripe_payment_intent_id IS NULL
+    AND COALESCE(py.reference, '') NOT LIKE 'pi\_%'   -- sin intent Stripe confirmado (stripe_payment_intent_id no existe en prod)
     AND NOT EXISTS (SELECT 1 FROM payment_receipts r WHERE r.payment_id = py.id)
     AND NOT EXISTS (SELECT 1 FROM payment_ledger   l WHERE l.payment_id = py.id)
     AND NOT EXISTS (SELECT 1 FROM invoices         i WHERE i.payment_id = py.id AND COALESCE(i.status,'') <> 'cancelled');
