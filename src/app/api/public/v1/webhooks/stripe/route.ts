@@ -42,41 +42,69 @@ export async function POST(request: NextRequest) {
 
   console.log(`action=stripe_webhook event_id=${eventId} event_type=${eventType}`)
 
-  // ── Idempotency: skip if already processed ──────────────────────────────
-  const { error: insertErr } = await svc.from('stripe_processed_events').insert(
-    {
-      event_id: eventId,
-      event_type: eventType,
-      payload: JSON.parse(JSON.stringify(event)) as Record<string, unknown>,
-    },
-  ).select()
+  // ── Idempotency: skip events whose side effect completed previously ──────
+  // Do not write this marker before promotion: a marker created before a failed
+  // INSERT makes Stripe retries no-ops and is the paid-without-reservation bug.
+  const { data: previouslyProcessed, error: processedLookupErr } = await svc
+    .from('stripe_processed_events')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .maybeSingle()
 
-  // Primary key conflict = already processed
-  if (insertErr && insertErr.code === '23505') {
+  if (processedLookupErr) {
+    console.log(
+      `action=stripe_webhook event_id=${eventId} error=processed_event_lookup msg=${processedLookupErr.message}`,
+    )
+    return NextResponse.json({ error: 'Could not verify webhook idempotency' }, { status: 500 })
+  }
+
+  if (previouslyProcessed) {
     console.log(`action=stripe_webhook event_id=${eventId} status=already_processed`)
     return ack('already processed')
   }
-  if (insertErr) {
-    console.log(`action=stripe_webhook event_id=${eventId} error=insert_fail msg=${insertErr.message}`)
-    // Non-idempotency error — still try to process but log
-  }
 
   // ── Route events ──────────────────────────────────────────────────────────
-  switch (eventType) {
-    case 'checkout.session.completed': {
-      await handleSessionCompleted(JSON.parse(JSON.stringify(event.data.object)) as Record<string, unknown>, svc)
-      break
+  try {
+    switch (eventType) {
+      case 'checkout.session.completed': {
+        await handleSessionCompleted(
+          JSON.parse(JSON.stringify(event.data.object)) as Record<string, unknown>,
+          svc,
+        )
+        break
+      }
+      case 'checkout.session.expired': {
+        await handleSessionExpired(
+          JSON.parse(JSON.stringify(event.data.object)) as Record<string, unknown>,
+          svc,
+        )
+        break
+      }
+      default: {
+        console.log(`action=stripe_webhook event_id=${eventId} event_type=${eventType} status=ignored`)
+      }
     }
-    case 'checkout.session.expired': {
-      await handleSessionExpired(JSON.parse(JSON.stringify(event.data.object)) as Record<string, unknown>, svc)
-      break
-    }
-    default: {
-      console.log(`action=stripe_webhook event_id=${eventId} event_type=${eventType} status=ignored`)
-    }
-  }
 
-  return ack()
+    // Record only after the side effect succeeded. Concurrent delivery is safe:
+    // fn_promote_paid_reservation is idempotent by Stripe Checkout session id.
+    const { error: insertErr } = await svc.from('stripe_processed_events').insert({
+      event_id: eventId,
+      event_type: eventType,
+      payload: JSON.parse(JSON.stringify(event)) as Record<string, unknown>,
+    })
+    if (insertErr && insertErr.code !== '23505') {
+      throw new Error(`Could not record processed webhook event: ${insertErr.message}`)
+    }
+
+    return ack()
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown webhook processing error'
+    await recordPromotionFailure(eventId, eventType, event.data.object, msg, svc)
+    // A non-2xx response makes Stripe retry. The hold remains intact because
+    // the promotion RPC inserts the reservation and deletes the hold atomically.
+    console.log(`action=stripe_webhook event_id=${eventId} event_type=${eventType} error=processing_failed msg=${msg}`)
+    return NextResponse.json({ error: 'Webhook processing failed; Stripe will retry' }, { status: 500 })
+  }
 }
 
 // ── checkout.session.completed → promote hold to confirmed reservation ────────
@@ -85,66 +113,63 @@ async function handleSessionCompleted(
   svc: ReturnType<typeof createServiceClient>,
 ) {
   const sessionId = session.id as string
-  const metadata = (session.metadata ?? {}) as Record<string, string>
-  const holdId = metadata.hold_id
-  const unitId = metadata.unit_id
-  const from = metadata.from
-  const to = metadata.to
-  const guestName = metadata.guest_name ?? ''
-  const guestEmail = metadata.guest_email ?? ''
-  const guestPhone = metadata.guest_phone ?? ''
-  const amountTotal = typeof session.amount_total === 'number' ? session.amount_total : 0
+  const paymentStatus = session.payment_status
+  const amountTotal = typeof session.amount_total === 'number' ? session.amount_total : null
 
-  console.log(
-    `action=session_completed session_id=${sessionId} hold_id=${holdId} unit_id=${unitId}`,
-  )
+  console.log(`action=session_completed session_id=${sessionId} payment_status=${paymentStatus}`)
 
-  if (!holdId || !unitId || !from || !to) {
-    console.log(`action=session_completed session_id=${sessionId} error=missing_metadata`)
-    return
+  if (!sessionId || amountTotal === null) {
+    throw new Error('Stripe Checkout session is missing id or amount_total')
+  }
+  if (paymentStatus !== 'paid') {
+    throw new Error(`Checkout session completed with payment_status=${String(paymentStatus)}`)
   }
 
-  // Fetch hold to get guests_count
-  const { data: hold } = await svc
-    .from('reservation_holds')
-    .select('guests_count')
-    .eq('id', holdId)
-    .single()
-
-  const guestsCount = hold?.guests_count ?? 1
-  const totalMxn = amountTotal / 100 // Stripe stores in centavos
-
-  // Insert reservation (confirmed)
-  const { error: resErr } = await svc.from('reservations').insert({
-    unit_id: unitId,
-    check_in: from,
-    check_out: to,
-    guest_name: guestName,
-    guest_email: guestEmail,
-    guest_phone: guestPhone,
-    mode: 'direct',
-    total_price: totalMxn,
-    amount_paid: totalMxn,
-    status: 'confirmed',
-    payment_status: 'paid',
-    notes: `Stripe session: ${sessionId} | Hold: ${holdId} | Guests: ${guestsCount}`,
+  const totalMxn = amountTotal / 100 // Stripe stores MXN in centavos
+  const { data, error } = await svc.rpc('fn_promote_paid_reservation', {
+    p_stripe_session_id: sessionId,
+    p_amount_paid: totalMxn,
   })
 
-  if (resErr) {
-    // Could be GIST conflict (double-booking attempt) — log and alert
-    console.log(
-      `action=session_completed session_id=${sessionId} hold_id=${holdId} error=reservation_insert err=${resErr.code} msg=${resErr.message}`,
-    )
-    // Do NOT delete hold — leave for manual reconciliation
-    return
-  }
+  if (error) throw new Error(`Reservation promotion failed: ${error.message}`)
 
-  // Delete hold
-  await svc.from('reservation_holds').delete().eq('id', holdId)
+  const promotion = Array.isArray(data) ? data[0] : data
+  console.log(`action=session_completed session_id=${sessionId} reservation_id=${promotion?.reservation_id ?? 'unknown'} status=${promotion?.already_promoted ? 'already_promoted' : 'promoted'}`)
+}
 
-  console.log(
-    `action=session_completed session_id=${sessionId} hold_id=${holdId} unit_id=${unitId} status=promoted`,
+// Persist a reconciliation item as well as returning 500 to Stripe. A failed
+// webhook must remain visible after Stripe's retry window ends; operations can
+// alert from this table without treating a failed promotion as processed.
+async function recordPromotionFailure(
+  eventId: string,
+  eventType: string,
+  object: unknown,
+  errorMessage: string,
+  svc: ReturnType<typeof createServiceClient>,
+) {
+  if (eventType !== 'checkout.session.completed') return
+
+  const sessionId =
+    object && typeof object === 'object' && typeof (object as Record<string, unknown>).id === 'string'
+      ? (object as Record<string, unknown>).id as string
+      : null
+  if (!sessionId) return
+
+  const { error } = await svc.from('public_booking_payment_failures').upsert(
+    {
+      stripe_session_id: sessionId,
+      stripe_event_id: eventId,
+      last_error: errorMessage,
+      last_failed_at: new Date().toISOString(),
+    },
+    { onConflict: 'stripe_session_id' },
   )
+
+  if (error) {
+    // Migration drift must not turn a Stripe retryable 500 into an uncaught
+    // webhook error. The original failure is still logged and retried.
+    console.log(`action=stripe_webhook event_id=${eventId} error=reconciliation_write msg=${error.message}`)
+  }
 }
 
 // ── checkout.session.expired → delete hold ────────────────────────────────────

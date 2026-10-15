@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAnonClient, createServiceClient } from '@/lib/public-booking/supabase-public'
-import { createCheckoutSession } from '@/lib/public-booking/stripe-public'
+import { createCheckoutSession, getStripePublic } from '@/lib/public-booking/stripe-public'
 import {
   featureDisabled,
   handlePreflight,
@@ -86,6 +86,23 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // The public view deliberately does not expose tenant ownership. Resolve it
+  // through the service client and persist it in the hold before a customer can
+  // be sent to Stripe. The webhook must never derive tenant context from
+  // client-visible metadata.
+  const { data: unitOwnership, error: unitOwnershipErr } = await svc
+    .from('units')
+    .select('org_id')
+    .eq('id', unit.id)
+    .single()
+
+  if (unitOwnershipErr || !unitOwnership?.org_id) {
+    console.log(
+      `action=checkout_start unit=${unit_slug} error=unit_organization_missing msg=${unitOwnershipErr?.message ?? 'org_id missing'}`,
+    )
+    return withCors(errorResponse('UNIT_CONFIGURATION_ERROR', 'Unit is not configured for booking', 500), origin)
+  }
+
   // ── Availability check ────────────────────────────────────────────────────
   const { data: isAvailable } = await svc.rpc('fn_unit_is_available', {
     p_unit_id: unit.id,
@@ -114,10 +131,18 @@ export async function POST(request: NextRequest) {
     .from('reservation_holds')
     .insert({
       unit_id: unit.id,
+      organization_id: unitOwnership.org_id,
       from_date: from,
       to_date: to,
       guests_count: guests,
+      guest_name: guest.name,
       guest_email: guest.email,
+      guest_phone: guest.phone ?? null,
+      // Snapshot the price accepted by the customer. It must not be recomputed
+      // after payment because the unit's public rate may have changed.
+      price_per_night: quote.subtotal_mxn / quote.nights,
+      total_price: quote.total_mxn,
+      booking_mode: 'full',
       idempotency_key: idempotencyKey,
     })
     .select('id, expires_at')
@@ -173,10 +198,29 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Update hold with stripe_session_id ───────────────────────────────────
-  await svc
+  const { error: holdSessionErr } = await svc
     .from('reservation_holds')
     .update({ stripe_session_id: session.id })
     .eq('id', hold.id)
+
+  if (holdSessionErr) {
+    // Do not return a live Checkout URL unless its paid event can be tied to a
+    // durable, complete hold. Expiring this newly-created session avoids a
+    // customer being able to pay for an unpromotable booking.
+    console.log(
+      `action=checkout_session_link hold_id=${hold.id} session_id=${session.id} error=${holdSessionErr.message}`,
+    )
+    try {
+      await getStripePublic().checkout.sessions.expire(session.id)
+    } catch (expireErr: unknown) {
+      const msg = expireErr instanceof Error ? expireErr.message : 'Unknown Stripe expiration error'
+      console.log(
+        `action=checkout_session_expire hold_id=${hold.id} session_id=${session.id} error=${msg}`,
+      )
+    }
+    await svc.from('reservation_holds').delete().eq('id', hold.id)
+    return withCors(errorResponse('HOLD_LINK_FAILED', 'Failed to initialize checkout. Please try again.', 500), origin)
+  }
 
   console.log(
     `action=checkout_session_created unit=${unit_slug} hold_id=${hold.id} session_id=${session.id}`,
