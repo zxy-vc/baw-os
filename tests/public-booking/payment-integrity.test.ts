@@ -454,12 +454,19 @@ describe('caché de Idempotency-Key del checkout', () => {
     expect(db.tables.reservation_holds).toHaveLength(1)
   })
 
-  it('si Stripe no responde, no libera nada', async () => {
+  it('si Stripe no responde, no libera nada y conserva la clave; al recuperarse, libera', async () => {
     await staleAttempt('idem-stripe-down')
     stripeMock.retrieve.mockRejectedValueOnce(new Error('stripe down'))
 
-    expect((await startCheckout('idem-stripe-down')).body.error.code).toBe('CHECKOUT_EXPIRED')
+    const down = await startCheckout('idem-stripe-down')
+    expect(down.status).toBe(503)
+    expect(down.body.error.code).toBe('CHECKOUT_STATUS_UNAVAILABLE')
     expect(db.tables.reservation_holds).toHaveLength(1)
+
+    // Same key again once Stripe answers: released, then a new attempt works.
+    expect((await startCheckout('idem-stripe-down')).body.error.code).toBe('CHECKOUT_EXPIRED')
+    expect(db.tables.reservation_holds).toHaveLength(0)
+    expect((await startCheckout('idem-after-recovery')).status).toBe(200)
   })
 })
 

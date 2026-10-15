@@ -82,10 +82,18 @@ export async function POST(request: NextRequest) {
       console.log(`action=checkout_start idem=${idempotencyKey} status=cache_hit_session_expired`)
       const released = cachedResponse.session_id
         ? await releaseExpiredCheckout(cachedResponse.session_id, svc)
-        : 'unknown'
+        : 'released' // legacy cache row without session id: nothing to check
       if (released === 'paid') {
         return withCors(
           errorResponse('CHECKOUT_COMPLETED', 'This checkout was already paid.', 409),
+          origin,
+        )
+      }
+      if (released === 'unknown') {
+        // Keep the key: its hold is still in place, and only a retry with this
+        // same key can re-check the session and release it.
+        return withCors(
+          errorResponse('CHECKOUT_STATUS_UNAVAILABLE', 'Could not verify the previous checkout. Please retry.', 503),
           origin,
         )
       }
