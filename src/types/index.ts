@@ -12,7 +12,7 @@ export type ReservationStatus = 'tentative' | 'confirmed' | 'cancelled' | 'check
 export type ReservationPaymentStatus = 'pending' | 'partial' | 'paid'
 export type BookingMode = 'full' | 'room' | 'bed'
 // occupants.type en la BD: CHECK IN ('ltr','str','both') — modalidad de renta
-// del contacto, no un rol. (migration 20260330_occupants_type.sql)
+// del contacto, no un rol. (migration 20260330030000_occupants_type.sql)
 export type OccupantType = 'ltr' | 'str' | 'both'
 // Party: la identidad durable puede ser persona física o empresa (Fase 2b).
 export type OccupantKind = 'persona' | 'empresa'
@@ -37,7 +37,7 @@ export interface Building {
   archived_at?: string | null
   created_at: string
   updated_at: string
-  // Campos públicos (listing público — 20260523_public_booking.sql)
+  // Campos públicos (listing público — 20260523231651_public_booking.sql)
   slug?: string | null
   public_name?: string | null
   public_description?: string | null

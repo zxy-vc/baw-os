@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const lastDay = new Date(year, month, 0).getDate()
   const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  // D7 (ADR-022): la columna real es expense_date (20260401_expenses.sql);
+  // D7 (ADR-022): la columna real es expense_date (20260401010000_expenses.sql);
   // este endpoint filtraba por una columna 'date' inexistente.
   const { data, error } = await supabase
     .from('expenses')

@@ -220,7 +220,7 @@ Orden sugerido en "Inquilinos" (operación): **Personas · Estancias (Contratos/
 ## 12. Decisiones (resueltas por Fran)
 
 1. **Party = enriquecer `occupants`** ✅ (decisión "1A", 2026-06; `occupants.kind`
-   persona|empresa en main vía `20260627_party_kind_payer.sql`).
+   persona|empresa en main vía `20260627010000_party_kind_payer.sql`).
 2. **"Estancias" unificadas dentro de Inquilinos** ✅ (decisión "2A", 2026-06).
 3. **Facturación corporativa: consolidada** ✅ (2026-07-02; `engagements.billing_mode`
    default `'consolidated'`, `'per_unit'` disponible como opción).
