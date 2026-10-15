@@ -104,10 +104,16 @@ async function parseError(res: Response): Promise<ApiError> {
   } catch {
     /* ignore */
   }
+  // API errors are enveloped as { error: { code, message } } (cors.ts errorResponse).
+  const err = body?.error && typeof body.error === 'object' ? body.error : null
   return {
     status: res.status,
-    code: body?.code,
-    message: body?.message || body?.error || `HTTP ${res.status}`,
+    code: err?.code ?? body?.code,
+    message:
+      err?.message ||
+      body?.message ||
+      (typeof body?.error === 'string' ? body.error : null) ||
+      `HTTP ${res.status}`,
   }
 }
 
