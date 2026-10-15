@@ -106,6 +106,12 @@ export default function BookingWizard({
       clearIdempotencyKey(scope)
       res = await postCheckout(payload, getOrCreateIdempotencyKey(scope))
     }
+    if (res.error?.code === 'CHECKOUT_STATUS_UNAVAILABLE') {
+      // Same key on the next click: the server re-checks the previous session.
+      setCheckoutError('No pudimos verificar tu intento anterior. Intenta de nuevo en unos segundos.')
+      setSubmitting(false)
+      return
+    }
     if (res.error?.code === 'CHECKOUT_COMPLETED') {
       setCheckoutError('Este pago ya se completó. Revisa tu correo de confirmación.')
       setSubmitting(false)
