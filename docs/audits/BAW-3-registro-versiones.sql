@@ -3,12 +3,12 @@
 -- =============================================================================
 -- Proyecto: zlcgxmllaeweypyodvzk (prod). LO CORRE FRAN, A MANO, EN EL SQL EDITOR.
 --
--- Qué hace: SOLO inserta filas de bitácora (version, name) para las 54
+-- Qué hace: SOLO inserta filas de bitácora (version, name) para las 55
 -- migraciones de supabase/migrations/ cuyo efecto ya está en prod pero que
 -- nunca se registraron. NO ejecuta ninguna migración ni toca tablas de negocio.
 --
 -- Estado esperado ANTES: 17 filas (20260429041148 … 20260523234131).
--- Estado esperado DESPUÉS: 71 filas = 71 archivos de supabase/migrations/.
+-- Estado esperado DESPUÉS: 72 filas = 72 archivos de supabase/migrations/.
 --
 -- Excluidas a propósito:
 --   · Las 17 versiones que prod ya tiene registradas (lista _baw3_prod_registradas).
@@ -20,7 +20,7 @@
 --      Revisar los SELECT de verificación (valores esperados en comentarios).
 --   2. Si todo cuadra: comentar la línea ROLLBACK, descomentar COMMIT y volver
 --      a correr el archivo completo.
---   3. Después: `supabase migration list --linked` debe mostrar las 71 versiones
+--   3. Después: `supabase migration list --linked` debe mostrar las 72 versiones
 --      en Local y Remote. Recién entonces `supabase db push` deja de intentar
 --      re-aplicar migraciones viejas.
 -- =============================================================================
@@ -48,7 +48,7 @@ INSERT INTO _baw3_prod_registradas (version) VALUES
   ('20260523232305'),
   ('20260523234131');
 
--- Las 54 versiones a registrar (una por archivo de supabase/migrations/ que no
+-- Las 55 versiones a registrar (una por archivo de supabase/migrations/ que no
 -- está en la lista anterior). name = nombre del archivo sin versión ni .sql,
 -- igual que lo guarda el CLI de Supabase.
 CREATE TEMP TABLE _baw3_a_registrar (version text PRIMARY KEY, name text NOT NULL) ON COMMIT DROP;
@@ -76,6 +76,7 @@ INSERT INTO _baw3_a_registrar (version, name) VALUES
   ('20260408010000', 'channex_columns'),
   ('20260408020000', 'mifiel_signature'),
   ('20260415010000', 'unit_media_tier1a'),
+  ('20260416010000', 'settings_mvp'),
   ('20260611010000', 'agent_approvals_discord_resolver'),
   ('20260611020000', 'agents_alicia_hugo_beta'),
   ('20260612010000', 'rls_close_allow_all'),
@@ -130,7 +131,7 @@ SELECT s.version AS antes_desconocida, s.name
    AND s.version NOT IN (SELECT version FROM _baw3_a_registrar)
  ORDER BY s.version;
 
--- A4. De las 54 a registrar, cuántas ya existen. Esperado: 0.
+-- A4. De las 55 a registrar, cuántas ya existen. Esperado: 0.
 SELECT count(*) AS antes_ya_registradas
   FROM _baw3_a_registrar r
   JOIN supabase_migrations.schema_migrations s USING (version);
@@ -139,7 +140,7 @@ SELECT count(*) AS antes_ya_registradas
 -- Registro (solo bitácora)
 -- -----------------------------------------------------------------------------
 
--- Esperado: insertadas = 54.
+-- Esperado: insertadas = 55.
 WITH ins AS (
   INSERT INTO supabase_migrations.schema_migrations (version, name)
   SELECT version, name FROM _baw3_a_registrar ORDER BY version
@@ -152,10 +153,10 @@ SELECT count(*) AS insertadas FROM ins;
 -- Verificación DESPUÉS
 -- -----------------------------------------------------------------------------
 
--- D1. Total de filas registradas. Esperado: 71.
+-- D1. Total de filas registradas. Esperado: 72.
 SELECT count(*) AS despues_total FROM supabase_migrations.schema_migrations;
 
--- D2. Archivos del repo (17 + 54) sin fila en prod. Esperado: 0 filas.
+-- D2. Archivos del repo (17 + 55) sin fila en prod. Esperado: 0 filas.
 SELECT x.version AS despues_falta
   FROM (SELECT version FROM _baw3_prod_registradas
         UNION ALL
