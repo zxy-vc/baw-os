@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ClipboardList, Plus, X, Play, CheckCircle2, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useOrgContext } from '@/hooks/useOrgContext'
 
 interface HKTask {
   id: string
@@ -53,6 +54,7 @@ function todayLabel() {
 }
 
 export default function HousekeepingPage() {
+  const { orgId } = useOrgContext()
   const [tasks, setTasks] = useState<HKTask[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,8 +97,13 @@ export default function HousekeepingPage() {
 
   async function createTask() {
     if (!form.unit.trim() || !form.task_type) return
+    if (!orgId) {
+      showToast('error', 'No hay organización activa')
+      return
+    }
     setSaving(true)
     const { error } = await supabase.from('tasks').insert({
+      org_id: orgId,
       title: `${form.task_type} — ${form.unit}`,
       description: form.notes.trim() || null,
       assigned_to: form.assigned_to.trim() || null,
