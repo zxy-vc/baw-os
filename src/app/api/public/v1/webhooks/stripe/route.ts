@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         await handleSessionCompleted(
           JSON.parse(JSON.stringify(event.data.object)) as Record<string, unknown>,
+          event.created,
           svc,
         )
         break
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
 // ── checkout.session.completed → promote hold to confirmed reservation ────────
 async function handleSessionCompleted(
   session: Record<string, unknown>,
+  eventCreated: number,
   svc: ReturnType<typeof createServiceClient>,
 ) {
   const sessionId = session.id as string
@@ -124,11 +126,17 @@ async function handleSessionCompleted(
   if (paymentStatus !== 'paid') {
     throw new Error(`Checkout session completed with payment_status=${String(paymentStatus)}`)
   }
+  if (session.currency !== 'mxn') {
+    throw new Error(`Checkout session currency=${String(session.currency)} is not mxn`)
+  }
 
   const totalMxn = amountTotal / 100 // Stripe stores MXN in centavos
   const { data, error } = await svc.rpc('fn_promote_paid_reservation', {
     p_stripe_session_id: sessionId,
     p_amount_paid: totalMxn,
+    // Signed event timestamp = when the session completed. The RPC refuses a
+    // hold that had already expired when the guest paid.
+    p_paid_at: new Date(eventCreated * 1000).toISOString(),
   })
 
   if (error) throw new Error(`Reservation promotion failed: ${error.message}`)
@@ -172,26 +180,24 @@ async function recordPromotionFailure(
   }
 }
 
-// ── checkout.session.expired → delete hold ────────────────────────────────────
+// ── checkout.session.expired → release hold ───────────────────────────────────
 async function handleSessionExpired(
   session: Record<string, unknown>,
   svc: ReturnType<typeof createServiceClient>,
 ) {
   const sessionId = session.id as string
-  const metadata = (session.metadata ?? {}) as Record<string, string>
-  const holdId = metadata.hold_id
 
-  console.log(`action=session_expired session_id=${sessionId} hold_id=${holdId}`)
+  console.log(`action=session_expired session_id=${sessionId}`)
 
-  if (!holdId) {
-    console.log(`action=session_expired session_id=${sessionId} error=no_hold_id_in_metadata`)
+  if (!sessionId) {
+    console.log('action=session_expired error=missing_session_id')
     return
   }
 
-  const { error } = await svc.from('reservation_holds').delete().eq('id', holdId)
-  if (error) {
-    console.log(`action=session_expired hold_id=${holdId} error=${error.message}`)
-  } else {
-    console.log(`action=session_expired hold_id=${holdId} status=hold_deleted`)
-  }
+  // Match on the session the hold was linked to, so this event can only ever
+  // release the hold of that unpaid session.
+  const { error } = await svc.from('reservation_holds').delete().eq('stripe_session_id', sessionId)
+  if (error) throw new Error(`Could not release hold for expired session: ${error.message}`)
+
+  console.log(`action=session_expired session_id=${sessionId} status=hold_deleted`)
 }
