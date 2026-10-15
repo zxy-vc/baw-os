@@ -62,6 +62,7 @@ export async function requireAdminCaller(): Promise<AdminCallerOk | AdminCallerE
     .select('role')
     .eq('user_id', user.id)
     .eq('org_id', orgId)
+    .eq('is_active', true) // BAW-2: una membresía revocada no autoriza
     .maybeSingle()
   const role = (membership?.role as string) ?? null
 
@@ -112,6 +113,7 @@ export async function requireMemberCaller(): Promise<AdminCallerOk | AdminCaller
     .select('role')
     .eq('user_id', user.id)
     .eq('org_id', orgId)
+    .eq('is_active', true) // BAW-2: una membresía revocada no autoriza
     .maybeSingle()
   const role = (membership?.role as string) ?? null
 

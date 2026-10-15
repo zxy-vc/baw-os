@@ -1,19 +1,26 @@
 // BaW OS — Download invoice XML
+// BAW-2: solo sesión de un miembro de la org activa; la factura se busca
+// acotada a auth.orgId (antes API key global → descarga cross-tenant).
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized } from '@/lib/api-auth'
+import { createServiceClient } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
 import { downloadInvoice } from '@/lib/facturapi'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
+  }
   const supabase = createServiceClient()
 
   const { data: invoice, error } = await supabase
     .from('invoices')
     .select('facturapi_id')
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .single()
 
   if (error || !invoice) {

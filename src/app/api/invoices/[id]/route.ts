@@ -1,40 +1,47 @@
 // BaW OS — Invoice detail: GET + DELETE (cancel)
+// BAW-2: solo sesión de un miembro de la org activa (antes API key global sin
+// tenant: se podía leer o CANCELAR en FacturAPI la factura de cualquier org).
 import { NextRequest } from 'next/server'
-import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk } from '@/lib/api-auth'
+import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
+import { requireMemberCaller } from '@/lib/admin-auth'
+import { canFinance } from '@/lib/finance-permissions'
 import { cancelInvoice, isMockMode } from '@/lib/facturapi'
+import { loadContractInOrg } from '@/lib/org-scoped-contract'
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!validateApiKey(_request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('invoices')
     .select('*')
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .single()
 
   if (error || !data) return apiError('Invoice not found', 404)
 
-  // Enrich with contract + payment info
+  // Enrich with contract + payment info. Cada relación se lee dentro de
+  // auth.orgId (BAW-2: el embed solo filtraba contracts, no unidad/ocupante);
+  // una referencia que cae fuera de la org → 404, nunca datos ajenos.
   let contract = null
   let payment = null
   if (data.contract_id) {
-    const { data: c } = await supabase
-      .from('contracts')
-      .select('*, unit:units(*), occupant:occupants(*)')
-      .eq('id', data.contract_id)
-      .single()
-    contract = c
+    contract = await loadContractInOrg(supabase, data.contract_id, auth.orgId)
+    if (!contract) return apiError('Invoice not found', 404)
   }
   if (data.payment_id) {
     const { data: p } = await supabase
       .from('payments')
       .select('*')
       .eq('id', data.payment_id)
-      .single()
+      .eq('org_id', auth.orgId)
+      .maybeSingle()
+    if (!p) return apiError('Invoice not found', 404)
     payment = p
   }
 
@@ -45,13 +52,18 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!validateApiKey(_request)) return unauthorized()
+  const auth = await requireMemberCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
+  if (!auth.isPlatformAdmin && !canFinance(auth.role, 'finance.emit_cfdi')) {
+    return apiError('Tu rol no puede cancelar CFDI', 403)
+  }
   const supabase = createServiceClient()
 
   const { data: invoice, error } = await supabase
     .from('invoices')
     .select('*')
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .single()
 
   if (error || !invoice) return apiError('Invoice not found', 404)
@@ -72,6 +84,7 @@ export async function DELETE(
     .from('invoices')
     .update({ status: 'cancelled' })
     .eq('id', params.id)
+    .eq('org_id', auth.orgId)
     .select()
     .single()
 
