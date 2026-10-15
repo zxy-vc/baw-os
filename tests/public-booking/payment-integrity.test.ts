@@ -103,7 +103,13 @@ async function startCheckout(idem = `idem-${Math.random()}`, dates = { from: '20
 function completedEvent(
   sessionId: string,
   amountCents: number,
-  opts: { eventId?: string; created?: number; paymentStatus?: string; currency?: string } = {},
+  opts: {
+    eventId?: string
+    created?: number
+    paymentStatus?: string
+    currency?: string
+    metadata?: Record<string, string>
+  } = {},
 ) {
   return {
     id: opts.eventId ?? `evt_${sessionId}`,
@@ -115,6 +121,7 @@ function completedEvent(
         amount_total: amountCents,
         currency: opts.currency ?? 'mxn',
         payment_status: opts.paymentStatus ?? 'paid',
+        metadata: opts.metadata ?? { hold_id: 'set-by-checkout-route' },
       },
     },
   }
@@ -349,6 +356,57 @@ describe('webhook con hold vencido: registra el fallo y no deja reserva', () => 
     const res = await deliver(completedEvent(sessionId, TOTAL_CENTS, { created: paidAt }))
     expect(res.status).toBe(200)
     expect(db.tables.reservations).toHaveLength(1)
+  })
+})
+
+describe('fallos alrededor de la promoción', () => {
+  it('si falla el marcador después de promover: 500 sin conciliación falsa, y el reintento queda limpio', async () => {
+    const { body } = await startCheckout()
+    const event = completedEvent(body.data.session_id, TOTAL_CENTS)
+
+    db.faults.stripe_processed_events = { insert: { code: '08006', message: 'connection lost' } }
+    expect((await deliver(event)).status).toBe(500)
+    expect(db.tables.reservations).toHaveLength(1)
+    expect(db.tables.public_booking_payment_failures).toHaveLength(0)
+
+    delete db.faults.stripe_processed_events
+    expect((await deliver(event)).status).toBe(200)
+    expect(db.tables.reservations).toHaveLength(1)
+    expect(db.tables.stripe_processed_events).toHaveLength(1)
+  })
+
+  it('una sesión que no es del booking público (p. ej. Payment Link) se ignora sin reintentos ni conciliación', async () => {
+    const res = await deliver(completedEvent('cs_live_payment_link', 150_000, { metadata: {} }))
+    expect(res.status).toBe(200)
+    expect(db.tables.reservations).toHaveLength(0)
+    expect(db.tables.public_booking_payment_failures).toHaveLength(0)
+  })
+})
+
+describe('caché de Idempotency-Key del checkout', () => {
+  it('no devuelve una URL de pago vencida: pide un intento nuevo', async () => {
+    const idem = 'idem-retry-later'
+    const first = await startCheckout(idem)
+    expect(first.status).toBe(200)
+    expect((await startCheckout(idem)).body.data.checkout_url).toBe(first.body.data.checkout_url)
+
+    // 31 min later the Checkout session is dead; the cache row still lives 24 h.
+    const cache = db.tables.checkout_idempotency[0]
+    ;(cache.response as Record<string, unknown>).expires_at = new Date(Date.now() - 1000).toISOString()
+    const stale = await startCheckout(idem)
+    expect(stale.status).toBe(409)
+    expect(stale.body.error.code).toBe('CHECKOUT_EXPIRED')
+
+    // Stripe releases the hold with checkout.session.expired; a new key works.
+    await deliver({
+      id: 'evt_exp',
+      type: 'checkout.session.expired',
+      created: Math.floor(Date.now() / 1000),
+      data: { object: { id: first.body.data.session_id } },
+    })
+    const retry = await startCheckout('idem-new-attempt')
+    expect(retry.status).toBe(200)
+    expect(retry.body.data.session_id).not.toBe(first.body.data.session_id)
   })
 })
 

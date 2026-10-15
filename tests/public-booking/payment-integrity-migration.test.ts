@@ -36,25 +36,31 @@ describe('20261014010000_public_booking_payment_integrity.sql', () => {
   })
 
   it('es idempotente: cada CREATE/ADD/trigger se puede re-ejecutar', () => {
-    for (const m of code.matchAll(/CREATE\s+(UNIQUE\s+)?(TABLE|INDEX)\s+(?!IF NOT EXISTS)/g)) {
+    for (const m of Array.from(code.matchAll(/CREATE\s+(UNIQUE\s+)?(TABLE|INDEX)\s+(?!IF NOT EXISTS)/g))) {
       throw new Error(`CREATE ${m[2]} without IF NOT EXISTS at offset ${m.index}`)
     }
-    for (const m of code.matchAll(/CREATE\s+FUNCTION/g)) {
+    for (const m of Array.from(code.matchAll(/CREATE\s+FUNCTION/g))) {
       throw new Error(`CREATE FUNCTION without OR REPLACE at offset ${m.index}`)
     }
-    for (const m of code.matchAll(/ADD COLUMN\s+(?!IF NOT EXISTS)/g)) {
+    for (const m of Array.from(code.matchAll(/ADD COLUMN\s+(?!IF NOT EXISTS)/g))) {
       throw new Error(`ADD COLUMN without IF NOT EXISTS at offset ${m.index}`)
     }
-    for (const [, name] of code.matchAll(/ADD CONSTRAINT\s+(\w+)/g)) {
-      expect(code).toContain(`DROP CONSTRAINT IF EXISTS ${name};`)
+    for (const [, name] of Array.from(code.matchAll(/ADD CONSTRAINT\s+(\w+)/g))) {
+      const dropped = code.includes(`DROP CONSTRAINT IF EXISTS ${name};`)
+      const guarded = code.includes(`conname = '${name}'`)
+      expect(dropped || guarded, `${name} is neither dropped first nor guarded by pg_constraint`).toBe(true)
     }
-    for (const [, name, table] of code.matchAll(/CREATE TRIGGER\s+(\w+)[\s\S]*?ON\s+([\w.]+)/g)) {
+    for (const [, name, table] of Array.from(code.matchAll(/CREATE POLICY\s+(\w+)\s+ON\s+([\w.]+)/g))) {
+      expect(code).toContain(`DROP POLICY IF EXISTS ${name} ON ${table};`)
+    }
+    expect(code).toMatch(/INSERT INTO public\.public_booking_payment_failures[\s\S]*?ON CONFLICT \(stripe_session_id\) DO NOTHING;/)
+    for (const [, name, table] of Array.from(code.matchAll(/CREATE TRIGGER\s+(\w+)[\s\S]*?ON\s+([\w.]+)/g))) {
       expect(code).toContain(`DROP TRIGGER IF EXISTS ${name} ON ${table};`)
     }
   })
 
   it('las funciones SECURITY DEFINER no son ejecutables por anon ni authenticated', () => {
-    const definers = [...code.matchAll(/CREATE OR REPLACE FUNCTION\s+(public\.\w+)\(([^)]*)\)[\s\S]*?SECURITY DEFINER/g)]
+    const definers = Array.from(code.matchAll(/CREATE OR REPLACE FUNCTION\s+(public\.\w+)\(([^)]*)\)[\s\S]*?SECURITY DEFINER/g))
     expect(definers.map((d) => d[1])).toEqual([
       'public.fn_guard_hold_availability',
       'public.fn_promote_paid_reservation',
@@ -75,6 +81,31 @@ describe('20261014010000_public_booking_payment_integrity.sql', () => {
     expect(fn).toMatch(/IF p_paid_at >= v_hold\.expires_at THEN\s+RAISE EXCEPTION/)
     expect(fn).toMatch(/FOR UPDATE;/)
     expect(fn).toMatch(/pg_advisory_xact_lock/)
+  })
+
+  it('exige BAW-1 (user_org_ids) y no oculta los holds al calendario interno', () => {
+    expect(code).toMatch(/IF to_regprocedure\('public\.user_org_ids\(uuid\)'\) IS NULL THEN\s+RAISE EXCEPTION/)
+    expect(code).toMatch(/ALTER TABLE public\.reservation_holds ENABLE ROW LEVEL SECURITY;/)
+    expect(code).toMatch(
+      /CREATE POLICY reservation_holds_select ON public\.reservation_holds\s+FOR SELECT TO authenticated[\s\S]*?user_org_ids\(auth\.uid\(\)\)/,
+    )
+    expect(code).not.toMatch(/CREATE POLICY \w+ ON public\.reservation_holds\s+FOR (INSERT|UPDATE|DELETE|ALL)/)
+    expect(code).toMatch(/ALTER TABLE public\.stripe_processed_events ENABLE ROW LEVEL SECURITY;/)
+    expect(code).toMatch(/ALTER TABLE public\.checkout_idempotency ENABLE ROW LEVEL SECURITY;/)
+  })
+
+  it('garantiza el EXCLUDE anti doble reserva para todos los escritores', () => {
+    expect(code).toMatch(
+      /IF NOT EXISTS \([\s\S]*?conname = 'no_overlap_per_unit'[\s\S]*?ADD CONSTRAINT no_overlap_per_unit\s+EXCLUDE USING gist/,
+    )
+  })
+
+  it('cada salida exitosa de la promoción cierra la conciliación (también already_promoted)', () => {
+    const fn = code.slice(code.indexOf('FUNCTION public.fn_promote_paid_reservation('))
+    const body = fn.slice(0, fn.indexOf('$$;'))
+    // single RETURN QUERY, preceded by the resolved_at update
+    expect(body.match(/RETURN QUERY/g)).toHaveLength(1)
+    expect(body.indexOf('SET resolved_at = now()')).toBeLessThan(body.indexOf('RETURN QUERY'))
   })
 
   it('no hay nombres de archivo viejos en los mensajes de error', () => {

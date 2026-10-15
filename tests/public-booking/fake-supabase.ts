@@ -7,7 +7,8 @@
 //     (20260703_02 trg_purge_expired_holds), availability guard
 //     (20261014010000 trg_guard_hold_availability), EXCLUDE no_overlap_per_hold,
 //     UNIQUE idempotency_key, checkout snapshot CHECK on stripe_session_id.
-//   · fn_unit_is_available (20260704_quote_flow_crm, without unit_blocks).
+//   · fn_unit_is_available (20260704_quote_flow_crm).
+//   · checkout_idempotency.expires_at default (20260523, 24 h).
 //   · fn_promote_paid_reservation (20261014010000), step by step. JS runs it
 //     synchronously, which stands in for the single SQL transaction + locks.
 // If the SQL changes, update the mirror here.
@@ -15,8 +16,6 @@
 type Row = Record<string, unknown>
 type PgError = { code: string; message: string }
 type Result = { data: unknown; error: PgError | null }
-
-const ACTIVE_STATUSES = ['confirmed', 'checked_in', 'tentative']
 
 function overlaps(aFrom: string, aTo: string, bFrom: string, bTo: string): boolean {
   return aFrom < bTo && bFrom < aTo
@@ -33,6 +32,7 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
     checkout_idempotency: [],
     reservation_holds: [],
     reservations: [],
+    unit_blocks: [],
     stripe_processed_events: [],
     public_booking_payment_failures: [],
   }
@@ -45,7 +45,8 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
     const resBlocked = tables.reservations.some(
       (r) =>
         r.unit_id === unitId &&
-        ACTIVE_STATUSES.includes(r.status as string) &&
+        (['confirmed', 'checked_in'].includes(r.status as string) ||
+          (r.status === 'tentative' && (r.hold_expires_at == null || (r.hold_expires_at as string) > t))) &&
         overlaps(r.check_in as string, r.check_out as string, from, to),
     )
     const holdBlocked = tables.reservation_holds.some(
@@ -54,10 +55,26 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
         (h.expires_at as string) > t &&
         overlaps(h.from_date as string, h.to_date as string, from, to),
     )
-    return !resBlocked && !holdBlocked
+    // unit_blocks.end_date is inclusive ('[]' in SQL)
+    const blockBlocked = tables.unit_blocks.some(
+      (b) =>
+        b.unit_id === unitId &&
+        (b.start_date as string) < to &&
+        from <= (b.end_date as string),
+    )
+    return !resBlocked && !holdBlocked && !blockBlocked
   }
 
+  // The whole INSERT statement is atomic in Postgres: if it fails, the purge
+  // done by its BEFORE trigger is rolled back too.
   function insertHold(input: Row): Result {
+    const snapshot = tables.reservation_holds
+    const res = insertHoldStatement(input)
+    if (res.error) tables.reservation_holds = snapshot
+    return res
+  }
+
+  function insertHoldStatement(input: Row): Result {
     const t = now().toISOString()
     // trg_purge_expired_holds (BEFORE INSERT, statement level)
     tables.reservation_holds = tables.reservation_holds.filter((h) => (h.expires_at as string) > t)
@@ -222,7 +239,9 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
             const defaults: Row =
               table === 'public_booking_payment_failures'
                 ? { first_failed_at: now().toISOString(), resolved_at: null }
-                : {}
+                : table === 'checkout_idempotency'
+                  ? { expires_at: new Date(now().getTime() + 24 * 60 * 60_000).toISOString() }
+                  : {}
             rows.push({ ...defaults, ...state.payload })
           }
           return { data: null, error: null }
