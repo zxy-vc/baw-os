@@ -591,7 +591,7 @@ HAVING GROUPING(o.unit_id) = 1
 ORDER BY GROUPING(o.unit_id), o.unit_number, GROUPING(o.month_start) DESC, o.month_start;
 ```
 
-> Si en el total `meses_sin_fila_en_payments` ≈ `pagos_vencidos`, la hipótesis principal queda confirmada: la morosidad es proyección, no filas. Las filas de detalle con `pagos_vencidos = 0` son meses que SQL ve pagados pero con empate ambiguo: el navegador podría contarlos.
+> Si en el total `meses_sin_fila_en_payments` ≈ `pagos_vencidos`, la hipótesis principal queda confirmada: la morosidad es proyección, no filas. Las filas de detalle con `pagos_vencidos = 0` son meses fuera de morosidad para SQL (`pagado`, `pendiente` o `verbal`) pero con empate ambiguo: el navegador podría contarlos.
 
 ---
 
@@ -1105,7 +1105,7 @@ SELECT CASE WHEN GROUPING(k.clasificacion) = 1 THEN '== TOTAL ==' ELSE k.clasifi
        CASE WHEN GROUPING(k.contract_id) = 0 THEN max(k.payment_id::text) END AS payment_id,
        CASE WHEN GROUPING(k.contract_id) = 0 THEN max(k.payment_status) END AS payment_status,
        count(*) AS meses,
-       sum(k.owed) AS adeudo_mc,
+       COALESCE(sum(k.owed), 0) AS adeudo_mc,
        max(GREATEST(0, (SELECT today FROM p) - k.due_date)) AS max_dias_atraso
 FROM k
 GROUP BY GROUPING SETS ((k.clasificacion, k.unit_id, k.unit_number, k.contract_id, k.month_start), (k.clasificacion), ())
