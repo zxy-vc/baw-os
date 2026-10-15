@@ -8,6 +8,9 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
   },
+  // tsconfig usa jsx: 'preserve' (lo compila Next); los tests que renderizan
+  // componentes reales (p.ej. el PDF de estado de cuenta) necesitan JSX → JS.
+  oxc: { jsx: { runtime: 'automatic' } },
   resolve: {
     alias: { '@': path.resolve(__dirname, 'src') },
   },

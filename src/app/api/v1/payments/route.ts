@@ -81,6 +81,17 @@ export const POST = v1Write<PaymentRecordBody>({
   },
   handler: async ({ auth, body, recordAction }) => {
     const supabase = createServiceClient()
+    // BAW-2: el contrato debe ser de la org del agente. Sin esto se insertaba un
+    // pago de esta org enlazado a un contrato ajeno (y el comprobante seguía la
+    // cadena hasta el inquilino de otra org).
+    const { data: contract } = await supabase
+      .from('contracts')
+      .select('id')
+      .eq('id', body.contract_id)
+      .eq('org_id', auth.orgId)
+      .maybeSingle()
+    if (!contract) return v1Error('not_found', `contract ${body.contract_id} not found`, 404)
+
     const today = new Date().toISOString().split('T')[0]
     const { data, error } = await supabase
       .from('payments')
@@ -113,7 +124,7 @@ export const POST = v1Write<PaymentRecordBody>({
     })
 
     // Comprobante por WhatsApp (fire-and-forget; gateado por el flag de cobranza)
-    void sendPaymentReceipt(data.id as string)
+    void sendPaymentReceipt(data.id as string, auth.orgId)
 
     return v1Ok(data)
   },

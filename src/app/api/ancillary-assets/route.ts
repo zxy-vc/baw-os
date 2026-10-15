@@ -2,6 +2,7 @@
 // Activos accesorios discretos: espectaculares, bodegas, antenas.
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -55,22 +56,32 @@ export async function POST(request: NextRequest) {
   return apiOk(data)
 }
 
+// BAW-2: DELETE solo con sesión owner/admin de la org activa y acotado a esa
+// org (antes API key global → borraba activos de cualquier org por id).
+//
+// El borrado FÍSICO queda deshabilitado: las FKs son por id (no por (org_id,
+// id)) y ancillary_charges.asset_id lo referencia con ON DELETE SET NULL, así
+// que borrar una fila propia podía borrar o modificar filas de OTRA org
+// (también de forma transitiva y en carrera con inserciones concurrentes). Sin
+// una migración que lo haga atómico no hay forma segura de garantizarlo → id
+// ajeno 404 (sin revelar existencia), id propio 409 con la alternativa: cambiar
+// su status a 'inactive' o 'ended'.
 export async function DELETE(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireAdminCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
 
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
 
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from('ancillary_assets')
-    .delete()
+    .select('id')
     .eq('id', id)
+    .eq('org_id', auth.orgId)
+    .maybeSingle()
+  if (!existing) return apiError('Asset not found', 404)
 
-  if (error) return apiError(error.message, 500)
-
-  await logEvent('ancillary_asset.deleted', { asset_id: id })
-
-  return apiOk({ deleted: id })
+  return apiError('No se puede eliminar un activo. Cámbialo a Inactivo o Terminado en su lugar.', 409)
 }

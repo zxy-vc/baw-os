@@ -1,6 +1,7 @@
 // BaW OS — Contracts API (Tier 2 Agent Interface)
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -63,33 +64,33 @@ export async function POST(request: NextRequest) {
   return apiOk(data)
 }
 
+// BAW-2: DELETE solo con sesión owner/admin de la org activa y acotado a esa
+// org (antes API key global → borraba contratos de cualquier org por id).
+//
+// El borrado FÍSICO queda deshabilitado: las FKs son por id (no por (org_id,
+// id)) y ancillary_charges / stay_occupants lo referencian con ON DELETE
+// CASCADE (y de ahí payments.ancillary_charge_id con SET NULL), así que borrar
+// una fila propia podía borrar o modificar filas de OTRA org (también de forma
+// transitiva y en carrera con inserciones concurrentes). Sin una migración que
+// lo haga atómico no hay forma segura de garantizarlo → id ajeno 404 (sin
+// revelar existencia), id propio 409 con la alternativa: archivar vía POST
+// /api/lifecycle { entity: 'contract', action: 'archive' }.
 export async function DELETE(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireAdminCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
 
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
 
-  // Guard: NUNCA borrar pagos en silencio. Si el contrato tiene historia
-  // financiera, se rechaza (la vía correcta es archivar — ver /api/lifecycle).
-  const { count: payCount } = await supabase
-    .from('payments')
-    .select('id', { count: 'exact', head: true })
-    .eq('contract_id', id)
-
-  if ((payCount ?? 0) > 0) {
-    return apiError('No se puede eliminar: el contrato tiene pagos registrados. Archívalo en su lugar.', 409)
-  }
-
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from('contracts')
-    .delete()
+    .select('id')
     .eq('id', id)
+    .eq('org_id', auth.orgId)
+    .maybeSingle()
+  if (!existing) return apiError('Contract not found', 404)
 
-  if (error) return apiError(error.message, 500)
-
-  await logEvent('contract.deleted', { contract_id: id })
-
-  return apiOk({ deleted: id })
+  return apiError('No se puede eliminar un contrato. Archívalo en su lugar (Ciclo de vida → Archivar).', 409)
 }

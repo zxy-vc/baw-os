@@ -7,6 +7,7 @@ import {
   apiOk,
   getOrgId,
 } from '@/lib/api-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -55,22 +56,29 @@ export async function POST(request: NextRequest) {
   return apiOk(data)
 }
 
+// BAW-2: DELETE solo con sesión owner/admin de la org activa (mismo criterio
+// que la política RLS de borrado) y acotado a esa org (antes API key global →
+// borraba por id en cualquier org).
 export async function DELETE(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireAdminCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
 
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from('incidents')
     .delete()
     .eq('id', id)
+    .eq('org_id', auth.orgId)
+    .select('id')
 
   if (error) return apiError(error.message, 500)
+  if (!deleted?.length) return apiError('Incident not found', 404)
 
-  await logEvent('incident.deleted', { incident_id: id })
+  await logEvent('incident.deleted', { incident_id: id }, 'api', auth.orgId)
 
   return apiOk({ deleted: id })
 }

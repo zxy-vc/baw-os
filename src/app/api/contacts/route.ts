@@ -1,6 +1,7 @@
 // BaW OS — Contacts CRM API
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -121,19 +122,33 @@ export async function PATCH(request: NextRequest) {
   return apiOk(data)
 }
 
+// BAW-2: DELETE solo con sesión owner/admin de la org activa y acotado a esa
+// org (antes API key global → borraba contactos de cualquier org por id).
+//
+// El borrado FÍSICO queda deshabilitado: las FKs son por id (no por (org_id,
+// id)) y stay_occupants (CASCADE), crm_contacts / reservations /
+// payment_receipts (SET NULL) lo referencian, así que borrar una fila propia
+// podía borrar o modificar filas de OTRA org (también de forma transitiva y en
+// carrera con inserciones concurrentes). Sin una migración que lo haga atómico
+// no hay forma segura de garantizarlo → id ajeno 404 (sin revelar existencia),
+// id propio 409 con la alternativa: archivar vía POST /api/lifecycle { entity:
+// 'occupant', action: 'archive' }.
 export async function DELETE(request: NextRequest) {
-  if (!validateApiKey(request)) return unauthorized()
+  const auth = await requireAdminCaller()
+  if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
 
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
 
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from('occupants')
-    .delete()
+    .select('id')
     .eq('id', id)
+    .eq('org_id', auth.orgId)
+    .maybeSingle()
+  if (!existing) return apiError('Contact not found', 404)
 
-  if (error) return apiError(error.message, 500)
-  return apiOk({ deleted: id })
+  return apiError('No se puede eliminar un contacto. Archívalo en su lugar (Ciclo de vida → Archivar).', 409)
 }

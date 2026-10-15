@@ -20,39 +20,45 @@ export interface ReceiptResult {
 
 /**
  * Envía el comprobante del pago indicado. No lanza; seguro como fire-and-forget.
- * `orgId` (opcional pero recomendado): si se pasa, el pago debe pertenecer a esa
- * org — evita IDOR (un caller que itera payment ids de otro tenant).
+ * `orgId` es obligatorio y se exige en TODOS los saltos (pago, contrato,
+ * ocupante, unidad): con service-role las FKs por id pueden cruzar orgs, y un
+ * pago propio que apunta a un contrato ajeno mandaría WhatsApp al inquilino de
+ * otra org (BAW-2). Cadena inconsistente → no se envía nada.
  */
-export async function sendPaymentReceipt(paymentId: string, orgId?: string): Promise<ReceiptResult> {
+export async function sendPaymentReceipt(paymentId: string, orgId: string): Promise<ReceiptResult> {
   try {
     if (!whatsAppConfigured() || !cobranzaWhatsAppEnabled()) {
       return { ok: false, reason: 'whatsapp_disabled' }
     }
     const supabase = createServiceClient()
 
-    let paymentQuery = supabase
+    const { data: payment } = await supabase
       .from('payments')
       .select('id, org_id, contract_id, amount, amount_paid, paid_date, method, reference, late_fee_amount')
       .eq('id', paymentId)
-    if (orgId) paymentQuery = paymentQuery.eq('org_id', orgId)
-    const { data: payment } = await paymentQuery.maybeSingle()
+      .eq('org_id', orgId)
+      .maybeSingle()
     if (!payment || !payment.contract_id) return { ok: false, reason: 'payment_not_found' }
 
     const { data: contract } = await supabase
       .from('contracts')
       .select('id, occupant_id, unit_id')
       .eq('id', payment.contract_id as string)
+      .eq('org_id', orgId)
       .maybeSingle()
     if (!contract) return { ok: false, reason: 'contract_not_found' }
 
     const [{ data: occupant }, { data: unit }] = await Promise.all([
       contract.occupant_id
-        ? supabase.from('occupants').select('name, phone').eq('id', contract.occupant_id as string).maybeSingle()
+        ? supabase.from('occupants').select('name, phone').eq('id', contract.occupant_id as string).eq('org_id', orgId).maybeSingle()
         : Promise.resolve({ data: null }),
       contract.unit_id
-        ? supabase.from('units').select('number').eq('id', contract.unit_id as string).maybeSingle()
+        ? supabase.from('units').select('number').eq('id', contract.unit_id as string).eq('org_id', orgId).maybeSingle()
         : Promise.resolve({ data: null }),
     ])
+    if ((contract.occupant_id && !occupant) || (contract.unit_id && !unit)) {
+      return { ok: false, reason: 'contract_chain_mismatch' }
+    }
 
     const phone = (occupant?.phone as string) || null
     if (!phone) return { ok: false, reason: 'no_phone' }
@@ -73,7 +79,7 @@ export async function sendPaymentReceipt(paymentId: string, orgId?: string): Pro
     if (!res.ok) return { ok: false, reason: res.error }
 
     await supabase.from('audit_log').insert({
-      org_id: payment.org_id,
+      org_id: orgId,
       actor_type: 'agent',
       actor_id: 'cobranza',
       action: 'pago.comprobante_enviado',
