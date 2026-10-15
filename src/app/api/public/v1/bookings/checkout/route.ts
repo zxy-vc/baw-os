@@ -74,6 +74,17 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (cached && new Date(cached.expires_at) > new Date()) {
+    // The cache row lives 24 h but its Checkout session only 31 min. Never
+    // hand back a dead payment URL: the client must start over with a new key
+    // (reusing this one would hit the hold's and Stripe's idempotency keys).
+    const sessionExpiresAt = (cached.response as Partial<CheckoutResponse> | null)?.expires_at
+    if (sessionExpiresAt && new Date(sessionExpiresAt) <= new Date()) {
+      console.log(`action=checkout_start idem=${idempotencyKey} status=cache_hit_session_expired`)
+      return withCors(
+        errorResponse('CHECKOUT_EXPIRED', 'Checkout session expired. Retry with a new Idempotency-Key.', 409),
+        origin,
+      )
+    }
     console.log(`action=checkout_start idem=${idempotencyKey} status=cache_hit`)
     return withCors(NextResponse.json({ data: cached.response }), origin)
   }

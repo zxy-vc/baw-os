@@ -7,7 +7,7 @@ import {
   postCheckout,
   type CheckoutInput,
 } from '@/lib/public-booking-client/api-client'
-import { getOrCreateIdempotencyKey } from '@/lib/public-booking-client/idempotency'
+import { clearIdempotencyKey, getOrCreateIdempotencyKey } from '@/lib/public-booking-client/idempotency'
 import { formatDate, diffNights, formatGuests } from '@/lib/public-booking-client/format'
 import PriceBreakdown from './PriceBreakdown'
 import MonoLabel from './MonoLabel'
@@ -100,7 +100,12 @@ export default function BookingWizard({
       guests,
       guest: { name, email, phone: phone || undefined },
     }
-    const res = await postCheckout(payload, idemKey)
+    let res = await postCheckout(payload, idemKey)
+    if (res.error?.code === 'CHECKOUT_EXPIRED') {
+      // The previous payment page for these dates timed out: new attempt.
+      clearIdempotencyKey(scope)
+      res = await postCheckout(payload, getOrCreateIdempotencyKey(scope))
+    }
     if (res.error) {
       setCheckoutError(res.error.message)
       setSubmitting(false)

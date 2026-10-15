@@ -85,19 +85,6 @@ export async function POST(request: NextRequest) {
         console.log(`action=stripe_webhook event_id=${eventId} event_type=${eventType} status=ignored`)
       }
     }
-
-    // Record only after the side effect succeeded. Concurrent delivery is safe:
-    // fn_promote_paid_reservation is idempotent by Stripe Checkout session id.
-    const { error: insertErr } = await svc.from('stripe_processed_events').insert({
-      event_id: eventId,
-      event_type: eventType,
-      payload: JSON.parse(JSON.stringify(event)) as Record<string, unknown>,
-    })
-    if (insertErr && insertErr.code !== '23505') {
-      throw new Error(`Could not record processed webhook event: ${insertErr.message}`)
-    }
-
-    return ack()
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown webhook processing error'
     await recordPromotionFailure(eventId, eventType, event.data.object, msg, svc)
@@ -106,6 +93,35 @@ export async function POST(request: NextRequest) {
     console.log(`action=stripe_webhook event_id=${eventId} event_type=${eventType} error=processing_failed msg=${msg}`)
     return NextResponse.json({ error: 'Webhook processing failed; Stripe will retry' }, { status: 500 })
   }
+
+  // Record only after the side effect succeeded. Concurrent delivery is safe:
+  // fn_promote_paid_reservation is idempotent by Stripe Checkout session id.
+  // If this marker fails the reservation already exists: no reconciliation
+  // item, and Stripe's retry gets already_promoted from the RPC.
+  const { error: insertErr } = await svc.from('stripe_processed_events').insert({
+    event_id: eventId,
+    event_type: eventType,
+    payload: JSON.parse(JSON.stringify(event)) as Record<string, unknown>,
+  })
+  if (insertErr && insertErr.code !== '23505') {
+    console.log(`action=stripe_webhook event_id=${eventId} error=processed_event_insert msg=${insertErr.message}`)
+    return NextResponse.json({ error: 'Could not record processed webhook event' }, { status: 500 })
+  }
+
+  return ack()
+}
+
+// Only sessions created by the public checkout route carry hold_id metadata
+// (set server-side, signed by Stripe). Anything else on this Stripe account,
+// e.g. a Payment Link, is not a public booking and must not be promoted,
+// retried or reported as a paid-without-reservation failure.
+function isPublicBookingSession(session: Record<string, unknown>): boolean {
+  const metadata = session.metadata
+  return (
+    !!metadata &&
+    typeof metadata === 'object' &&
+    typeof (metadata as Record<string, unknown>).hold_id === 'string'
+  )
 }
 
 // ── checkout.session.completed → promote hold to confirmed reservation ────────
@@ -120,6 +136,10 @@ async function handleSessionCompleted(
 
   console.log(`action=session_completed session_id=${sessionId} payment_status=${paymentStatus}`)
 
+  if (!isPublicBookingSession(session)) {
+    console.log(`action=session_completed session_id=${sessionId} status=ignored_not_public_booking`)
+    return
+  }
   if (!sessionId || amountTotal === null) {
     throw new Error('Stripe Checkout session is missing id or amount_total')
   }
@@ -156,12 +176,10 @@ async function recordPromotionFailure(
   svc: ReturnType<typeof createServiceClient>,
 ) {
   if (eventType !== 'checkout.session.completed') return
-
-  const sessionId =
-    object && typeof object === 'object' && typeof (object as Record<string, unknown>).id === 'string'
-      ? (object as Record<string, unknown>).id as string
-      : null
-  if (!sessionId) return
+  if (!object || typeof object !== 'object') return
+  const session = object as Record<string, unknown>
+  if (!isPublicBookingSession(session) || typeof session.id !== 'string') return
+  const sessionId = session.id
 
   const { error } = await svc.from('public_booking_payment_failures').upsert(
     {
