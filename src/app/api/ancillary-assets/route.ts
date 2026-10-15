@@ -3,6 +3,7 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
 import { requireAdminCaller } from '@/lib/admin-auth'
+import { findCrossOrgDependents } from '@/lib/cross-org-dependents'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -67,6 +68,22 @@ export async function DELETE(request: NextRequest) {
 
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
+
+  const { data: existing } = await supabase
+    .from('ancillary_assets')
+    .select('id')
+    .eq('id', id)
+    .eq('org_id', auth.orgId)
+    .maybeSingle()
+  if (!existing) return apiError('Asset not found', 404)
+
+  // Borrar el padre propio no puede borrar/modificar hijos de otra org vía FK
+  // CASCADE / SET NULL (BAW-2). Hijo ajeno → 409; error de lectura → 500.
+  const deps = await findCrossOrgDependents(supabase, 'ancillary_assets', id, auth.orgId)
+  if (deps.error) return apiError(deps.error, 500)
+  if (deps.blocked) {
+    return apiError('No se puede eliminar: hay registros de otra organización que lo referencian.', 409)
+  }
 
   const { data: deleted, error } = await supabase
     .from('ancillary_assets')

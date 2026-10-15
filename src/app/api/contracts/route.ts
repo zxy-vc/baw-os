@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
 import { requireAdminCaller } from '@/lib/admin-auth'
+import { findCrossOrgDependents } from '@/lib/cross-org-dependents'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -94,6 +95,14 @@ export async function DELETE(request: NextRequest) {
 
   if ((payCount ?? 0) > 0) {
     return apiError('No se puede eliminar: el contrato tiene pagos registrados. Archívalo en su lugar.', 409)
+  }
+
+  // Borrar el padre propio no puede borrar/modificar hijos de otra org vía FK
+  // CASCADE / SET NULL (BAW-2). Hijo ajeno → 409; error de lectura → 500.
+  const deps = await findCrossOrgDependents(supabase, 'contracts', id, auth.orgId)
+  if (deps.error) return apiError(deps.error, 500)
+  if (deps.blocked) {
+    return apiError('No se puede eliminar: hay registros de otra organización que lo referencian.', 409)
   }
 
   const { error } = await supabase

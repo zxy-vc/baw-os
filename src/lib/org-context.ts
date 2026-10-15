@@ -48,12 +48,15 @@ export async function resolveOrgId(): Promise<string> {
     throw new OrgContextError('No authenticated user', 'NO_SESSION')
   }
 
-  // Service client para leer memberships sin RLS recursivo
+  // Service client para leer memberships sin RLS recursivo. Solo membresías
+  // activas (mismo criterio que user_org_ids() en RLS): una membresía revocada
+  // no se puede seleccionar ni con la cookie de org activa (BAW-2).
   const service = createServiceClient()
   const { data: memberships, error } = await service
     .from('org_members')
     .select('org_id, role, created_at')
     .eq('user_id', user.id)
+    .eq('is_active', true)
     .order('created_at', { ascending: true })
 
   if (error || !memberships || memberships.length === 0) {
@@ -105,6 +108,7 @@ export async function resolveOrgContext(): Promise<{
     .from('org_members')
     .select('org_id, role, created_at')
     .eq('user_id', user.id)
+    .eq('is_active', true)
     .order('created_at', { ascending: true })
 
   if (error || !memberships || memberships.length === 0) {
@@ -152,6 +156,7 @@ export async function resolveOrgIdFromRequest(
       .select('org_id')
       .eq('user_id', user.id)
       .eq('org_id', headerOrgId)
+      .eq('is_active', true)
       .maybeSingle()
     if (!membership) {
       throw new OrgContextError(

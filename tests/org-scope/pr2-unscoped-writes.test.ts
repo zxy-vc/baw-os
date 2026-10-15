@@ -5,7 +5,8 @@
 //
 // Qué es real y qué es simulado:
 //  - Real: requireAdminCaller / requireMemberCaller / resolveOrgId (membresía,
-//    rol y cookie de org activa leídos del Supabase en memoria), logEvent,
+//    rol, is_active y cookie de org activa leídos del Supabase en memoria),
+//    findCrossOrgDependents, logEvent,
 //    getEstadoCuentaData + EstadoCuentaPDF + renderToBuffer (PDF de verdad, con
 //    un espía que registra el documento que llega al renderer),
 //    sendPaymentReceipt + buildReceiptTemplate.
@@ -14,6 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { makeFakeSupabase, type Row } from '../helpers/fake-supabase'
+import { CASCADING_DEPENDENTS } from '@/lib/cross-org-dependents'
 
 const h = vi.hoisted(() => ({
   user: null as null | { id: string },
@@ -21,6 +23,8 @@ const h = vi.hoisted(() => ({
   db: null as unknown,
   sendWhatsAppTemplate: vi.fn(),
   rendered: [] as unknown[],
+  /** Si se define, sustituye a resolveOrgId (simula una org activa ya obsoleta). */
+  resolveOverride: null as null | (() => Promise<string>),
 }))
 
 vi.mock('next/headers', () => ({
@@ -40,6 +44,10 @@ vi.mock('@/lib/api-auth', async (importOriginal) => ({
   createServiceClient: () => h.db,
 }))
 vi.mock('@/lib/supabase', () => ({ createServiceClient: () => h.db }))
+vi.mock('@/lib/org-context', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/org-context')>()
+  return { ...real, resolveOrgId: () => (h.resolveOverride ? h.resolveOverride() : real.resolveOrgId()) }
+})
 vi.mock('@/lib/whatsapp', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/whatsapp')>()),
   whatsAppConfigured: () => true,
@@ -95,27 +103,38 @@ function loginAs(id: string | null, activeOrg?: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   h.rendered = []
+  h.resolveOverride = null
   process.env.BAWOS_API_KEY = LEGACY_KEY
   loginAs('u-owner-a')
   tables = {
     platform_admins: [],
     org_members: [
-      { user_id: 'u-owner-a', org_id: ORG_A, role: 'pm_owner', created_at: '2026-01-01' },
-      { user_id: 'u-admin-a', org_id: ORG_A, role: 'pm_admin', created_at: '2026-01-01' },
-      { user_id: 'u-legacy-admin-a', org_id: ORG_A, role: 'admin', created_at: '2026-01-01' },
-      { user_id: 'u-operator-a', org_id: ORG_A, role: 'pm_operator', created_at: '2026-01-01' },
-      { user_id: 'u-viewer-a', org_id: ORG_A, role: 'pm_viewer', created_at: '2026-01-01' },
-      { user_id: 'u-client-a', org_id: ORG_A, role: 'client', created_at: '2026-01-01' },
-      { user_id: 'u-agent-a', org_id: ORG_A, role: 'agent', created_at: '2026-01-01' },
+      { user_id: 'u-owner-a', org_id: ORG_A, role: 'pm_owner', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-admin-a', org_id: ORG_A, role: 'pm_admin', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-legacy-admin-a', org_id: ORG_A, role: 'admin', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-operator-a', org_id: ORG_A, role: 'pm_operator', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-viewer-a', org_id: ORG_A, role: 'pm_viewer', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-client-a', org_id: ORG_A, role: 'client', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-agent-a', org_id: ORG_A, role: 'agent', created_at: '2026-01-01', is_active: true },
       // Miembro de A y de B, con B como org activa (cookie).
-      { user_id: 'u-multi', org_id: ORG_A, role: 'pm_admin', created_at: '2026-01-01' },
-      { user_id: 'u-multi', org_id: ORG_B, role: 'pm_admin', created_at: '2026-02-01' },
+      { user_id: 'u-multi', org_id: ORG_A, role: 'pm_admin', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-multi', org_id: ORG_B, role: 'pm_admin', created_at: '2026-02-01', is_active: true },
+      // Owner de A con la membresía revocada.
+      { user_id: 'u-revoked-a', org_id: ORG_A, role: 'pm_owner', created_at: '2026-01-01', is_active: false },
+      // Viewer activo en A y owner REVOCADO en B (la cookie intentará elegir B).
+      { user_id: 'u-revoked-b', org_id: ORG_A, role: 'pm_viewer', created_at: '2026-01-01', is_active: true },
+      { user_id: 'u-revoked-b', org_id: ORG_B, role: 'pm_owner', created_at: '2026-02-01', is_active: false },
     ],
     contracts: [
       { id: 'ct-a', org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-a' },
       { id: 'ct-b', org_id: ORG_B, unit_id: 'unit-b', occupant_id: 'occ-b' },
       { id: 'ct-a-del', org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-a' },
       { id: 'ct-b-del', org_id: ORG_B, unit_id: 'unit-b', occupant_id: 'occ-b' },
+      // Contrato de B cuyos hijos son de A: solo el filtro del contrato lo rechaza.
+      { id: 'ct-b-kids-a', org_id: ORG_B, unit_id: 'unit-a', occupant_id: 'occ-a' },
+      // Contratos propios sin pagos con hijos de B colgando por FK CASCADE.
+      { id: 'ct-a-xcharge', org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-a' },
+      { id: 'ct-a-xstay', org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-a' },
       { id: 'ct-a-paid', org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-a' },
       // Cadenas de A con un hijo de B en cada salto (FK por id, sin (org_id, id)).
       { id: 'ct-a-xocc', org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-b' },
@@ -136,6 +155,8 @@ beforeEach(() => {
     occupants: [
       { id: 'occ-a', org_id: ORG_A, name: 'Ana', phone: PHONE_A },
       { id: 'occ-b', org_id: ORG_B, name: 'Beto', phone: PHONE_B },
+      // Ocupantes propios referenciados por filas de B (CASCADE / SET NULL).
+      ...CASCADING_DEPENDENTS.occupants.map((d) => ({ id: `occ-a-x-${d.table}`, org_id: ORG_A, name: 'Ana', phone: PHONE_A })),
     ],
     payments: [
       { id: 'pay-a', org_id: ORG_A, contract_id: 'ct-a-paid', status: 'pending', amount: 1000, due_date: '2026-09-05' },
@@ -144,6 +165,7 @@ beforeEach(() => {
       // Pago de B colgado del contrato de A: no debe aparecer en el estado de cuenta de A.
       { id: 'pay-b-on-ct-a', org_id: ORG_B, contract_id: 'ct-a', status: 'pending', amount: 777, due_date: '2026-09-05' },
       { id: 'pay-a-xct', org_id: ORG_A, contract_id: 'ct-b', status: 'paid', amount: 1000, due_date: '2026-09-05' },
+      { id: 'pay-a-xct2', org_id: ORG_A, contract_id: 'ct-b-kids-a', status: 'paid', amount: 1000, due_date: '2026-09-05' },
       { id: 'pay-a-xocc', org_id: ORG_A, contract_id: 'ct-a-xocc', status: 'paid', amount: 1000, due_date: '2026-09-05' },
       { id: 'pay-a-xunit', org_id: ORG_A, contract_id: 'ct-a-xunit', status: 'paid', amount: 1000, due_date: '2026-09-05' },
     ],
@@ -154,7 +176,24 @@ beforeEach(() => {
     ancillary_assets: [
       { id: 'asset-a', org_id: ORG_A },
       { id: 'asset-b', org_id: ORG_B },
+      { id: 'asset-a-x', org_id: ORG_A },
     ],
+    // Hijos por FK con CASCADE / SET NULL. Los de A sobre padres de A no bloquean.
+    ancillary_charges: [
+      { id: 'chg-a-own', org_id: ORG_A, contract_id: 'ct-a-del', asset_id: 'asset-a' },
+      { id: 'chg-b-on-ct-a', org_id: ORG_B, contract_id: 'ct-a-xcharge', asset_id: null },
+      { id: 'chg-b-on-asset-a', org_id: ORG_B, contract_id: 'ct-b', asset_id: 'asset-a-x' },
+      // Hijo de B sobre el activo de B: sin el 404 previo, A vería 409 (oráculo de existencia).
+      { id: 'chg-b-on-asset-b', org_id: ORG_B, contract_id: 'ct-b', asset_id: 'asset-b' },
+    ],
+    stay_occupants: [
+      { id: 'stay-a-own', org_id: ORG_A, contract_id: 'ct-a-del', occupant_id: 'occ-a' },
+      { id: 'stay-b-on-ct-a', org_id: ORG_B, contract_id: 'ct-a-xstay', occupant_id: 'occ-b' },
+      { id: 'stay-b-on-occ-a', org_id: ORG_B, contract_id: 'ct-b', occupant_id: 'occ-a-x-stay_occupants' },
+    ],
+    crm_contacts: [{ id: 'crm-b', org_id: ORG_B, occupant_id: 'occ-a-x-crm_contacts' }],
+    reservations: [{ id: 'res-b', org_id: ORG_B, occupant_id: 'occ-a-x-reservations' }],
+    payment_receipts: [{ id: 'rcpt-b', org_id: ORG_B, payer_occupant_id: 'occ-a-x-payment_receipts' }],
     payment_ledger: [],
     audit_log: [],
     webhook_events: [],
@@ -321,9 +360,9 @@ describe('GET /api/contracts/[id]/estado-cuenta', () => {
     expect(h.rendered).toHaveLength(0)
   })
 
-  it('contrato de otra org → 404 sin renderizar', async () => {
+  it.each(['ct-b', 'ct-b-kids-a'])('contrato de otra org (%s) → 404 sin renderizar', async (id) => {
     loginAs('u-viewer-a')
-    expect((await get('ct-b')).status).toBe(404)
+    expect((await get(id)).status).toBe(404)
     expect(h.rendered).toHaveLength(0)
   })
 
@@ -367,6 +406,7 @@ describe('sendPaymentReceipt — cadena pago → contrato → ocupante/unidad', 
   it.each([
     ['pago de B', 'pay-b', 'payment_not_found'],
     ['pago propio → contrato de B', 'pay-a-xct', 'contract_not_found'],
+    ['pago propio → contrato de B con hijos de A', 'pay-a-xct2', 'contract_not_found'],
     ['contrato propio → ocupante de B', 'pay-a-xocc', 'contract_chain_mismatch'],
     ['contrato propio → unidad de B', 'pay-a-xunit', 'contract_chain_mismatch'],
   ])('%s → cero WhatsApp', async (_name, paymentId, reason) => {
@@ -412,7 +452,7 @@ describe('POST /api/payments/[id]/receipt', () => {
     expect(h.sendWhatsAppTemplate).not.toHaveBeenCalled()
   })
 
-  it.each(['pay-b', 'pay-a-xct', 'pay-a-xocc', 'pay-a-xunit'])('%s → no envía', async (id) => {
+  it.each(['pay-b', 'pay-a-xct', 'pay-a-xct2', 'pay-a-xocc', 'pay-a-xunit'])('%s → no envía', async (id) => {
     loginAs('u-admin-a')
     const json = await (await post(id)).json()
     expect(json.success).toBe(false)
@@ -481,5 +521,121 @@ describe('POST /v1/payments (agente) y su despacho por aprobación', () => {
     })
     expect(res.ok).toBe(true)
     expect(tables.payments.find((p) => p.id === 'new-payments')).toMatchObject({ org_id: ORG_A, contract_id: 'ct-a' })
+  })
+})
+
+describe('membresía revocada (resolver real)', () => {
+  const routes = [
+    ['contracts', contractsRoute, 'contracts', 'ct-a-del', 'ct-b-del'],
+    ['contacts', contactsRoute, 'occupants', 'occ-a', 'occ-b'],
+    ['incidents', incidentsRoute, 'incidents', 'inc-a', 'inc-b'],
+    ['ancillary-assets', assetsRoute, 'ancillary_assets', 'asset-a', 'asset-b'],
+  ] as const
+
+  it('owner revocado → 401 en DELETE, ledger, estado de cuenta y recibo; nada cambia ni sale', async () => {
+    loginAs('u-revoked-a')
+    for (const [path, route, table, ownId] of routes) {
+      const res = await route.DELETE(req(`/api/${path}?id=${ownId}`, { method: 'DELETE' }))
+      expect(res.status, path).toBe(401)
+      expect(ids(table)).toContain(ownId)
+    }
+    const ledger = await ledgerRoute.POST(
+      req('/api/ledger', {
+        method: 'POST',
+        body: JSON.stringify({ contract_id: 'ct-a-paid', unit_id: 'unit-a', payment_id: 'pay-a', amount: 1000, confirmed_by: 'x' }),
+      }),
+    )
+    const ec = await estadoCuentaRoute.GET(req('/api/contracts/ct-a/estado-cuenta?periodo=2026-09'), {
+      params: { id: 'ct-a' },
+    })
+    const rc = await receiptRoute.POST(req('/api/payments/pay-a-ok/receipt', { method: 'POST' }), {
+      params: { id: 'pay-a-ok' },
+    })
+    expect([ledger.status, ec.status, rc.status]).toEqual([401, 401, 401])
+    expect(tables.payment_ledger).toHaveLength(0)
+    expect(tables.payments.find((p) => p.id === 'pay-a')?.status).toBe('pending')
+    expect(h.rendered).toHaveLength(0)
+    expect(h.sendWhatsAppTemplate).not.toHaveBeenCalled()
+    expect(tables.webhook_events).toHaveLength(0)
+  })
+
+  it('cookie que elige la org de una membresía revocada → cae a su org activa (viewer) y no borra en B', async () => {
+    loginAs('u-revoked-b', ORG_B)
+    for (const [path, route, table, , foreignId] of routes) {
+      const res = await route.DELETE(req(`/api/${path}?id=${foreignId}`, { method: 'DELETE' }))
+      expect(res.status, path).toBe(403)
+      expect(ids(table)).toContain(foreignId)
+    }
+    const ec = await estadoCuentaRoute.GET(req('/api/contracts/ct-b/estado-cuenta?periodo=2026-09'), {
+      params: { id: 'ct-b' },
+    })
+    expect(ec.status).toBe(404)
+    expect(h.rendered).toHaveLength(0)
+  })
+
+  it('aunque el resolver devuelva una org cuya membresía está revocada, los guards la rechazan', async () => {
+    loginAs('u-revoked-a')
+    h.resolveOverride = async () => ORG_A
+    for (const [path, route, table, ownId] of routes) {
+      const res = await route.DELETE(req(`/api/${path}?id=${ownId}`, { method: 'DELETE' }))
+      expect(res.status, path).toBe(403)
+      expect(ids(table)).toContain(ownId)
+    }
+    const ec = await estadoCuentaRoute.GET(req('/api/contracts/ct-a/estado-cuenta?periodo=2026-09'), {
+      params: { id: 'ct-a' },
+    })
+    expect(ec.status).toBe(403)
+    expect(h.rendered).toHaveLength(0)
+  })
+})
+
+describe('DELETE no toca hijos de otra org vía FK CASCADE / SET NULL', () => {
+  const del = (path: string, route: { DELETE: (r: NextRequest) => Promise<Response> }, id: string) =>
+    route.DELETE(req(`/api/${path}?id=${id}`, { method: 'DELETE' }))
+
+  it.each([
+    ['contracts', contractsRoute, 'contracts', 'ct-a-xcharge', 'ancillary_charges', 'chg-b-on-ct-a'],
+    ['contracts', contractsRoute, 'contracts', 'ct-a-xstay', 'stay_occupants', 'stay-b-on-ct-a'],
+    ['contacts', contactsRoute, 'occupants', 'occ-a-x-stay_occupants', 'stay_occupants', 'stay-b-on-occ-a'],
+    ['contacts', contactsRoute, 'occupants', 'occ-a-x-crm_contacts', 'crm_contacts', 'crm-b'],
+    ['contacts', contactsRoute, 'occupants', 'occ-a-x-reservations', 'reservations', 'res-b'],
+    ['contacts', contactsRoute, 'occupants', 'occ-a-x-payment_receipts', 'payment_receipts', 'rcpt-b'],
+    ['ancillary-assets', assetsRoute, 'ancillary_assets', 'asset-a-x', 'ancillary_charges', 'chg-b-on-asset-a'],
+  ] as const)('%s: padre propio con hijo de B en %s… → 409, padre e hijo intactos', async (path, route, table, id, childTable, childId) => {
+    loginAs('u-owner-a')
+    const childBefore = { ...tables[childTable].find((r) => r.id === childId) }
+    const res = await del(path, route, id)
+    expect(res.status).toBe(409)
+    expect(ids(table)).toContain(id)
+    expect(tables[childTable].find((r) => r.id === childId)).toEqual(childBefore)
+    expect(tables.webhook_events).toHaveLength(0)
+  })
+
+  it('hijos de la propia org no bloquean (contrato y activo propios)', async () => {
+    loginAs('u-owner-a')
+    expect((await del('contracts', contractsRoute, 'ct-a-del')).status).toBe(200)
+    expect((await del('ancillary-assets', assetsRoute, 'asset-a')).status).toBe(200)
+  })
+
+  it('id de otra org con hijos → 404 (no revela existencia con 409)', async () => {
+    loginAs('u-owner-a')
+    expect((await del('contracts', contractsRoute, 'ct-b')).status).toBe(404)
+    expect((await del('ancillary-assets', assetsRoute, 'asset-b')).status).toBe(404)
+  })
+
+  it('error leyendo dependientes → 500 sin borrar (falla cerrado)', async () => {
+    loginAs('u-owner-a')
+    h.db = makeFakeSupabase(tables, { errors: { stay_occupants: { code: 'XX000', message: 'boom' } } })
+    expect((await del('contracts', contractsRoute, 'ct-a-del')).status).toBe(500)
+    expect((await del('contacts', contactsRoute, 'occ-a')).status).toBe(500)
+    expect(ids('contracts')).toContain('ct-a-del')
+    expect(ids('occupants')).toContain('occ-a')
+  })
+
+  it('tabla dependiente inexistente en el entorno (42P01) → no bloquea', async () => {
+    loginAs('u-owner-a')
+    h.db = makeFakeSupabase(tables, { errors: { crm_contacts: { code: '42P01', message: 'relation does not exist' } } })
+    expect((await del('contacts', contactsRoute, 'occ-a')).status).toBe(200)
+    expect(ids('occupants')).not.toContain('occ-a')
   })
 })
