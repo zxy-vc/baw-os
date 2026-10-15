@@ -14,6 +14,13 @@ import { computeQuote } from '@/lib/public-booking/pricing'
 
 export const runtime = 'nodejs'
 
+// The Checkout session must close before the hold does, so a guest can never
+// pay for nights that were already released. Stripe's minimum session lifetime
+// is 30 min (31 leaves headroom for clock drift); the 29 extra hold minutes
+// cover webhook delivery. checkout.session.expired releases the hold earlier.
+const CHECKOUT_SESSION_TTL_MS = 31 * 60_000
+const HOLD_TTL_MS = 60 * 60_000
+
 export async function OPTIONS(request: NextRequest) {
   return handlePreflight(request.headers.get('origin'))
 }
@@ -126,7 +133,8 @@ export async function POST(request: NextRequest) {
     return withCors(errorResponse('QUOTE_ERROR', msg), origin)
   }
 
-  // ── Create hold (15 min) ──────────────────────────────────────────────────
+  // ── Create hold (outlives the Checkout session) ─────────────────────────────
+  const now = Date.now()
   const { data: hold, error: holdErr } = await svc
     .from('reservation_holds')
     .insert({
@@ -140,10 +148,11 @@ export async function POST(request: NextRequest) {
       guest_phone: guest.phone ?? null,
       // Snapshot the price accepted by the customer. It must not be recomputed
       // after payment because the unit's public rate may have changed.
-      price_per_night: quote.subtotal_mxn / quote.nights,
+      price_per_night: Math.round((quote.subtotal_mxn / quote.nights) * 100) / 100,
       total_price: quote.total_mxn,
       booking_mode: 'full',
       idempotency_key: idempotencyKey,
+      expires_at: new Date(now + HOLD_TTL_MS).toISOString(),
     })
     .select('id, expires_at')
     .single()
@@ -188,6 +197,7 @@ export async function POST(request: NextRequest) {
         guest_phone: guest.phone ?? '',
       },
       idempotencyKey,
+      expiresAt: Math.floor((now + CHECKOUT_SESSION_TTL_MS) / 1000),
     })
   } catch (err: unknown) {
     // Cleanup hold on Stripe failure
@@ -231,7 +241,8 @@ export async function POST(request: NextRequest) {
     checkout_url: session.url!,
     session_id: session.id,
     hold_id: hold.id,
-    expires_at: hold.expires_at,
+    // The guest must pay before the Checkout session closes, not the hold.
+    expires_at: new Date(session.expires_at * 1000).toISOString(),
   }
 
   // ── Save to idempotency cache ─────────────────────────────────────────────
