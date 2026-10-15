@@ -19,6 +19,7 @@ vi.mock('stripe', () => ({
 const stripeMock = vi.hoisted(() => ({
   createCheckoutSession: vi.fn(),
   expire: vi.fn(),
+  retrieve: vi.fn(),
   sessionSeq: 0,
 }))
 
@@ -32,7 +33,7 @@ vi.mock('@/lib/public-booking/stripe-public', () => ({
         return JSON.parse(raw)
       },
     },
-    checkout: { sessions: { expire: stripeMock.expire } },
+    checkout: { sessions: { expire: stripeMock.expire, retrieve: stripeMock.retrieve } },
   }),
 }))
 
@@ -74,7 +75,8 @@ beforeEach(() => {
   dbRef.current = db
   seedUnit()
   stripeMock.sessionSeq = 0
-  stripeMock.expire.mockReset().mockResolvedValue({})
+  stripeMock.expire.mockReset().mockImplementation(async (id: string) => ({ id, status: 'expired' }))
+  stripeMock.retrieve.mockReset().mockImplementation(async (id: string) => ({ id, status: 'expired' }))
   stripeMock.createCheckoutSession.mockReset().mockImplementation(async (p: { expiresAt: number }) => {
     const id = `cs_test_${++stripeMock.sessionSeq}`
     return { id, url: `https://checkout.stripe.test/${id}`, expires_at: p.expiresAt }
@@ -375,6 +377,30 @@ describe('fallos alrededor de la promoción', () => {
     expect(db.tables.stripe_processed_events).toHaveLength(1)
   })
 
+  it('una entrega que falla DESPUÉS de que otra creó la reserva no deja conciliación abierta', async () => {
+    const { body } = await startCheckout()
+    const sessionId = body.data.session_id
+    expect((await deliver(completedEvent(sessionId, TOTAL_CENTS, { eventId: 'evt_b' }))).status).toBe(200)
+
+    // Delivery A of the same session hits a DB error after B committed.
+    db.rpcFaults.fn_promote_paid_reservation = { code: '08006', message: 'connection lost' }
+    expect((await deliver(completedEvent(sessionId, TOTAL_CENTS, { eventId: 'evt_a' }))).status).toBe(500)
+    expect(db.tables.public_booking_payment_failures).toHaveLength(0)
+    expect(db.tables.reservations).toHaveLength(1)
+  })
+
+  it('una conciliación abierta se cierra aunque la promoción regrese already_promoted', async () => {
+    const { body } = await startCheckout()
+    const sessionId = body.data.session_id
+    await deliver(completedEvent(sessionId, TOTAL_CENTS, { eventId: 'evt_ok' }))
+    db.tables.public_booking_payment_failures.push({
+      stripe_session_id: sessionId, stripe_event_id: 'evt_old', last_error: 'x', resolved_at: null,
+    })
+
+    expect((await deliver(completedEvent(sessionId, TOTAL_CENTS, { eventId: 'evt_again' }))).status).toBe(200)
+    expect(db.tables.public_booking_payment_failures[0].resolved_at).not.toBeNull()
+  })
+
   it('una sesión que no es del booking público (p. ej. Payment Link) se ignora sin reintentos ni conciliación', async () => {
     const res = await deliver(completedEvent('cs_live_payment_link', 150_000, { metadata: {} }))
     expect(res.status).toBe(200)
@@ -384,29 +410,56 @@ describe('fallos alrededor de la promoción', () => {
 })
 
 describe('caché de Idempotency-Key del checkout', () => {
-  it('no devuelve una URL de pago vencida: pide un intento nuevo', async () => {
-    const idem = 'idem-retry-later'
+  async function staleAttempt(idem: string) {
     const first = await startCheckout(idem)
     expect(first.status).toBe(200)
     expect((await startCheckout(idem)).body.data.checkout_url).toBe(first.body.data.checkout_url)
-
     // 31 min later the Checkout session is dead; the cache row still lives 24 h.
-    const cache = db.tables.checkout_idempotency[0]
+    const cache = db.tables.checkout_idempotency.find((c) => c.key === idem)!
     ;(cache.response as Record<string, unknown>).expires_at = new Date(Date.now() - 1000).toISOString()
-    const stale = await startCheckout(idem)
+    return first.body.data.session_id as string
+  }
+
+  it('no devuelve una URL de pago vencida y libera el hold si Stripe confirma que venció', async () => {
+    const sessionId = await staleAttempt('idem-retry-later')
+
+    // checkout.session.expired has NOT arrived yet.
+    const stale = await startCheckout('idem-retry-later')
     expect(stale.status).toBe(409)
     expect(stale.body.error.code).toBe('CHECKOUT_EXPIRED')
+    expect(stripeMock.retrieve).toHaveBeenCalledWith(sessionId)
+    expect(db.tables.reservation_holds).toHaveLength(0)
 
-    // Stripe releases the hold with checkout.session.expired; a new key works.
-    await deliver({
-      id: 'evt_exp',
-      type: 'checkout.session.expired',
-      created: Math.floor(Date.now() / 1000),
-      data: { object: { id: first.body.data.session_id } },
-    })
     const retry = await startCheckout('idem-new-attempt')
     expect(retry.status).toBe(200)
-    expect(retry.body.data.session_id).not.toBe(first.body.data.session_id)
+    expect(retry.body.data.session_id).not.toBe(sessionId)
+  })
+
+  it('si Stripe aún la tiene abierta, la expira primero y luego libera', async () => {
+    const sessionId = await staleAttempt('idem-open')
+    stripeMock.retrieve.mockImplementationOnce(async (id: string) => ({ id, status: 'open' }))
+
+    expect((await startCheckout('idem-open')).body.error.code).toBe('CHECKOUT_EXPIRED')
+    expect(stripeMock.expire).toHaveBeenCalledWith(sessionId)
+    expect(db.tables.reservation_holds).toHaveLength(0)
+  })
+
+  it('si Stripe dice que ya se pagó, NO libera el hold (el webhook puede venir en camino)', async () => {
+    await staleAttempt('idem-paid')
+    stripeMock.retrieve.mockImplementationOnce(async (id: string) => ({ id, status: 'complete' }))
+
+    const res = await startCheckout('idem-paid')
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('CHECKOUT_COMPLETED')
+    expect(db.tables.reservation_holds).toHaveLength(1)
+  })
+
+  it('si Stripe no responde, no libera nada', async () => {
+    await staleAttempt('idem-stripe-down')
+    stripeMock.retrieve.mockRejectedValueOnce(new Error('stripe down'))
+
+    expect((await startCheckout('idem-stripe-down')).body.error.code).toBe('CHECKOUT_EXPIRED')
+    expect(db.tables.reservation_holds).toHaveLength(1)
   })
 })
 

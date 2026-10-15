@@ -64,7 +64,11 @@ describe('20261014010000_public_booking_payment_integrity.sql', () => {
     expect(definers.map((d) => d[1])).toEqual([
       'public.fn_guard_hold_availability',
       'public.fn_promote_paid_reservation',
+      'public.fn_record_public_booking_payment_failure',
     ])
+    expect(code).toMatch(
+      /REVOKE ALL ON FUNCTION public\.fn_record_public_booking_payment_failure\(text, text, text\)\s+FROM PUBLIC, anon, authenticated;/,
+    )
     expect(code).toMatch(
       /REVOKE ALL ON FUNCTION public\.fn_promote_paid_reservation\(text, numeric, timestamptz\)\s+FROM PUBLIC, anon, authenticated;/,
     )
@@ -106,6 +110,16 @@ describe('20261014010000_public_booking_payment_integrity.sql', () => {
     // single RETURN QUERY, preceded by the resolved_at update
     expect(body.match(/RETURN QUERY/g)).toHaveLength(1)
     expect(body.indexOf('SET resolved_at = now()')).toBeLessThan(body.indexOf('RETURN QUERY'))
+  })
+
+  it('promoción y registro de fallos se serializan con el mismo candado por sesión', () => {
+    const lock = "pg_advisory_xact_lock(hashtextextended('public_booking_session:' || p_stripe_session_id, 0))"
+    const promote = code.slice(code.indexOf('FUNCTION public.fn_promote_paid_reservation('))
+    const record = code.slice(code.indexOf('FUNCTION public.fn_record_public_booking_payment_failure('))
+    expect(promote.slice(0, promote.indexOf('$$;'))).toContain(lock)
+    expect(record.slice(0, record.indexOf('$$;'))).toContain(lock)
+    // session lock is taken before the hold row lock
+    expect(promote.indexOf(lock)).toBeLessThan(promote.indexOf('FOR UPDATE'))
   })
 
   it('no hay nombres de archivo viejos en los mensajes de error', () => {

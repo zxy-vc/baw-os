@@ -77,9 +77,18 @@ export async function POST(request: NextRequest) {
     // The cache row lives 24 h but its Checkout session only 31 min. Never
     // hand back a dead payment URL: the client must start over with a new key
     // (reusing this one would hit the hold's and Stripe's idempotency keys).
-    const sessionExpiresAt = (cached.response as Partial<CheckoutResponse> | null)?.expires_at
-    if (sessionExpiresAt && new Date(sessionExpiresAt) <= new Date()) {
+    const cachedResponse = cached.response as Partial<CheckoutResponse> | null
+    if (cachedResponse?.expires_at && new Date(cachedResponse.expires_at) <= new Date()) {
       console.log(`action=checkout_start idem=${idempotencyKey} status=cache_hit_session_expired`)
+      const released = cachedResponse.session_id
+        ? await releaseExpiredCheckout(cachedResponse.session_id, svc)
+        : 'unknown'
+      if (released === 'paid') {
+        return withCors(
+          errorResponse('CHECKOUT_COMPLETED', 'This checkout was already paid.', 409),
+          origin,
+        )
+      }
       return withCors(
         errorResponse('CHECKOUT_EXPIRED', 'Checkout session expired. Retry with a new Idempotency-Key.', 409),
         origin,
@@ -266,4 +275,35 @@ export async function POST(request: NextRequest) {
   )
 
   return withCors(NextResponse.json({ data: responseBody }), origin)
+}
+
+// Frees the nights of a timed-out attempt right away instead of waiting for
+// the checkout.session.expired webhook, so the guest's own new attempt is not
+// refused as unavailable. The clock alone is not enough (a payment's webhook
+// may still be in flight): Stripe must confirm the session can no longer be
+// paid. 'open' past expires_at is expired by us first, as in the link-failure
+// path above.
+async function releaseExpiredCheckout(
+  sessionId: string,
+  svc: ReturnType<typeof createServiceClient>,
+): Promise<'released' | 'paid' | 'unknown'> {
+  try {
+    const stripe = getStripePublic()
+    let session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.status === 'open') session = await stripe.checkout.sessions.expire(sessionId)
+    if (session.status === 'complete') return 'paid'
+    if (session.status !== 'expired') return 'unknown'
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown Stripe error'
+    console.log(`action=checkout_release_expired session_id=${sessionId} error=${msg}`)
+    return 'unknown'
+  }
+
+  const { error } = await svc.from('reservation_holds').delete().eq('stripe_session_id', sessionId)
+  if (error) {
+    console.log(`action=checkout_release_expired session_id=${sessionId} error=${error.message}`)
+    return 'unknown'
+  }
+  console.log(`action=checkout_release_expired session_id=${sessionId} status=hold_deleted`)
+  return 'released'
 }

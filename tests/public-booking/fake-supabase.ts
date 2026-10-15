@@ -9,8 +9,10 @@
 //     UNIQUE idempotency_key, checkout snapshot CHECK on stripe_session_id.
 //   · fn_unit_is_available (20260704_quote_flow_crm).
 //   · checkout_idempotency.expires_at default (20260523, 24 h).
-//   · fn_promote_paid_reservation (20261014010000), step by step. JS runs it
-//     synchronously, which stands in for the single SQL transaction + locks.
+//   · fn_promote_paid_reservation and fn_record_public_booking_payment_failure
+//     (20261014010000), step by step. JS runs each synchronously, which stands
+//     in for the SQL transaction + advisory locks; real lock waits, snapshots
+//     and deadlocks are NOT exercised here.
 // If the SQL changes, update the mirror here.
 
 type Row = Record<string, unknown>
@@ -39,6 +41,7 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
 
   // Failure injection: table → op → error returned instead of executing.
   const faults: Record<string, Partial<Record<Op, PgError>>> = {}
+  const rpcFaults: Record<string, PgError> = {}
 
   function unitIsAvailable(unitId: string, from: string, to: string): boolean {
     const t = now().toISOString()
@@ -127,8 +130,16 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
     if (amountPaid == null || amountPaid < 0) return raise('Stripe amount_paid must be a non-negative amount')
     if (!paidAt) return raise('Stripe payment timestamp is required')
 
+    // Single exit, as in SQL: every success closes the reconciliation item.
+    const succeed = (reservationId: unknown, alreadyPromoted: boolean): Result => {
+      for (const f of tables.public_booking_payment_failures) {
+        if (f.stripe_session_id === sessionId && f.resolved_at == null) f.resolved_at = now().toISOString()
+      }
+      return { data: [{ reservation_id: reservationId, already_promoted: alreadyPromoted }], error: null }
+    }
+
     const existing = tables.reservations.find((r) => r.stripe_checkout_session_id === sessionId)
-    if (existing) return { data: [{ reservation_id: existing.id, already_promoted: true }], error: null }
+    if (existing) return succeed(existing.id, true)
 
     const hold = tables.reservation_holds.find((h) => h.stripe_session_id === sessionId)
     if (!hold) return raise(`No hold found for Stripe Checkout session ${sessionId}`)
@@ -174,10 +185,30 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
     }
     tables.reservations.push(reservation)
     tables.reservation_holds = tables.reservation_holds.filter((h) => h.id !== hold.id)
-    for (const f of tables.public_booking_payment_failures) {
-      if (f.stripe_session_id === sessionId && f.resolved_at == null) f.resolved_at = now().toISOString()
+    return succeed(reservation.id, false)
+  }
+
+  function recordPaymentFailure(args: Row): Result {
+    const sessionId = args.p_stripe_session_id as string
+    if (tables.reservations.some((r) => r.stripe_checkout_session_id === sessionId)) {
+      return { data: false, error: null }
     }
-    return { data: [{ reservation_id: reservation.id, already_promoted: false }], error: null }
+    const row = tables.public_booking_payment_failures.find((f) => f.stripe_session_id === sessionId)
+    const update = {
+      stripe_event_id: args.p_stripe_event_id,
+      last_error: args.p_error,
+      last_failed_at: now().toISOString(),
+    }
+    if (row) Object.assign(row, update) // resolved_at untouched
+    else {
+      tables.public_booking_payment_failures.push({
+        stripe_session_id: sessionId,
+        first_failed_at: now().toISOString(),
+        resolved_at: null,
+        ...update,
+      })
+    }
+    return { data: true, error: null }
   }
 
   type Op = 'select' | 'insert' | 'update' | 'delete' | 'upsert'
@@ -280,6 +311,9 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
   }
 
   async function rpc(name: string, args: Row): Promise<Result> {
+    const fault = rpcFaults[name]
+    if (fault) return { data: null, error: fault }
+    if (name === 'fn_record_public_booking_payment_failure') return recordPaymentFailure(args)
     if (name === 'fn_unit_is_available') {
       return { data: unitIsAvailable(args.p_unit_id as string, args.p_from as string, args.p_to as string), error: null }
     }
@@ -287,7 +321,7 @@ export function createFakeDb(opts: { now?: () => Date } = {}) {
     return { data: null, error: { code: '42883', message: `function ${name} does not exist` } }
   }
 
-  return { tables, faults, client: { from, rpc } }
+  return { tables, faults, rpcFaults, client: { from, rpc } }
 }
 
 export type FakeDb = ReturnType<typeof createFakeDb>
