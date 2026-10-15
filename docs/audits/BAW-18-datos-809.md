@@ -57,9 +57,9 @@
 | 10 | Borrar abono | DELETE del abono + recompute; **la bitácora conserva su asiento** | `src/app/cobros/[contractId]/page.tsx:338-346` |
 | 11 | `POST /api/payments/[id]/recompute` | Deriva `amount_paid`/`status` **solo** de la suma de `payment_receipts` | `src/app/api/payments/[id]/recompute/route.ts:28-59` |
 | 12 | Webhook de Stripe / conserje | Marcan `paid` **con** `amount_paid` = total | `src/app/api/webhooks/stripe/route.ts:42-58`, `src/app/api/conserje/cobros/[id]/route.ts:44-58` |
-| 13 | `POST /api/ledger` | Marca `status='paid'` **sin** `amount_paid`; Mission Control la lee como `parcial` con adeudo completo (§3.3) | `src/app/api/ledger/route.ts:82-91` |
+| 13 | `POST /api/ledger` | Marca `status='paid'` **sin tocar** `amount_paid`: conserva el valor previo, típicamente 0/null. Mission Control la lee como `parcial` por `cargo + mora − amount_paid` (§3.3) | `src/app/api/ledger/route.ts:82-91` |
 | 14 | `POST /api/payments/checkout` | Guarda `stripe_payment_intent_id` al **crear** el intent, antes de que se cobre nada | `src/app/api/payments/checkout/route.ts:18-36` |
-| 15 | Runner de cobranza (cron diario) | Persiste `late_fee_amount` en filas no `paid` y sin `confirmed_at`. Desde PR #162 (mergeado el 2026-08-13) también en dry-run | `src/lib/agents/cobranza.ts:87-106`, `src/lib/agents/cobranza.ts:188-190` |
+| 15 | Runner de cobranza (cron diario) | Selecciona filas de la org no `paid`, sin `confirmed_at` y con vencimiento ≤ hoy UTC + 5 días. A las **ya vencidas** les persiste `late_fee_amount`. Desde PR #162 (mergeado el 2026-08-13) lo hace también en dry-run | `src/lib/agents/cobranza.ts:144-161`, `src/lib/agents/cobranza.ts:87-106`, `src/lib/agents/cobranza.ts:188-190` |
 
 ### 1.2 Qué respeta y qué no respeta el cron
 
@@ -76,7 +76,7 @@
 | Ocupación de la unidad (`units.status`) | No la consulta | `route.ts:66-70` |
 | Estatus del contrato en **cargos accesorios** | **No.** Basta con `ancillary_charges.status='active'` y la vigencia del cargo | `route.ts:117-122` |
 | Mes que genera | Solo el mes en curso (`now()` del servidor) | `route.ts:41-45`, `route.ts:109` |
-| Idempotencia | Dedup **en memoria** por contrato + mes (renta) y por cargo accesorio + mes. No revisa el error del INSERT. El esquema documentado no tiene índice único en `payments` (`docs/schema.sql:116-131`); en prod lo verifica Q0.d | `route.ts:51-62`, `route.ts:145` |
+| Idempotencia | Dedup **en memoria** por contrato + mes (renta) y por cargo accesorio + mes. No revisa el error del INSERT. El esquema documentado solo tiene la PK (`docs/schema.sql:117`): no hay restricción única por contrato/cargo + mes (`docs/schema.sql:116-131`). En prod lo verifica Q0.d | `route.ts:51-62`, `route.ts:145` |
 | Día de vencimiento | `payment_day || 5` (Mission Control usa `|| 1`, `src/app/page.tsx:184`) | `route.ts:109` |
 
 **Conclusión 1.2:** el cron puede generar basura de **meses recientes** (desde abril de 2026) en contratos con `end_date` vencida, archivados, o `active` aunque el inquilino ya se haya ido. **No puede** generar cargos de 2024 ni de principios de 2025.
@@ -92,8 +92,8 @@
   No crea contratos ni pagos.
 - El único «backfill» de `payments` en migraciones es `UPDATE ... SET amount_paid = amount WHERE status='paid' AND amount_paid IS NULL` (`supabase/migrations/20260617_payments_amount_paid.sql:15-17`). No crea filas.
 - El seed `mateos-809.sql` **no es ejecutable** después del Sprint 3, según su README (`supabase/seed-examples/README.md:12-19`), y solo crea 3 pagos (`mateos-809.sql:145-149`). Sus **contratos** sí muestran un patrón de captura (`mateos-809.sql:133-141`):
-  - siete de nueve tienen `start_date` reales de 2023-01 a 2025-09, `payment_day = 1` y ninguno tiene `billing_start_date`;
-  - D202 empieza en 2026-04.
+  - ocho de nueve tienen `start_date` reales de 2023-01 a 2025-09 (`mateos-809.sql:133-140`); D202 empieza en 2026-04 (`mateos-809.sql:141`);
+  - todos tienen `payment_day = 1` y ninguno tiene `billing_start_date`.
 
   **Hipótesis:** si los contratos de prod se capturaron igual (por seed, a mano o por SQL fuera del repo), eso basta para producir los atrasos del ticket **sin que exista ninguna fila**.
 - Una carga manual o por SQL fuera del repo **no se puede descartar desde el código**. Q9 la detecta: muchas filas con el mismo `created_at` y `due_date` repartidos, o filas con `created_at` muy posterior a su `due_date`.
@@ -131,7 +131,7 @@
 - `/calendario` carga los contratos de la org con **`archived_at IS NULL`** y **`unit_id NOT NULL`** (`src/app/calendario/page.tsx:221-226`). Las unidades también se filtran por `archived_at IS NULL` (`src/app/calendario/page.tsx:214-220`).
 - `contractToStay` solo pinta los estatus `active`, `pending`, `renewed`, `en_renovacion` y `expired` (`src/lib/calendar-occupancy.ts:103-106`, `src/lib/calendar-occupancy.ts:150`).
 - La barra va de `start_date` a `end_date + 1` (`src/lib/calendar-occupancy.ts:159-160`). Sin `end_date`, llena hasta el borde (`src/lib/calendar-occupancy.ts:310`).
-- Una barra solo se ve si intersecta la ventana visible (`src/lib/calendar-occupancy.ts:311`). Por defecto la ventana es de 31 días desde hoy − 7 (`src/app/calendario/page.tsx:144-145`, `src/app/calendario/page.tsx:283`); en teléfono es de 14 días.
+- Una barra solo se ve si intersecta la ventana visible (`src/lib/calendar-occupancy.ts:311`). Por defecto la ventana es de 31 días desde hoy − 7 (`src/app/calendario/page.tsx:144-145`, `src/app/calendario/page.tsx:283`); en pantallas de menos de 640 px es de 14 días (`src/app/calendario/page.tsx:185-189`).
 
 ### 2.3 Por qué divergen (7 «ocupadas» vs 2 barras, según el ticket)
 
@@ -181,12 +181,12 @@ La réplica es la **consulta Q4** de §4. Reproduce los pasos 1-8 y entrega el d
 
 **Cómo leer Q4 con `today = '2026-10-02'`:**
 
-- Si da **57 / $374,900**, la réplica es fiel y los datos no cambiaron en esos meses.
+- Si da **57 / $374,900**, es evidencia fuerte (no prueba) de que la réplica es fiel; cambios que se compensen podrían conservar ambos totales. Por eso se compara también el detalle por unidad.
 - **Si no cuadra, no significa necesariamente que la réplica esté mal.** Cambiar `today` no reconstruye la foto: después del 2-oct pudieron cambiar la mora persistida (el cron de cobranza la reescribe a diario, `src/lib/agents/cobranza.ts:96-106`), los abonos, los PATCH o los contratos. En ese caso, compara contra el detalle por unidad del screenshot (D302, D203…).
 
 **Divergencias conocidas, que Q4 marca:**
 
-- **Empates de la fila representante:** el navegador toma la primera fila que llega, sin orden (`src/app/page.tsx:152-155`), y Q4 desempata por `created_at`. Si en el mismo contrato-mes hay varias filas del mayor rango con montos o estatus distintos, el adeudo **puede diferir y no es solo una diferencia menor**. Q4 las cuenta en `meses_con_empate_ambiguo`; para esos meses no se afirma equivalencia.
+- **Empates de la fila representante:** el navegador toma la primera fila que llega, sin orden (`src/app/page.tsx:152-155`), y Q4 desempata por `created_at`. Si en el mismo contrato-mes hay varias filas del mayor rango con montos o estatus distintos, el adeudo **puede diferir y no es solo una diferencia menor**. Q4 las cuenta en `meses_con_empate_ambiguo` sobre **todos** los meses proyectados, incluidos los que con el desempate de SQL salen `pagado`; para esos meses no se afirma equivalencia.
 - **Zona horaria:** Q4 fija `today` en `America/Mexico_City`; la UI usa la fecha local del navegador (`src/lib/billing.ts:75`).
 - **Límite de filas de PostgREST:** Supabase limita por defecto la respuesta (`max_rows`, normalmente 1000). Es configuración del proyecto, no versionada en el repo, así que hay que verificarla en Supabase. Si el org tuviera más filas de las que permite, Mission Control vería menos que Q4 (Q9.b da el conteo).
 
@@ -198,8 +198,8 @@ La réplica es la **consulta Q4** de §4. Reproduce los pasos 1-8 y entrega el d
 | Ignora `archived_at` | Un contrato archivado sigue en la morosidad; el Calendario lo oculta | `src/app/page.tsx:119-124` vs `src/app/calendario/page.tsx:225` |
 | Mes sin fila, con `payment_day` y ya vencido = `vencido` por renta + agua | El histórico previo a BaW OS cuenta como deuda si no hay `billing_start_date` | `src/lib/billing.ts:71`, `src/lib/billing.ts:93`; `supabase/migrations/20260628_contracts_billing_start.sql:1-13` |
 | Ventana móvil de 24 meses | Cada mes sale de la cuenta el mes más viejo: la «deuda» baja sin que nadie pague (aquí **reduce** la cifra) | `src/lib/billing.ts:43` |
-| `paid` sin `amount_paid` (vía `/api/ledger`) | Se lee como `parcial` con adeudo = cargo completo | `src/app/api/ledger/route.ts:82-91`, `src/lib/billing.ts:77-79` |
-| `waived` (y un futuro `void`) | No son `paid`/`partial`, así que se cuentan como `vencido`/`mora` igual que `pending` | `src/lib/billing.ts:74`, `src/lib/billing.ts:90-93`; enum `docs/schema.sql:113` |
+| `paid` sin actualizar `amount_paid` (vía `/api/ledger`) | Se lee como `parcial` con adeudo = cargo + mora − `amount_paid` previo (el cargo completo si era 0/null) | `src/app/api/ledger/route.ts:82-91`, `src/lib/billing.ts:77-79` |
+| `waived` (y un futuro `void`) | No son `paid`/`partial`, así que se tratan igual que `pending`: `vencido`/`mora` si ya venció (o `verbal`/`pendiente` cuando aplica) | `src/lib/billing.ts:74`, `src/lib/billing.ts:81-93`; enum `docs/schema.sql:113` |
 | Pagos registrados con `due_date = hoy` (API, agentes) | El dinero cae en el mes del registro y el mes que se pagó queda `vencido` | `src/app/api/payments/route.ts:47-48`, `src/app/api/v1/payments/route.ts:92-93` |
 | Dos pagos en el mismo mes | Solo uno representa al mes; el otro no salda ningún mes | `src/app/page.tsx:166-171` |
 | Accesorio como representante | Si falta la fila de renta, `base` = monto del accesorio (puede **subestimar** o sobrestimar) | `src/app/page.tsx:168`, `src/lib/billing.ts:71` |
@@ -213,10 +213,11 @@ La réplica es la **consulta Q4** de §4. Reproduce los pasos 1-8 y entrega el d
 
 - Todas son `SELECT` o `WITH … SELECT`. Ninguna escribe, crea objetos ni llama funciones con efectos.
 - Pégalas una por una en el SQL Editor de Supabase (proyecto `zlcgxmllaeweypyodvzk`). Para blindarlas, puedes envolver cada una en `BEGIN READ ONLY; … ROLLBACK;`.
-- El editor corre como `postgres`, sin RLS; por eso **todas** filtran por `org_id`.
+- El editor corre como `postgres`, sin RLS; por eso todas filtran por `org_id`. Las excepciones son las de catálogo (Q0) y Q1.a, que lista a propósito todas las orgs.
 - Parámetros en el CTE `p` al inicio de cada consulta:
   - `org_id`;
   - `today` (para reproducir la foto del 2-oct, cámbialo por `'2026-10-02'::date`);
+  - en Q5, Q7 y Q8, `today_utc`: fecha UTC real, porque el runner de cobranza calcula su horizonte en UTC (`src/lib/agents/cobranza.ts:147-150`). Las columnas de cobranza describen **hoy**, no la foto;
   - en Q4 y Q11, también `building_id` (NULL = «Todos los edificios»).
 - Los estatus se comparan como `::text` porque en prod pueden ser ENUM o TEXT (drift; ver Q0). Además, `'cancelled'` y `'void'` no existen en los ENUM documentados (`docs/schema.sql:84`, `docs/schema.sql:113`), y comparar un ENUM contra una etiqueta que no existe truena.
 - Si Q0 muestra que falta alguna columna (`billing_start_date`, `archived_at`, `late_fee_amount`, `ancillary_charge_id`, `amount_paid`, `stripe_payment_intent_id`, `confirmed_at`), detente y avisa: las demás consultas las usan.
@@ -427,7 +428,7 @@ SELECT u.number AS unidad,
        -- calendario/page.tsx:214-226 + calendar-occupancy.ts:150, 311 (ventana [hoy-7, hoy+24))
        (c.status::text IN ('active','pending','renewed','en_renovacion','expired')
          AND c.archived_at IS NULL AND c.unit_id IS NOT NULL
-         AND u.archived_at IS NULL
+         AND u.id IS NOT NULL AND u.org_id = c.org_id AND u.archived_at IS NULL
          AND c.start_date < p.today + 24
          AND (c.end_date IS NULL OR c.end_date >= p.today - 7)) AS calendario_lo_pinta_en_ventana,
        (c.end_date IS NOT NULL AND c.end_date < p.today) AS end_date_vencida,
@@ -549,29 +550,31 @@ v AS (
          END AS mc_status
   FROM s
 ),
--- page.tsx:197-199, 224-225, 256-259 · solo mora/vencido/parcial suman; días ≥ 0
+-- page.tsx:197-199, 224-225, 256-259 · solo mora/vencido/parcial suman; días ≥ 0.
+-- Se conservan todos los meses para contar empates ambiguos también donde SQL eligió 'pagado'.
 o AS (
   SELECT v.*,
+         (v.mc_status IN ('mora', 'vencido', 'parcial')) AS en_morosidad,
          CASE v.mc_status
            WHEN 'parcial' THEN GREATEST(0, v.base + v.fee - v.paid)
            WHEN 'mora' THEN v.base + v.fee
-           ELSE v.base
+           WHEN 'vencido' THEN v.base
+           ELSE 0
          END AS owed,
          GREATEST(0, (SELECT today FROM p) - v.due_date) AS dias_atraso
   FROM v
-  WHERE v.mc_status IN ('mora', 'vencido', 'parcial')
 )
 SELECT CASE WHEN GROUPING(o.unit_id) = 1 THEN '== TOTAL =='
             ELSE COALESCE(o.unit_number, '(sin unidad)') END AS unidad,
        CASE WHEN GROUPING(o.month_start) = 1 AND GROUPING(o.unit_id) = 0 THEN '-- subtotal unidad --'
             ELSE to_char(o.month_start, 'YYYY-MM') END AS mes,
        o.contract_id,
-       count(*) AS pagos_vencidos,
-       sum(o.owed) AS adeudo_mc,
-       sum(o.fee) AS de_ello_mora_persistida,
-       max(o.dias_atraso) AS max_dias_atraso,
+       count(*) FILTER (WHERE o.en_morosidad) AS pagos_vencidos,
+       COALESCE(sum(o.owed) FILTER (WHERE o.en_morosidad), 0) AS adeudo_mc,
+       COALESCE(sum(o.fee) FILTER (WHERE o.en_morosidad), 0) AS de_ello_mora_persistida,
+       max(o.dias_atraso) FILTER (WHERE o.en_morosidad) AS max_dias_atraso,
        string_agg(DISTINCT o.mc_status, ',') AS estatus_mc,
-       count(*) FILTER (WHERE o.payment_id IS NULL) AS meses_sin_fila_en_payments,
+       count(*) FILTER (WHERE o.en_morosidad AND o.payment_id IS NULL) AS meses_sin_fila_en_payments,
        count(*) FILTER (WHERE o.empate_ambiguo) AS meses_con_empate_ambiguo,
        CASE WHEN GROUPING(o.month_start) = 0 THEN max(o.payment_id::text) END AS payment_id,
        CASE WHEN GROUPING(o.month_start) = 0 THEN max(o.payment_status) END AS payment_status,
@@ -581,21 +584,29 @@ SELECT CASE WHEN GROUPING(o.unit_id) = 1 THEN '== TOTAL =='
        bool_or(o.contract_archived_at IS NOT NULL) AS contrato_archivado
 FROM o
 GROUP BY GROUPING SETS ((o.unit_id, o.unit_number, o.contract_id, o.month_start), (o.unit_id, o.unit_number), ())
+-- Se muestran los meses en morosidad y los meses con empate ambiguo (aunque SQL los vea pagados), más el total.
+HAVING GROUPING(o.unit_id) = 1
+    OR count(*) FILTER (WHERE o.en_morosidad) > 0
+    OR count(*) FILTER (WHERE o.empate_ambiguo) > 0
 ORDER BY GROUPING(o.unit_id), o.unit_number, GROUPING(o.month_start) DESC, o.month_start;
 ```
 
-> Si en el total `meses_sin_fila_en_payments` ≈ `pagos_vencidos`, la hipótesis principal queda confirmada: la morosidad es proyección, no filas.
+> Si en el total `meses_sin_fila_en_payments` ≈ `pagos_vencidos`, la hipótesis principal queda confirmada: la morosidad es proyección, no filas. Las filas de detalle con `pagos_vencidos = 0` son meses que SQL ve pagados pero con empate ambiguo: el navegador podría contarlos.
 
 ---
 
 ### Q5 · Filas de `payments` con saldo y vencidas, agrupadas por unidad, contrato y mes
 
-**Qué responde:** la misma pregunta que Q4, pero desde la **tabla**: ¿qué filas reales tienen saldo y ya vencieron, de **cualquier** contrato? Incluye contratos no activos y huérfanos. La columna `filas_que_cobranza_selecciona` reproduce el filtro real del runner (`src/lib/agents/cobranza.ts:154-161`): misma org, `confirmed_at` nulo, `status <> 'paid'` y vencimiento ≤ hoy + 5 días (`src/lib/agents/cobranza.ts:24`).
+**Qué responde:** la misma pregunta que Q4, pero desde la **tabla**: ¿qué filas reales tienen saldo y ya vencieron, de **cualquier** contrato? Incluye contratos no activos y huérfanos. Columnas de cobranza (describen **hoy**, en UTC como el runner):
+
+- `filas_que_cobranza_selecciona` reproduce el filtro real: misma org, `confirmed_at` nulo, `status <> 'paid'` y vencimiento ≤ fecha UTC + 5 días (`src/lib/agents/cobranza.ts:24`, `src/lib/agents/cobranza.ts:147-161`).
+- `filas_con_mora_persistida_por_cobranza`: de esas, las que ya vencieron; a esas les persiste el recargo (`src/lib/agents/cobranza.ts:87-106`).
 
 ```sql
 WITH p AS (
   SELECT '81a011c4-4ea6-4b79-924d-73dbe6d35e14'::uuid AS org_id,
-         (now() AT TIME ZONE 'America/Mexico_City')::date AS today
+         (now() AT TIME ZONE 'America/Mexico_City')::date AS today,
+         (now() AT TIME ZONE 'UTC')::date AS today_utc
 )
 SELECT CASE WHEN GROUPING(u.id) = 1 THEN '== TOTAL ==' ELSE COALESCE(u.number, '(sin unidad)') END AS unidad,
        py.contract_id,
@@ -610,7 +621,9 @@ SELECT CASE WHEN GROUPING(u.id) = 1 THEN '== TOTAL ==' ELSE COALESCE(u.number, '
        sum(py.amount + COALESCE(py.late_fee_amount, 0) - COALESCE(py.amount_paid, 0)) AS saldo,
        max(p.today - py.due_date) AS max_dias_atraso,
        count(*) FILTER (WHERE py.confirmed_at IS NULL AND py.status::text <> 'paid'
-                          AND py.due_date <= p.today + 5) AS filas_que_cobranza_selecciona,
+                          AND py.due_date <= p.today_utc + 5) AS filas_que_cobranza_selecciona,
+       count(*) FILTER (WHERE py.confirmed_at IS NULL AND py.status::text <> 'paid'
+                          AND py.due_date <= p.today_utc) AS filas_con_mora_persistida_por_cobranza,
        bool_or(py.ancillary_charge_id IS NOT NULL) AS incluye_accesorio,
        min(py.created_at) AS primera_creada
 FROM payments py
@@ -653,7 +666,8 @@ SELECT u.number AS unidad,
          AND date_trunc('month', py.due_date) < date_trunc('month', c.billing_start_date)) AS antes_de_billing_start,
        (c.end_date IS NOT NULL
          AND date_trunc('month', py.due_date) > date_trunc('month', c.end_date)) AS despues_de_end,
-       (c.status::text IN ('active','en_renovacion')
+       (c.org_id = p.org_id
+         AND c.status::text IN ('active','en_renovacion')
          AND date_trunc('month', py.due_date) >= date_trunc('month', COALESCE(c.billing_start_date, c.start_date))
          AND date_trunc('month', py.due_date) <= date_trunc('month', p.today)
          AND date_trunc('month', py.due_date) >= date_trunc('month', p.today) - interval '23 months')
@@ -678,12 +692,12 @@ ORDER BY u.number, py.due_date;
 **Qué responde:** ¿qué filas cuelgan de contratos que ya no están `active`/`en_renovacion`?
 
 - Mission Control no las cuenta (`src/app/page.tsx:123`).
-- El runner de cobranza sí las selecciona si cumplen su filtro (`src/lib/agents/cobranza.ts:154-161`, `src/lib/agents/cobranza.ts:24`): les persiste mora y, con el flag encendido, les mandaría WhatsApp.
+- El runner de cobranza **no** mira el estatus del contrato (`src/lib/agents/cobranza.ts:154-161`). Si una fila cumple su filtro (`cobranza_la_selecciona`), entra a la cobranza. Si además ya venció (`cobranza_le_persiste_mora`), le persiste el recargo (`src/lib/agents/cobranza.ts:87-106`). Las filas `paid` nunca entran.
 
 ```sql
 WITH p AS (
   SELECT '81a011c4-4ea6-4b79-924d-73dbe6d35e14'::uuid AS org_id,
-         (now() AT TIME ZONE 'America/Mexico_City')::date AS today
+         (now() AT TIME ZONE 'UTC')::date AS today_utc
 )
 SELECT u.number AS unidad,
        c.id AS contract_id,
@@ -695,7 +709,8 @@ SELECT u.number AS unidad,
        py.amount, py.amount_paid, py.late_fee_amount,
        (py.ancillary_charge_id IS NOT NULL) AS es_accesorio,
        py.created_at,
-       (py.status::text <> 'paid' AND py.confirmed_at IS NULL AND py.due_date <= p.today + 5) AS cobranza_la_selecciona,
+       (py.status::text <> 'paid' AND py.confirmed_at IS NULL AND py.due_date <= p.today_utc + 5) AS cobranza_la_selecciona,
+       (py.status::text <> 'paid' AND py.confirmed_at IS NULL AND py.due_date <= p.today_utc) AS cobranza_le_persiste_mora,
        (py.due_date > c.end_date) AS vence_despues_de_end_date
 FROM payments py
 JOIN contracts c ON c.id = py.contract_id
@@ -713,12 +728,13 @@ ORDER BY (py.status::text = 'paid'), u.number, py.due_date;
 **Qué responde:** ¿hay filas de la org, vencidas y sin pagar, cuyo `contract_id` es nulo, apunta a un contrato inexistente o de otra org, o a un contrato sin unidad o archivado?
 
 - `mission_control_proyecta_mes`: un contrato archivado o sin unidad **sí** puede entrar en Mission Control con «Todos los edificios» (`src/app/page.tsx:106-108`, `src/app/page.tsx:119-124`). Uno nulo, inexistente o de otra org, no.
-- `cobranza_la_selecciona` reproduce el filtro del runner (`src/lib/agents/cobranza.ts:154-161`).
+- `cobranza_la_selecciona` reproduce el filtro del runner, con el horizonte en UTC (`src/lib/agents/cobranza.ts:147-161`). Como Q8 solo lista filas vencidas, a las seleccionadas también les persiste el recargo (`src/lib/agents/cobranza.ts:87-106`).
 
 ```sql
 WITH p AS (
   SELECT '81a011c4-4ea6-4b79-924d-73dbe6d35e14'::uuid AS org_id,
-         (now() AT TIME ZONE 'America/Mexico_City')::date AS today
+         (now() AT TIME ZONE 'America/Mexico_City')::date AS today,
+         (now() AT TIME ZONE 'UTC')::date AS today_utc
 )
 SELECT py.id AS payment_id,
        py.contract_id,
@@ -741,7 +757,7 @@ SELECT py.id AS payment_id,
          AND date_trunc('month', py.due_date) <= date_trunc('month', p.today)
          AND date_trunc('month', py.due_date) >= date_trunc('month', p.today) - interval '23 months')
          AS mission_control_proyecta_mes,
-       (py.status::text <> 'paid' AND py.confirmed_at IS NULL AND py.due_date <= p.today + 5) AS cobranza_la_selecciona
+       (py.status::text <> 'paid' AND py.confirmed_at IS NULL AND py.due_date <= p.today_utc + 5) AS cobranza_la_selecciona
 FROM payments py
 CROSS JOIN p
 LEFT JOIN contracts c ON c.id = py.contract_id
@@ -820,7 +836,7 @@ FROM p;
 - `SENAL_EXTERNA` (**por revisar, no prueba de pago**): fila sin `paid`/`partial` pero con asiento de bitácora, CFDI o `stripe_payment_intent_id`.
   - El id de Stripe se guarda al **crear** el intent, antes de cobrar (`src/app/api/payments/checkout/route.ts:18-36`).
   - La bitácora conserva su asiento aunque se borre el abono (`src/app/cobros/[contractId]/page.tsx:338-346`).
-- `BITACORA_SIN_CARGO`: asientos de `payment_ledger` sin `payment_id`, es decir, dinero anotado que no salda ningún mes.
+- `BITACORA_SIN_CARGO`: asientos de `payment_ledger` sin `payment_id`. Mission Control solo lee `payments` (`src/app/page.tsx:150-171`) y solo descuenta lo que está en `amount_paid` de la fila del mes (`src/lib/billing.ts:71-79`), así que ese dinero anotado no salda ningún mes.
 
 ```sql
 WITH p AS (
@@ -1070,7 +1086,8 @@ k AS (
            WHEN o.month_start < (SELECT mes_golive FROM golive)
              THEN 'P5 FRAN DECIDE · mes anterior al arranque de BaW OS en la org'
            -- SEÑAL EXTERNA: hay rastro (Stripe/bitácora/CFDI) pero no prueba pago
-           WHEN o.asientos > 0 OR o.cfdis > 0 OR o.stripe_payment_intent_id IS NOT NULL
+           WHEN (o.payment_status IS NULL OR o.payment_status NOT IN ('paid', 'partial'))
+                AND (o.asientos > 0 OR o.cfdis > 0 OR o.stripe_payment_intent_id IS NOT NULL)
              THEN 'S1 REVISAR · señal externa (Stripe/bitácora/CFDI), no prueba pago'
            -- DEUDA REAL (probable)
            WHEN o.end_date IS NOT NULL AND o.month_start > date_trunc('month', o.end_date)
@@ -1110,17 +1127,17 @@ Cada **contrato-mes** que Mission Control cuenta como vencido cae en **un** buck
 | B3? | Mes posterior a `end_date` con estatus `active` | El runner de renovaciones pasa a `en_renovacion` los contratos `active` vencidos, pero solo en modo real (`src/lib/agents/renovaciones.ts:42-50`, `src/lib/agents/renovaciones.ts:93-97`). Que siga `active` sugiere un dato viejo o que el runner no corrió en modo real | Si Fran confirma la salida: contrato → `terminated`/`expired`, unidad → `available`, filas → `void`. Si el inquilino sigue: pasa a R2 |
 | B4 | Otro contrato `active`/`en_renovacion` de la misma unidad también está en el calendario facturable de Mission Control ese mes | Una unidad tiene un solo inquilino por mes; Mission Control cobra ambos (`src/app/page.tsx:123`, `src/app/page.tsx:179-182`) | Fran elige cuál es el real; el otro → `terminated`, sus filas → `void` |
 | B5 | La fila representante del mes es un cargo accesorio | Error de cálculo: mezcla accesorio con renta (`src/app/page.tsx:168`) | No es dato: se arregla en código (prerequisito de la Fase B) |
-| — | Filas fuera de rango (Q6), de contratos no activos (Q7) o con contrato inválido (Q8) | Pueden o no entrar en Mission Control (columna `mission_control_proyecta_mes`), pero el runner de cobranza las selecciona (`src/lib/agents/cobranza.ts:154-161`) | → `void`, con OK fila por fila |
+| — | Filas fuera de rango (Q6), de contratos no activos (Q7) o con contrato inválido (Q8) | Pueden o no entrar en Mission Control (columna `mission_control_proyecta_mes`). El runner de cobranza toma las que cumplen su filtro (columna `cobranza_la_selecciona`), sin mirar el contrato (`src/lib/agents/cobranza.ts:154-161`) | → `void`, con OK fila por fila |
 
 ### Pagado (registro incompleto) o pagado por fuera sin registrar
 
 | Regla | Condición | Por qué | Corrección en Fase B |
 |---|---|---|---|
-| P1 | Fila `paid` con `amount_paid` incompleto | `/api/ledger` marca `paid` sin monto (`src/app/api/ledger/route.ts:82-91`) | Registrar el abono por la diferencia vía UI; **no** `void` |
+| P1 | Fila `paid` con `amount_paid` incompleto | `/api/ledger` marca `paid` sin tocar `amount_paid` (`src/app/api/ledger/route.ts:82-91`) | **Conciliar antes de registrar:** el recompute **reemplaza** `amount_paid` por la suma de abonos (`src/app/api/payments/[id]/recompute/route.ts:36-46`). Registrar solo la diferencia **aumentaría** el saldo si el pago previo no tiene abonos. Hay que reconstruir abonos que respalden **todo** lo pagado, con evidencia (o «quitar pago directo» y re-registrarlo completo, `src/app/cobros/[contractId]/page.tsx:355-374`). **No** `void` |
 | P2? | La suma de abonos ≠ `amount_paid` | El recompute solo suma abonos (`src/app/api/payments/[id]/recompute/route.ts:28-40`); un desfase indica recompute fallido o edición directa | Recompute desde la UI (`src/lib/cobros-actions.ts:28-31`) y volver a clasificar |
 | P3? | El contrato tiene pagos que no saldan su mes: dos en el mismo mes, o anteriores al calendario | El dinero entró, pero en otro mes: la API registra con `due_date = hoy` (`src/app/api/payments/route.ts:47-48`) y el PATCH puede mover `due_date` (`src/app/api/payments/[id]/route.ts:7-11`) | Reasignarlo al mes correcto desde la UI: «quitar pago directo» (`src/app/cobros/[contractId]/page.tsx:355-374`) y registrar el abono en el mes que corresponde |
 | P4? | Mes anterior al primer pago registrado del contrato, con pagos posteriores | Patrón de «histórico previo a BaW OS» | Si Fran lo confirma: `billing_start_date` = primer mes que administra BaW OS (UI de contratos, `src/app/contracts/page.tsx:101-115`) |
-| P5 | Mes anterior al arranque de BaW OS en la org (Q9.b) | No hay sistema de registro previo; el adeudo no está verificado (`supabase/migrations/20260628_contracts_billing_start.sql:1-6`) | **Fran decide** con estados de cuenta o la bitácora de Notion. Si se pagó: `billing_start_date`. Si se debe: pasa a deuda real |
+| P5 | Mes anterior al arranque de BaW OS en la org (Q9.b) | **Hipótesis:** antes de esa fecha los pagos se registraban fuera de BaW OS. El repo solo acredita que `billing_start_date` existe para no facturar histórico no verificado (`supabase/migrations/20260628_contracts_billing_start.sql:1-6`) | **Fran decide** con estados de cuenta o la bitácora de Notion. Si se pagó: `billing_start_date`. Si se debe: pasa a deuda real |
 | S1 | Sin `paid`/`partial`, pero con asiento de bitácora, CFDI o id de Stripe | **No prueba pago.** El id de Stripe se guarda al crear el intent (`src/app/api/payments/checkout/route.ts:18-36`) y la bitácora conserva asientos de abonos borrados (`src/app/cobros/[contractId]/page.tsx:338-346`) | Fran revisa contra Stripe, el CFDI o el banco; luego reclasifica |
 
 ### Deuda real
@@ -1143,7 +1160,7 @@ Cada **contrato-mes** que Mission Control cuenta como vencido cae en **un** buck
 
 Hoy el código **no reconoce** `void`:
 
-- `computeMonthStatus` trataría una fila `void` igual que una `pending`: `vencido` o `mora` (`src/lib/billing.ts:47-51`, `src/lib/billing.ts:74-93`). Marcar `void` sin este PR **no cambia** la morosidad.
+- `computeMonthStatus` trataría una fila `void` igual que una `pending`: `vencido` o `mora` si ya venció, `verbal`/`pendiente` si aplica (`src/lib/billing.ts:47-51`, `src/lib/billing.ts:74-93`). Marcar `void` sin este PR **no cambia** la morosidad.
 - El runner de cobranza la seguiría seleccionando y le persistiría mora (`src/lib/agents/cobranza.ts:104-106`, `src/lib/agents/cobranza.ts:158-159`).
 
 Cambios mínimos:
@@ -1196,7 +1213,7 @@ ALTER TABLE public.baw18_payments_void_backup ENABLE ROW LEVEL SECURITY;  -- sin
 
 - **Contratos** (B1, B3, B4, P4, P5): `billing_start_date`, `end_date` y `status` desde la edición de contratos (`src/app/contracts/page.tsx:101-115`). Esto elimina meses **proyectados sin fila**: ahí no hay nada que anular; el remedio es la fecha.
 - **Unidades:** `status` desde Unidades (`src/app/units/page.tsx:174-177`), para que coincida con Q2.
-- **Pagos con evidencia** (P1-P3): registrar los abonos con el modal o el pago rápido, que crean abono, asiento de bitácora y recompute (`src/components/cobros/AbonoModal.tsx:201-218`, `src/lib/cobros-actions.ts:44-100`).
+- **Pagos con evidencia** (P1-P3): registrar los abonos con el modal o el pago rápido, que crean abono, recompute y asiento de bitácora (`src/components/cobros/AbonoModal.tsx:201-233`, `src/lib/cobros-actions.ts:44-100`). Para P1, ver la advertencia de conciliación en §5.
 
 ### 6.3 Script de datos: preflight → bloqueo → guardas → dry-run → commit
 
@@ -1319,21 +1336,26 @@ ROLLBACK;  -- ← DRY-RUN. Cambiar a COMMIT solo con OK explícito de Fran.
 
 ```sql
 -- Sustituir <RUN_ID> por el id del lote (está en void_reason y en audit_log.metadata->>'run_id').
+-- Solo revierte cargos cuya anulación VIGENTE pertenece a ese lote (void_reason), y audita
+-- exclusivamente las filas que el UPDATE realmente cambió (RETURNING).
 BEGIN;
-UPDATE payments py
-SET status      = (b.row_data->>'status')::payment_status,
-    voided_at   = NULL,
-    void_reason = NULL,
-    updated_at  = now()
-FROM public.baw18_payments_void_backup b
-WHERE b.run_id = '<RUN_ID>'::uuid
-  AND py.id = b.payment_id
-  AND py.status::text = 'void';
+WITH rev AS (
+  UPDATE payments py
+  SET status      = (b.row_data->>'status')::payment_status,
+      voided_at   = NULL,
+      void_reason = NULL,
+      updated_at  = now()
+  FROM public.baw18_payments_void_backup b
+  WHERE b.run_id = '<RUN_ID>'::uuid
+    AND py.id = b.payment_id
+    AND py.status::text = 'void'
+    AND py.void_reason LIKE '% · lote ' || b.run_id::text
+  RETURNING py.id, b.run_id
+)
 INSERT INTO audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, metadata)
-SELECT '81a011c4-4ea6-4b79-924d-73dbe6d35e14', 'human', 'fran@zxy.vc', 'payment.unvoid', 'payment', b.payment_id,
-       jsonb_build_object('ticket', 'BAW-18', 'run_id', b.run_id)
-FROM public.baw18_payments_void_backup b
-WHERE b.run_id = '<RUN_ID>'::uuid;
+SELECT '81a011c4-4ea6-4b79-924d-73dbe6d35e14', 'human', 'fran@zxy.vc', 'payment.unvoid', 'payment', rev.id,
+       jsonb_build_object('ticket', 'BAW-18', 'run_id', rev.run_id)
+FROM rev;
 ROLLBACK;  -- ← cambiar a COMMIT solo con OK de Fran
 ```
 
