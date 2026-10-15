@@ -106,6 +106,11 @@ export default function BookingWizard({
       clearIdempotencyKey(scope)
       res = await postCheckout(payload, getOrCreateIdempotencyKey(scope))
     }
+    if (res.error?.code === 'CHECKOUT_COMPLETED') {
+      setCheckoutError('Este pago ya se completó. Revisa tu correo de confirmación.')
+      setSubmitting(false)
+      return
+    }
     if (res.error) {
       setCheckoutError(res.error.message)
       setSubmitting(false)

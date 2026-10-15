@@ -181,15 +181,14 @@ async function recordPromotionFailure(
   if (!isPublicBookingSession(session) || typeof session.id !== 'string') return
   const sessionId = session.id
 
-  const { error } = await svc.from('public_booking_payment_failures').upsert(
-    {
-      stripe_session_id: sessionId,
-      stripe_event_id: eventId,
-      last_error: errorMessage,
-      last_failed_at: new Date().toISOString(),
-    },
-    { onConflict: 'stripe_session_id' },
-  )
+  // Serialized in SQL with fn_promote_paid_reservation (per-session lock): a
+  // concurrent delivery that already created the reservation wins, and no
+  // open item is left behind it.
+  const { error } = await svc.rpc('fn_record_public_booking_payment_failure', {
+    p_stripe_session_id: sessionId,
+    p_stripe_event_id: eventId,
+    p_error: errorMessage,
+  })
 
   if (error) {
     // Migration drift must not turn a Stripe retryable 500 into an uncaught

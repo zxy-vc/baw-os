@@ -36,6 +36,7 @@
 --   DROP TRIGGER IF EXISTS trg_guard_hold_availability ON public.reservation_holds;
 --   DROP FUNCTION IF EXISTS public.fn_guard_hold_availability();
 --   DROP FUNCTION IF EXISTS public.fn_promote_paid_reservation(text, numeric, timestamptz);
+--   DROP FUNCTION IF EXISTS public.fn_record_public_booking_payment_failure(text, text, text);
 --   DROP TABLE IF EXISTS public.public_booking_payment_failures;
 --   DROP POLICY IF EXISTS reservation_holds_select ON public.reservation_holds;
 --   (RLS enablement and no_overlap_per_unit are hardening; keep them)
@@ -260,6 +261,12 @@ BEGIN
     RAISE EXCEPTION 'Stripe payment timestamp is required';
   END IF;
 
+  -- Serializes with fn_record_public_booking_payment_failure for this session,
+  -- so a failed delivery can never leave an open reconciliation item behind a
+  -- reservation another delivery created. Taken first: lock order is session,
+  -- hold row, unit.
+  PERFORM pg_advisory_xact_lock(hashtextextended('public_booking_session:' || p_stripe_session_id, 0));
+
   -- Re-delivery after a successful promotion is harmless.
   SELECT id INTO v_reservation_id
   FROM public.reservations
@@ -381,6 +388,47 @@ BEGIN
   RETURN QUERY SELECT v_reservation_id, v_already_promoted;
 END;
 $$;
+
+-- ── 6. Reconciliation write, serialized with the promotion ──
+-- Called by the webhook when a paid public-booking session fails to promote.
+-- Under the same per-session lock as fn_promote_paid_reservation: if the
+-- reservation exists by now (a concurrent delivery won), nothing stays open.
+CREATE OR REPLACE FUNCTION public.fn_record_public_booking_payment_failure(
+  p_stripe_session_id text,
+  p_stripe_event_id text,
+  p_error text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('public_booking_session:' || p_stripe_session_id, 0));
+
+  IF EXISTS (
+    SELECT 1 FROM public.reservations
+    WHERE stripe_checkout_session_id = p_stripe_session_id
+  ) THEN
+    RETURN false;
+  END IF;
+
+  INSERT INTO public.public_booking_payment_failures AS f
+    (stripe_session_id, stripe_event_id, last_error, last_failed_at)
+  VALUES (p_stripe_session_id, p_stripe_event_id, p_error, now())
+  ON CONFLICT (stripe_session_id) DO UPDATE
+    SET stripe_event_id = EXCLUDED.stripe_event_id,
+        last_error = EXCLUDED.last_error,
+        last_failed_at = EXCLUDED.last_failed_at;
+        -- resolved_at untouched: an item ops closed by hand (refund) stays closed.
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fn_record_public_booking_payment_failure(text, text, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_record_public_booking_payment_failure(text, text, text)
+  TO service_role;
 
 -- Supabase grants EXECUTE on new public functions to anon/authenticated by
 -- default. This SECURITY DEFINER function confirms a paid reservation, and the
