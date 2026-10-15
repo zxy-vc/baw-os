@@ -6,6 +6,7 @@ import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
 import { requireMemberCaller } from '@/lib/admin-auth'
 import { canFinance } from '@/lib/finance-permissions'
 import { cancelInvoice, isMockMode } from '@/lib/facturapi'
+import { loadContractInOrg } from '@/lib/org-scoped-contract'
 
 export async function GET(
   _request: NextRequest,
@@ -24,17 +25,14 @@ export async function GET(
 
   if (error || !data) return apiError('Invoice not found', 404)
 
-  // Enrich with contract + payment info
+  // Enrich with contract + payment info. Cada relación se lee dentro de
+  // auth.orgId (BAW-2: el embed solo filtraba contracts, no unidad/ocupante);
+  // una referencia que cae fuera de la org → 404, nunca datos ajenos.
   let contract = null
   let payment = null
   if (data.contract_id) {
-    const { data: c } = await supabase
-      .from('contracts')
-      .select('*, unit:units(*), occupant:occupants(*)')
-      .eq('id', data.contract_id)
-      .eq('org_id', auth.orgId)
-      .single()
-    contract = c
+    contract = await loadContractInOrg(supabase, data.contract_id, auth.orgId)
+    if (!contract) return apiError('Invoice not found', 404)
   }
   if (data.payment_id) {
     const { data: p } = await supabase
@@ -42,7 +40,8 @@ export async function GET(
       .select('*')
       .eq('id', data.payment_id)
       .eq('org_id', auth.orgId)
-      .single()
+      .maybeSingle()
+    if (!p) return apiError('Invoice not found', 404)
     payment = p
   }
 

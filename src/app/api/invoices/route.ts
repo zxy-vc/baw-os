@@ -6,6 +6,7 @@ import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
 import { requireMemberCaller } from '@/lib/admin-auth'
 import { canFinance } from '@/lib/finance-permissions'
 import { createInvoice, isMockMode } from '@/lib/facturapi'
+import { loadContractInOrg } from '@/lib/org-scoped-contract'
 
 export async function GET(request: NextRequest) {
   const auth = await requireMemberCaller()
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   // Lookup payment
   const { data: payment, error: payErr } = await supabase
     .from('payments')
-    .select('*, contract:contracts(*, unit:units(*), occupant:occupants(*))')
+    .select('*')
     .eq('id', payment_id)
     .eq('org_id', auth.orgId)
     .single()
@@ -63,7 +64,9 @@ export async function POST(request: NextRequest) {
   if (payErr || !payment) return apiError('Payment not found', 404)
   if (payment.status !== 'paid') return apiError('Solo se puede facturar un pago con status paid')
 
-  const contract = payment.contract
+  // Contrato, unidad y ocupante, cada salto dentro de auth.orgId (BAW-2: el
+  // embed solo filtraba payments). Referencia ajena → 404 sin tocar FacturAPI.
+  const contract = await loadContractInOrg(supabase, payment.contract_id, auth.orgId)
   if (!contract) return apiError('Contract not found for this payment', 404)
 
   // Determine CFDI use and tax based on unit type
