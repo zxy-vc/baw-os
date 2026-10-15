@@ -2,7 +2,6 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
 import { requireAdminCaller } from '@/lib/admin-auth'
-import { findCrossOrgDependents } from '@/lib/cross-org-dependents'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -123,9 +122,17 @@ export async function PATCH(request: NextRequest) {
   return apiOk(data)
 }
 
-// BAW-2: DELETE solo con sesión owner/admin de la org activa (mismo criterio
-// que la política RLS de borrado) y acotado a esa org (antes API key global →
-// borraba por id en cualquier org).
+// BAW-2: DELETE solo con sesión owner/admin de la org activa y acotado a esa
+// org (antes API key global → borraba contactos de cualquier org por id).
+//
+// El borrado FÍSICO queda deshabilitado: las FKs son por id (no por (org_id,
+// id)) y stay_occupants (CASCADE), crm_contacts / reservations /
+// payment_receipts (SET NULL) lo referencian, así que borrar una fila propia
+// podía borrar o modificar filas de OTRA org (también de forma transitiva y en
+// carrera con inserciones concurrentes). Sin una migración que lo haga atómico
+// no hay forma segura de garantizarlo → id ajeno 404 (sin revelar existencia),
+// id propio 409 con la alternativa: archivar vía POST /api/lifecycle { entity:
+// 'occupant', action: 'archive' }.
 export async function DELETE(request: NextRequest) {
   const auth = await requireAdminCaller()
   if (!auth.ok) return apiError(auth.message, auth.status)
@@ -143,22 +150,5 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
   if (!existing) return apiError('Contact not found', 404)
 
-  // Borrar el padre propio no puede borrar/modificar hijos de otra org vía FK
-  // CASCADE / SET NULL (BAW-2). Hijo ajeno → 409; error de lectura → 500.
-  const deps = await findCrossOrgDependents(supabase, 'occupants', id, auth.orgId)
-  if (deps.error) return apiError(deps.error, 500)
-  if (deps.blocked) {
-    return apiError('No se puede eliminar: hay registros de otra organización que lo referencian.', 409)
-  }
-
-  const { data: deleted, error } = await supabase
-    .from('occupants')
-    .delete()
-    .eq('id', id)
-    .eq('org_id', auth.orgId)
-    .select('id')
-
-  if (error) return apiError(error.message, 500)
-  if (!deleted?.length) return apiError('Contact not found', 404)
-  return apiOk({ deleted: id })
+  return apiError('No se puede eliminar un contacto. Archívalo en su lugar (Ciclo de vida → Archivar).', 409)
 }

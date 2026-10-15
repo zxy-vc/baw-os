@@ -167,7 +167,7 @@ export default function AncillaryAssetsPage() {
       const res = await fetch(`/api/ancillary-assets?id=${deleteTarget.id}`, { method: 'DELETE' })
       const json = await res.json()
       if (!json.success) {
-        toast.error('Error al eliminar activo — intenta de nuevo')
+        toast.error(json.error || 'Error al eliminar activo — intenta de nuevo')
       } else {
         toast.success('Activo eliminado')
       }

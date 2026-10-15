@@ -3,7 +3,6 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
 import { requireAdminCaller } from '@/lib/admin-auth'
-import { findCrossOrgDependents } from '@/lib/cross-org-dependents'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -57,9 +56,16 @@ export async function POST(request: NextRequest) {
   return apiOk(data)
 }
 
-// BAW-2: DELETE solo con sesión owner/admin de la org activa (mismo criterio
-// que la política RLS de borrado) y acotado a esa org (antes API key global →
-// borraba por id en cualquier org).
+// BAW-2: DELETE solo con sesión owner/admin de la org activa y acotado a esa
+// org (antes API key global → borraba activos de cualquier org por id).
+//
+// El borrado FÍSICO queda deshabilitado: las FKs son por id (no por (org_id,
+// id)) y ancillary_charges.asset_id lo referencia con ON DELETE SET NULL, así
+// que borrar una fila propia podía borrar o modificar filas de OTRA org
+// (también de forma transitiva y en carrera con inserciones concurrentes). Sin
+// una migración que lo haga atómico no hay forma segura de garantizarlo → id
+// ajeno 404 (sin revelar existencia), id propio 409 con la alternativa: cambiar
+// su status a 'inactive' o 'ended'.
 export async function DELETE(request: NextRequest) {
   const auth = await requireAdminCaller()
   if (!auth.ok) return apiError(auth.message, auth.status)
@@ -77,25 +83,5 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
   if (!existing) return apiError('Asset not found', 404)
 
-  // Borrar el padre propio no puede borrar/modificar hijos de otra org vía FK
-  // CASCADE / SET NULL (BAW-2). Hijo ajeno → 409; error de lectura → 500.
-  const deps = await findCrossOrgDependents(supabase, 'ancillary_assets', id, auth.orgId)
-  if (deps.error) return apiError(deps.error, 500)
-  if (deps.blocked) {
-    return apiError('No se puede eliminar: hay registros de otra organización que lo referencian.', 409)
-  }
-
-  const { data: deleted, error } = await supabase
-    .from('ancillary_assets')
-    .delete()
-    .eq('id', id)
-    .eq('org_id', auth.orgId)
-    .select('id')
-
-  if (error) return apiError(error.message, 500)
-  if (!deleted?.length) return apiError('Asset not found', 404)
-
-  await logEvent('ancillary_asset.deleted', { asset_id: id }, 'api', auth.orgId)
-
-  return apiOk({ deleted: id })
+  return apiError('No se puede eliminar un activo. Cámbialo a Inactivo o Terminado en su lugar.', 409)
 }

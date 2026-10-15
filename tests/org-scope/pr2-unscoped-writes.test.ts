@@ -6,7 +6,7 @@
 // Qué es real y qué es simulado:
 //  - Real: requireAdminCaller / requireMemberCaller / resolveOrgId (membresía,
 //    rol, is_active y cookie de org activa leídos del Supabase en memoria),
-//    findCrossOrgDependents, logEvent,
+//    logEvent,
 //    getEstadoCuentaData + EstadoCuentaPDF + renderToBuffer (PDF de verdad, con
 //    un espía que registra el documento que llega al renderer),
 //    sendPaymentReceipt + buildReceiptTemplate.
@@ -15,7 +15,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { makeFakeSupabase, type Row } from '../helpers/fake-supabase'
-import { CASCADING_DEPENDENTS } from '@/lib/cross-org-dependents'
 
 const h = vi.hoisted(() => ({
   user: null as null | { id: string },
@@ -156,7 +155,12 @@ beforeEach(() => {
       { id: 'occ-a', org_id: ORG_A, name: 'Ana', phone: PHONE_A },
       { id: 'occ-b', org_id: ORG_B, name: 'Beto', phone: PHONE_B },
       // Ocupantes propios referenciados por filas de B (CASCADE / SET NULL).
-      ...CASCADING_DEPENDENTS.occupants.map((d) => ({ id: `occ-a-x-${d.table}`, org_id: ORG_A, name: 'Ana', phone: PHONE_A })),
+      ...['stay_occupants', 'crm_contacts', 'reservations', 'payment_receipts'].map((t) => ({
+        id: `occ-a-x-${t}`,
+        org_id: ORG_A,
+        name: 'Ana',
+        phone: PHONE_A,
+      })),
     ],
     payments: [
       { id: 'pay-a', org_id: ORG_A, contract_id: 'ct-a-paid', status: 'pending', amount: 1000, due_date: '2026-09-05' },
@@ -165,6 +169,7 @@ beforeEach(() => {
       // Pago de B colgado del contrato de A: no debe aparecer en el estado de cuenta de A.
       { id: 'pay-b-on-ct-a', org_id: ORG_B, contract_id: 'ct-a', status: 'pending', amount: 777, due_date: '2026-09-05' },
       { id: 'pay-a-xct', org_id: ORG_A, contract_id: 'ct-b', status: 'paid', amount: 1000, due_date: '2026-09-05' },
+      { id: 'pay-b-on-chg-a', org_id: ORG_B, contract_id: 'ct-b', status: 'paid', amount: 300, due_date: '2026-09-05', ancillary_charge_id: 'chg-a-own' },
       { id: 'pay-a-xct2', org_id: ORG_A, contract_id: 'ct-b-kids-a', status: 'paid', amount: 1000, due_date: '2026-09-05' },
       { id: 'pay-a-xocc', org_id: ORG_A, contract_id: 'ct-a-xocc', status: 'paid', amount: 1000, due_date: '2026-09-05' },
       { id: 'pay-a-xunit', org_id: ORG_A, contract_id: 'ct-a-xunit', status: 'paid', amount: 1000, due_date: '2026-09-05' },
@@ -192,7 +197,8 @@ beforeEach(() => {
       { id: 'stay-b-on-occ-a', org_id: ORG_B, contract_id: 'ct-b', occupant_id: 'occ-a-x-stay_occupants' },
     ],
     crm_contacts: [{ id: 'crm-b', org_id: ORG_B, occupant_id: 'occ-a-x-crm_contacts' }],
-    reservations: [{ id: 'res-b', org_id: ORG_B, occupant_id: 'occ-a-x-reservations' }],
+    // reservations usa organization_id (no org_id).
+    reservations: [{ id: 'res-b', organization_id: ORG_B, occupant_id: 'occ-a-x-reservations' }],
     payment_receipts: [{ id: 'rcpt-b', org_id: ORG_B, payer_occupant_id: 'occ-a-x-payment_receipts' }],
     payment_ledger: [],
     audit_log: [],
@@ -228,11 +234,11 @@ describe('resolver de sesión real', () => {
 })
 
 describe.each([
-  ['contracts', contractsRoute, 'contracts', 'ct-a-del', 'ct-b'],
-  ['contacts', contactsRoute, 'occupants', 'occ-a', 'occ-b'],
-  ['incidents', incidentsRoute, 'incidents', 'inc-a', 'inc-b'],
-  ['ancillary-assets', assetsRoute, 'ancillary_assets', 'asset-a', 'asset-b'],
-] as const)('DELETE /api/%s', (path, route, table, ownId, foreignId) => {
+  ['contracts', contractsRoute, 'contracts', 'ct-a-del', 'ct-b', false],
+  ['contacts', contactsRoute, 'occupants', 'occ-a', 'occ-b', false],
+  ['incidents', incidentsRoute, 'incidents', 'inc-a', 'inc-b', true],
+  ['ancillary-assets', assetsRoute, 'ancillary_assets', 'asset-a', 'asset-b', false],
+] as const)('DELETE /api/%s', (path, route, table, ownId, foreignId, physical) => {
   const del = (id: string, init?: ConstructorParameters<typeof NextRequest>[1]) =>
     route.DELETE(req(`/api/${path}?id=${id}`, { method: 'DELETE', ...init }))
 
@@ -262,19 +268,27 @@ describe.each([
     expect(tables.webhook_events).toHaveLength(0)
   })
 
-  it.each(['u-owner-a', 'u-admin-a', 'u-legacy-admin-a'])('%s → fila propia se borra', async (user) => {
-    loginAs(user)
-    const res = await del(ownId)
-    expect(res.status).toBe(200)
-    expect(ids(table)).not.toContain(ownId)
-  })
+  it.each(['u-owner-a', 'u-admin-a', 'u-legacy-admin-a'])(
+    physical ? '%s → fila propia se borra' : '%s → fila propia: 409 (borrado físico deshabilitado), intacta',
+    async (user) => {
+      loginAs(user)
+      const res = await del(ownId)
+      if (physical) {
+        expect(res.status).toBe(200)
+        expect(ids(table)).not.toContain(ownId)
+      } else {
+        expect(res.status).toBe(409)
+        expect((await res.json()).error).toMatch(/Archívalo|Inactivo/)
+        expect(ids(table)).toContain(ownId)
+        expect(tables.webhook_events).toHaveLength(0)
+      }
+    },
+  )
 })
 
 describe('DELETE → logEvent en la org de la sesión (no en la caché global)', () => {
   it.each([
-    ['contracts', contractsRoute, 'ct-b-del', 'contract.deleted'],
     ['incidents', incidentsRoute, 'inc-b', 'incident.deleted'],
-    ['ancillary-assets', assetsRoute, 'asset-b', 'ancillary_asset.deleted'],
   ] as const)('%s: sesión B con caché A → evento solo en B', async (path, route, id, eventType) => {
     setActiveOrgId(ORG_A) // el shim getOrgId() devolvería A
     loginAs('u-multi', ORG_B)
@@ -589,53 +603,41 @@ describe('membresía revocada (resolver real)', () => {
   })
 })
 
-describe('DELETE no toca hijos de otra org vía FK CASCADE / SET NULL', () => {
+describe('borrado físico deshabilitado donde hay FKs CASCADE / SET NULL', () => {
   const del = (path: string, route: { DELETE: (r: NextRequest) => Promise<Response> }, id: string) =>
     route.DELETE(req(`/api/${path}?id=${id}`, { method: 'DELETE' }))
+  const snapshot = () => JSON.parse(JSON.stringify(tables))
 
   it.each([
-    ['contracts', contractsRoute, 'contracts', 'ct-a-xcharge', 'ancillary_charges', 'chg-b-on-ct-a'],
-    ['contracts', contractsRoute, 'contracts', 'ct-a-xstay', 'stay_occupants', 'stay-b-on-ct-a'],
-    ['contacts', contactsRoute, 'occupants', 'occ-a-x-stay_occupants', 'stay_occupants', 'stay-b-on-occ-a'],
-    ['contacts', contactsRoute, 'occupants', 'occ-a-x-crm_contacts', 'crm_contacts', 'crm-b'],
-    ['contacts', contactsRoute, 'occupants', 'occ-a-x-reservations', 'reservations', 'res-b'],
-    ['contacts', contactsRoute, 'occupants', 'occ-a-x-payment_receipts', 'payment_receipts', 'rcpt-b'],
-    ['ancillary-assets', assetsRoute, 'ancillary_assets', 'asset-a-x', 'ancillary_charges', 'chg-b-on-asset-a'],
-  ] as const)('%s: padre propio con hijo de B en %s… → 409, padre e hijo intactos', async (path, route, table, id, childTable, childId) => {
+    ['contracts', contractsRoute, 'ct-a-del', 'sin pagos; cargo propio con un pago de B colgado (transitivo)'],
+    ['contracts', contractsRoute, 'ct-a-xcharge', 'cargo de B'],
+    ['contracts', contractsRoute, 'ct-a-xstay', 'estancia de B'],
+    ['contacts', contactsRoute, 'occ-a', 'sin hijos ajenos'],
+    ['contacts', contactsRoute, 'occ-a-x-stay_occupants', 'stay_occupants de B'],
+    ['contacts', contactsRoute, 'occ-a-x-crm_contacts', 'crm_contacts de B'],
+    ['contacts', contactsRoute, 'occ-a-x-reservations', 'reserva de B (organization_id)'],
+    ['contacts', contactsRoute, 'occ-a-x-payment_receipts', 'abono de B'],
+    ['ancillary-assets', assetsRoute, 'asset-a', 'cargo propio'],
+    ['ancillary-assets', assetsRoute, 'asset-a-x', 'cargo de B'],
+  ] as const)('%s %s (%s) → 409 y ninguna tabla cambia', async (path, route, id, _case) => {
     loginAs('u-owner-a')
-    const childBefore = { ...tables[childTable].find((r) => r.id === childId) }
+    const before = snapshot()
     const res = await del(path, route, id)
     expect(res.status).toBe(409)
-    expect(ids(table)).toContain(id)
-    expect(tables[childTable].find((r) => r.id === childId)).toEqual(childBefore)
-    expect(tables.webhook_events).toHaveLength(0)
+    expect(tables).toEqual(before)
   })
 
-  it('hijos de la propia org no bloquean (contrato y activo propios)', async () => {
+  it('el pago de B colgado del cargo propio conserva su ancillary_charge_id', async () => {
     loginAs('u-owner-a')
-    expect((await del('contracts', contractsRoute, 'ct-a-del')).status).toBe(200)
-    expect((await del('ancillary-assets', assetsRoute, 'asset-a')).status).toBe(200)
+    await del('contracts', contractsRoute, 'ct-a-del')
+    expect(tables.payments.find((p) => p.id === 'pay-b-on-chg-a')?.ancillary_charge_id).toBe('chg-a-own')
+    expect(ids('ancillary_charges')).toContain('chg-a-own')
   })
 
   it('id de otra org con hijos → 404 (no revela existencia con 409)', async () => {
     loginAs('u-owner-a')
     expect((await del('contracts', contractsRoute, 'ct-b')).status).toBe(404)
+    expect((await del('contacts', contactsRoute, 'occ-b')).status).toBe(404)
     expect((await del('ancillary-assets', assetsRoute, 'asset-b')).status).toBe(404)
-  })
-
-  it('error leyendo dependientes → 500 sin borrar (falla cerrado)', async () => {
-    loginAs('u-owner-a')
-    h.db = makeFakeSupabase(tables, { errors: { stay_occupants: { code: 'XX000', message: 'boom' } } })
-    expect((await del('contracts', contractsRoute, 'ct-a-del')).status).toBe(500)
-    expect((await del('contacts', contactsRoute, 'occ-a')).status).toBe(500)
-    expect(ids('contracts')).toContain('ct-a-del')
-    expect(ids('occupants')).toContain('occ-a')
-  })
-
-  it('tabla dependiente inexistente en el entorno (42P01) → no bloquea', async () => {
-    loginAs('u-owner-a')
-    h.db = makeFakeSupabase(tables, { errors: { crm_contacts: { code: '42P01', message: 'relation does not exist' } } })
-    expect((await del('contacts', contactsRoute, 'occ-a')).status).toBe(200)
-    expect(ids('occupants')).not.toContain('occ-a')
   })
 })

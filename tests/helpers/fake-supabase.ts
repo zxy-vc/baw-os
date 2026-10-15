@@ -1,33 +1,22 @@
-// Supabase en memoria para tests de org scoping. Solo aplica filtros .eq()/.neq(); el
+// Supabase en memoria para tests de org scoping. Solo aplica filtros .eq(); el
 // resto de modificadores (order, gte, lt, lte, limit, range) son no-op. Basta
 // para verificar que una query acotada a otra org no encuentra la fila.
 // No resuelve embeds (`x:tabla(...)`): pedir uno lanza, porque con service-role
 // un join no filtra los hijos por org — cada salto debe ser su propia query.
 export type Row = Record<string, unknown>
 
-/** `errors`: tablas cuyo acceso responde con ese error de PostgREST. */
-export function makeFakeSupabase(
-  tables: Record<string, Row[]>,
-  opts: { errors?: Record<string, { code: string; message: string }> } = {},
-) {
+export function makeFakeSupabase(tables: Record<string, Row[]>) {
   function from(table: string) {
     const state = {
       op: 'select' as 'select' | 'insert' | 'update' | 'delete',
       filters: [] as [string, unknown][],
-      negFilters: [] as [string, unknown][],
       payload: null as Row | null,
       single: null as null | 'single' | 'maybeSingle',
       countOnly: false,
     }
     const exec = () => {
-      const injected = opts.errors?.[table]
-      if (injected) return { data: null, count: null, error: injected }
       const all = tables[table] ?? []
-      let rows = all.filter(
-        (r) =>
-          state.filters.every(([k, v]) => r[k] === v) &&
-          state.negFilters.every(([k, v]) => r[k] !== v),
-      )
+      let rows = all.filter((r) => state.filters.every(([k, v]) => r[k] === v))
       if (state.op === 'insert') {
         const row = { id: `new-${table}`, ...state.payload }
         tables[table] = [...all, row]
@@ -52,10 +41,6 @@ export function makeFakeSupabase(
       },
       eq: (k: string, v: unknown) => {
         state.filters.push([k, v])
-        return b
-      },
-      neq: (k: string, v: unknown) => {
-        state.negFilters.push([k, v])
         return b
       },
       order: () => b,

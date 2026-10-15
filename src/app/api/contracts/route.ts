@@ -2,7 +2,6 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
 import { requireAdminCaller } from '@/lib/admin-auth'
-import { findCrossOrgDependents } from '@/lib/cross-org-dependents'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -65,9 +64,17 @@ export async function POST(request: NextRequest) {
   return apiOk(data)
 }
 
-// BAW-2: DELETE solo con sesión owner/admin de la org activa (mismo criterio
-// que la política RLS de borrado) y acotado a esa org (antes API key global →
-// borraba contratos de cualquier org por id).
+// BAW-2: DELETE solo con sesión owner/admin de la org activa y acotado a esa
+// org (antes API key global → borraba contratos de cualquier org por id).
+//
+// El borrado FÍSICO queda deshabilitado: las FKs son por id (no por (org_id,
+// id)) y ancillary_charges / stay_occupants lo referencian con ON DELETE
+// CASCADE (y de ahí payments.ancillary_charge_id con SET NULL), así que borrar
+// una fila propia podía borrar o modificar filas de OTRA org (también de forma
+// transitiva y en carrera con inserciones concurrentes). Sin una migración que
+// lo haga atómico no hay forma segura de garantizarlo → id ajeno 404 (sin
+// revelar existencia), id propio 409 con la alternativa: archivar vía POST
+// /api/lifecycle { entity: 'contract', action: 'archive' }.
 export async function DELETE(request: NextRequest) {
   const auth = await requireAdminCaller()
   if (!auth.ok) return apiError(auth.message, auth.status)
@@ -77,43 +84,13 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return apiError('id query param is required')
 
-  const { data: contract } = await supabase
+  const { data: existing } = await supabase
     .from('contracts')
     .select('id')
     .eq('id', id)
     .eq('org_id', auth.orgId)
     .maybeSingle()
-  if (!contract) return apiError('Contract not found', 404)
+  if (!existing) return apiError('Contract not found', 404)
 
-  // Guard: NUNCA borrar pagos en silencio. Si el contrato tiene historia
-  // financiera, se rechaza (la vía correcta es archivar — ver /api/lifecycle).
-  const { count: payCount } = await supabase
-    .from('payments')
-    .select('id', { count: 'exact', head: true })
-    .eq('contract_id', id)
-    .eq('org_id', auth.orgId)
-
-  if ((payCount ?? 0) > 0) {
-    return apiError('No se puede eliminar: el contrato tiene pagos registrados. Archívalo en su lugar.', 409)
-  }
-
-  // Borrar el padre propio no puede borrar/modificar hijos de otra org vía FK
-  // CASCADE / SET NULL (BAW-2). Hijo ajeno → 409; error de lectura → 500.
-  const deps = await findCrossOrgDependents(supabase, 'contracts', id, auth.orgId)
-  if (deps.error) return apiError(deps.error, 500)
-  if (deps.blocked) {
-    return apiError('No se puede eliminar: hay registros de otra organización que lo referencian.', 409)
-  }
-
-  const { error } = await supabase
-    .from('contracts')
-    .delete()
-    .eq('id', id)
-    .eq('org_id', auth.orgId)
-
-  if (error) return apiError(error.message, 500)
-
-  await logEvent('contract.deleted', { contract_id: id }, 'api', auth.orgId)
-
-  return apiOk({ deleted: id })
+  return apiError('No se puede eliminar un contrato. Archívalo en su lugar (Ciclo de vida → Archivar).', 409)
 }
