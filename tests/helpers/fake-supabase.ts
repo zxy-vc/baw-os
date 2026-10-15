@@ -1,6 +1,8 @@
 // Supabase en memoria para tests de org scoping. Solo aplica filtros .eq(); el
 // resto de modificadores (order, gte, lt, lte, limit, range) son no-op. Basta
 // para verificar que una query acotada a otra org no encuentra la fila.
+// No resuelve embeds (`x:tabla(...)`): pedir uno lanza, porque con service-role
+// un join no filtra los hijos por org — cada salto debe ser su propia query.
 export type Row = Record<string, unknown>
 
 export function makeFakeSupabase(tables: Record<string, Row[]>) {
@@ -32,7 +34,8 @@ export function makeFakeSupabase(tables: Record<string, Row[]>) {
       return { data: rows, error: null }
     }
     const b = {
-      select: (_cols?: string, opts?: { count?: string; head?: boolean }) => {
+      select: (cols?: string, opts?: { count?: string; head?: boolean }) => {
+        if (cols?.includes('(')) throw new Error(`fake supabase: embed no soportado en ${table}: ${cols}`)
         if (opts?.head) state.countOnly = true
         return b
       },

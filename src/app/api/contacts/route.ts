@@ -1,7 +1,7 @@
 // BaW OS — Contacts CRM API
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
-import { requireMemberCaller } from '@/lib/admin-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -122,10 +122,11 @@ export async function PATCH(request: NextRequest) {
   return apiOk(data)
 }
 
-// BAW-2: DELETE solo con sesión de un miembro y acotado a su org (antes API
-// key global → borraba por id en cualquier org).
+// BAW-2: DELETE solo con sesión owner/admin de la org activa (mismo criterio
+// que la política RLS de borrado) y acotado a esa org (antes API key global →
+// borraba por id en cualquier org).
 export async function DELETE(request: NextRequest) {
-  const auth = await requireMemberCaller()
+  const auth = await requireAdminCaller()
   if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)

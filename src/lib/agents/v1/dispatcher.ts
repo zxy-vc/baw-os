@@ -131,6 +131,14 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         due_date?: string
         notes?: string
       }
+      // BAW-2: mismo guard que POST /v1/payments — contrato de la org o nada.
+      const { data: contract } = await supabase
+        .from('contracts')
+        .select('id')
+        .eq('id', p.contract_id)
+        .eq('org_id', ctx.orgId)
+        .maybeSingle()
+      if (!contract) return { ok: false, error: `contract ${p.contract_id} not found` }
       const today = new Date().toISOString().split('T')[0]
       const { data, error } = await supabase
         .from('payments')

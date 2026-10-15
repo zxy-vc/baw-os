@@ -289,10 +289,11 @@ export function folioFor(unitNumber: string | null | undefined, periodo: string)
 }
 
 /**
- * Carga datos reales y arma el documento. El contrato se busca dentro de
- * `orgId` (la org del caller) y los pagos por el org_id del contrato
- * (invariante multi-tenant). Usa un client con permiso de lectura sobre las
- * tablas (server/service).
+ * Carga datos reales y arma el documento. TODO salto (contrato, ocupante,
+ * unidad, edificio, pagos) se lee dentro de `orgId` (la org validada del
+ * caller): con service-role las FKs por id pueden apuntar a filas de otra org,
+ * así que una referencia que no está en la org invalida la cadena completa
+ * (null → 404) en vez de pintar datos ajenos en el PDF (BAW-2).
  */
 export async function getEstadoCuentaData(
   supabase: SupabaseClient,
@@ -312,10 +313,10 @@ export async function getEstadoCuentaData(
 
   const [{ data: occupant }, { data: unit }, { data: payments }] = await Promise.all([
     contract.occupant_id
-      ? supabase.from('occupants').select('name, phone').eq('id', contract.occupant_id).maybeSingle()
+      ? supabase.from('occupants').select('name, phone').eq('id', contract.occupant_id).eq('org_id', orgId).maybeSingle()
       : Promise.resolve({ data: null }),
     contract.unit_id
-      ? supabase.from('units').select('number, building_id').eq('id', contract.unit_id).maybeSingle()
+      ? supabase.from('units').select('number, building_id').eq('id', contract.unit_id).eq('org_id', orgId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from('payments')
@@ -323,10 +324,13 @@ export async function getEstadoCuentaData(
         'id, due_date, paid_date, amount, rent_amount, water_fee, amount_paid, late_fee_amount, late_fee_level, status, ancillary_charge_id, notes',
       )
       .eq('contract_id', contractId)
-      .eq('org_id', contract.org_id)
+      .eq('org_id', orgId)
       .lte('due_date', corte)
       .order('due_date', { ascending: true }),
   ])
+  // Referencia presente pero fuera de la org → cadena inconsistente.
+  if (contract.occupant_id && !occupant) return null
+  if (contract.unit_id && !unit) return null
 
   let buildingName = 'Edificio'
   let buildingAddress: string | null = null
@@ -335,8 +339,10 @@ export async function getEstadoCuentaData(
       .from('buildings')
       .select('name, address')
       .eq('id', unit.building_id)
+      .eq('org_id', orgId)
       .maybeSingle()
-    if (building?.name) buildingName = building.name
+    if (!building) return null
+    if (building.name) buildingName = building.name
     buildingAddress = (building?.address as string) || null
   }
 

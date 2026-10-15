@@ -1,7 +1,7 @@
 // BaW OS — Contracts API (Tier 2 Agent Interface)
 import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiError, apiOk, getOrgId } from '@/lib/api-auth'
-import { requireMemberCaller } from '@/lib/admin-auth'
+import { requireAdminCaller } from '@/lib/admin-auth'
 import { logEvent } from '@/lib/webhooks'
 
 export async function GET(request: NextRequest) {
@@ -64,10 +64,11 @@ export async function POST(request: NextRequest) {
   return apiOk(data)
 }
 
-// BAW-2: DELETE solo con sesión de un miembro y acotado a su org (antes API
-// key global → borraba contratos de cualquier org por id).
+// BAW-2: DELETE solo con sesión owner/admin de la org activa (mismo criterio
+// que la política RLS de borrado) y acotado a esa org (antes API key global →
+// borraba contratos de cualquier org por id).
 export async function DELETE(request: NextRequest) {
-  const auth = await requireMemberCaller()
+  const auth = await requireAdminCaller()
   if (!auth.ok) return apiError(auth.message, auth.status)
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
@@ -103,7 +104,7 @@ export async function DELETE(request: NextRequest) {
 
   if (error) return apiError(error.message, 500)
 
-  await logEvent('contract.deleted', { contract_id: id })
+  await logEvent('contract.deleted', { contract_id: id }, 'api', auth.orgId)
 
   return apiOk({ deleted: id })
 }
