@@ -56,7 +56,7 @@ DECLARE
   v_esperado_huella  text    := NULL;   -- ← paso 2: copiar «huella=…» del dry-run
 
   v_org          uuid := '81a011c4-4ea6-4b79-924d-73dbe6d35e14';
-  v_fecha_corte  date := '2026-10-01';         -- BaW OS cobra desde aquí
+  v_fecha_corte  date := '2026-10-01';         -- BaW OS cobra desde aquí (confirmada por Fran)
   v_hoy          date := (now() AT TIME ZONE 'America/Mexico_City')::date;  -- para estimar la morosidad
   v_actor        text := 'fran@zxy.vc';        -- audit_log.actor_id
 
@@ -93,7 +93,7 @@ DECLARE
   v_d302_total numeric := 4500;  v_d302_incluye_agua boolean := false;  -- «4500 + 250»
   v_ajustar_cargos_post_corte boolean := true;  -- ajustar cargos pendientes ≥ corte a la renta nueva
 
-  -- Saldos históricos (por confirmar). Ver «Saldos iniciales» en el doc §4.
+  -- Saldos históricos: se definen después con el expediente (BAW-24). Ver doc §4.
   v_cargar_saldos_iniciales boolean := false;
   v_saldo_d302 numeric := 32256;  v_saldo_d402 numeric := 80000;
   v_saldo_d102 numeric := 26000;  v_saldo_d202 numeric := 26000;  v_saldo_d301 numeric := 7450;
