@@ -172,7 +172,10 @@ describe('auth de /api/mcp', () => {
     const client = await connect({ authorization: `Bearer ${KEYS.full}` })
     expect((await client.listTools()).tools.length).toBeGreaterThan(0)
     h.tables.agent_credentials.find((c) => c.id === 'cred-aaaa')!.status = 'revoked'
-    await expect(client.callTool({ name: 'crear_incidencia', arguments: { title: 'x' } })).rejects.toThrow(/401/)
+    await expect(client.callTool({ name: 'crear_incidencia', arguments: { title: 'x' } })).rejects.toMatchObject({
+      code: 401,
+      message: expect.stringMatching(/inválida, revocada o expirada/),
+    })
     expect(h.tables.incidents).toHaveLength(0)
     expect(h.tables.agent_approvals).toHaveLength(0)
   })
