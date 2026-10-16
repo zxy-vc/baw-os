@@ -1,7 +1,7 @@
 /**
  * BaW OS — Agent Attribution (Sprint 5A WS-1)
  *
- * Helpers para agregar el badge "via Alicia" a respuestas Discord y
+ * Helpers para agregar el badge "via Hugo" a respuestas Discord / app y
  * a campos de notas/metadata cuando un agente third-party crea registros.
  *
  * Principio (Fran verbatim): "Solo existe un humano, que soy yo."
@@ -19,7 +19,7 @@ export interface AgentAttribution {
   /** Nombre display del agente para UI/mensajes */
   agentDisplayName: string
   /** Canal desde el que operó el agente */
-  channel: 'discord' | 'slack' | 'api' | 'whatsapp' | 'telegram'
+  channel: 'discord' | 'slack' | 'api' | 'whatsapp' | 'telegram' | 'app'
   /** URL del mensaje Discord original (si aplica) */
   discordMessageUrl?: string
   /** ID de la interacción Discord (para linking back) */
@@ -149,6 +149,7 @@ function channelLabel(channel: AgentAttribution['channel']): string {
     api: 'API',
     whatsapp: 'WhatsApp',
     telegram: 'Telegram',
+    app: 'App',
   }
   return labels[channel] ?? channel
 }

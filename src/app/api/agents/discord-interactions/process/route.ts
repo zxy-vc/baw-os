@@ -6,8 +6,8 @@
  * (fire-and-forget, autenticado con INTERNAL_WEBHOOK_SECRET). Flujo:
  *  1. Valida el bearer interno (timing-safe).
  *  2. Marca la interacción como 'processing' y backfillea org_id.
- *  3. Push webhooks-first al runtime del agente (ALICIA_WEBHOOK_URL, tunnel
- *     Cloudflare). El runtime procesa y responde a Discord vía followup.
+ *  3. Push webhooks-first al runtime del agente si tiene URL (HUGO_WEBHOOK_URL
+ *     para el operador; opcional). El runtime procesa y responde vía followup.
  *  4. Si el push falla (runtime dormido/inaccesible), deja la interacción en
  *     'deferred' — la recoge el long-poll del skill (GET /v1/interactions) —
  *     y avisa en Discord que la solicitud quedó en cola.
@@ -17,10 +17,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { withAgentAttribution, getAgentDisplayName } from '@/lib/agents/attribution'
 import type { AgentId } from '@/lib/agents/types'
+import { OPERATOR_AGENT_ID } from '@/lib/agents/roster'
 
 export const runtime = 'nodejs'
 
 const AGENT_PUSH_TIMEOUT_MS = 5_000
+
+/**
+ * URL de push del runtime de cada agente. Sin URL, la interacción queda
+ * 'deferred' y la recoge el long-poll (GET /v1/interactions). Alicia ya no
+ * recibe push: ALICIA_WEBHOOK_URL dejó de leerse (BAW-26).
+ */
+function agentWebhookUrl(agentId: string): string {
+  if (agentId === OPERATOR_AGENT_ID) return process.env.HUGO_WEBHOOK_URL ?? ''
+  return ''
+}
 
 interface ProcessBody {
   interaction_id?: string
@@ -83,7 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { interaction_id: interactionId, interaction_token: interactionToken } = body
-  const agentId = body.agent_id ?? 'alicia-ops'
+  const agentId = body.agent_id ?? OPERATOR_AGENT_ID
   const rawInteraction = body.raw_interaction ?? {}
 
   if (!interactionId || !interactionToken) {
@@ -119,12 +130,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── 3. Push webhooks-first al runtime del agente ──────────
-  const agentWebhookUrl = process.env.ALICIA_WEBHOOK_URL ?? ''
+  const pushUrl = agentWebhookUrl(agentId)
   let pushed = false
 
-  if (agentWebhookUrl) {
+  if (pushUrl) {
     try {
-      const res = await fetch(agentWebhookUrl, {
+      const res = await fetch(pushUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -160,7 +171,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (applicationId) {
     const displayName = getAgentDisplayName(agentId as AgentId)
     const content = withAgentAttribution(
-      `⏳ ${displayName} está fuera de línea en este momento. Tu solicitud quedó en cola y se procesará en cuanto se reconecte.`,
+      `⏳ Tu solicitud quedó en cola para ${displayName}. Si no responde en unos minutos, revisa que su conector en OpenClaw esté encendido.`,
       {
         agentId: agentId as AgentId,
         agentDisplayName: displayName,

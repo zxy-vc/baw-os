@@ -5,6 +5,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  ISSUABLE_SCOPES,
+  OPERATOR_AGENT_ID,
+  SCOPE_PRESETS,
+  type ScopePresetId,
+} from '@/lib/agents/roster'
 
 interface CredentialRow {
   id: string
@@ -25,46 +31,27 @@ interface Props {
   agentId: string
   agentName: string
   initialCredentials: CredentialRow[]
+  /** Agente retirado: se pueden revocar credenciales, no emitir nuevas. */
+  retired?: boolean
 }
 
-const COMMON_SCOPES = [
-  'units:read',
-  'units:write',
-  'reservations:read',
-  'reservations:write',
-  'payments:read',
-  'payments:write',
-  'payments:trigger',
-  'contracts:read',
-  'contracts:write',
-  'occupants:read',
-  'occupants:write',
-  'incidents:read',
-  'incidents:write',
-  'tasks:read',
-  'tasks:write',
-  'agents:run',
-  'runs:read',
-  'insights:read',
-  'messages:send',
-  'messages:read',
-  'approvals:read',
-  'agents:read',
-  'interactions:read',
-  'interactions:write',
-  'lifecycle:archive',
-]
 
 export default function CredentialsManager({
   agentId,
   agentName,
   initialCredentials,
+  retired = false,
 }: Props) {
   const router = useRouter()
   const [credentials, setCredentials] = useState<CredentialRow[]>(initialCredentials)
   const [showForm, setShowForm] = useState(false)
   const [label, setLabel] = useState('prod')
-  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set())
+  // El operador (Hugo) arranca con su preset; cualquier ajuste manual lo suelta.
+  const defaultPreset: ScopePresetId | null = agentId === OPERATOR_AGENT_ID ? 'operador' : null
+  const [preset, setPreset] = useState<ScopePresetId | null>(defaultPreset)
+  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(
+    new Set(defaultPreset ? SCOPE_PRESETS[defaultPreset].scopes : [])
+  )
   const [rateLimitTier, setRateLimitTier] = useState<'standard' | 'elevated' | 'unlimited'>(
     'standard'
   )
@@ -76,7 +63,13 @@ export default function CredentialsManager({
     label: string
   } | null>(null)
 
+  const applyPreset = (id: ScopePresetId) => {
+    setPreset(id)
+    setSelectedScopes(new Set(SCOPE_PRESETS[id].scopes))
+  }
+
   const toggleScope = (scope: string) => {
+    setPreset(null)
     setSelectedScopes((prev) => {
       const next = new Set(prev)
       if (next.has(scope)) next.delete(scope)
@@ -95,7 +88,8 @@ export default function CredentialsManager({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           label: label.trim(),
-          scopes: Array.from(selectedScopes),
+          // Con preset, el servidor fija los scopes exactos.
+          ...(preset ? { preset } : { scopes: Array.from(selectedScopes) }),
           rate_limit_tier: rateLimitTier,
           expires_in_days: expiresInDays,
         }),
@@ -125,7 +119,8 @@ export default function CredentialsManager({
       ])
       setShowForm(false)
       setLabel('prod')
-      setSelectedScopes(new Set())
+      setPreset(defaultPreset)
+      setSelectedScopes(new Set(defaultPreset ? SCOPE_PRESETS[defaultPreset].scopes : []))
       setRateLimitTier('standard')
       setExpiresInDays(null)
     } catch (e) {
@@ -189,7 +184,7 @@ export default function CredentialsManager({
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">Credenciales activas</h2>
-        {!showForm && (
+        {!showForm && !retired && (
           <button
             onClick={() => setShowForm(true)}
             className="rounded bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
@@ -216,8 +211,26 @@ export default function CredentialsManager({
 
           <div>
             <label className="mb-2 block text-sm font-medium">Scopes</label>
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+              {Object.values(SCOPE_PRESETS).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p.id)}
+                  className={`rounded border px-2 py-1 ${
+                    preset === p.id ? 'border-neutral-900 bg-neutral-900 text-white' : 'hover:bg-neutral-100'
+                  }`}
+                  title={p.description}
+                >
+                  Preset {p.label} ({p.scopes.length})
+                </button>
+              ))}
+              {preset && (
+                <span className="text-neutral-500">{SCOPE_PRESETS[preset].description}</span>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-1 text-sm md:grid-cols-3">
-              {COMMON_SCOPES.map((scope) => (
+              {ISSUABLE_SCOPES.map((scope) => (
                 <label key={scope} className="flex items-center gap-2">
                   <input
                     type="checkbox"
