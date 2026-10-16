@@ -26,10 +26,14 @@ import * as incidentsRoute from '@/app/api/v1/incidents/route'
 import { hashApiKey, type AgentAuthResult } from '@/lib/agents/auth'
 import { MCP_TOOLS } from '@/lib/mcp/tools'
 import { apiKeyProvider, authenticateMcpRequest, type McpAuthProvider } from '@/lib/mcp/auth'
-import { buildMcpServer } from '@/lib/mcp/server'
+import { buildMcpServer, headerSafe } from '@/lib/mcp/server'
+import { dispatchApprovedAction } from '@/lib/agents/v1/dispatcher'
 
 const ORG_A = '00000000-0000-0000-0000-00000000000a'
 const ORG_B = '00000000-0000-0000-0000-00000000000b'
+const UNIT_A = '33333333-3333-4333-8333-333333333333'
+const UNIT_B = '44444444-4444-4444-8444-444444444444'
+const OCC_B = '55555555-5555-4555-8555-555555555555'
 const ALL_TOOL_SCOPES = Array.from(new Set(MCP_TOOLS.map((t) => t.scope)))
 
 const KEYS = {
@@ -70,7 +74,10 @@ async function seed(credentials: Row[] = []) {
     units: [
       { id: 'unit-a-809', org_id: ORG_A, number: '809-1', status: 'occupied', created_at: '2026-10-01' },
       { id: 'unit-b-1', org_id: ORG_B, number: 'B-1', status: 'available', created_at: '2026-10-01' },
+      { id: UNIT_A, org_id: ORG_A, number: '809-3', status: 'occupied', created_at: '2026-09-01' },
+      { id: UNIT_B, org_id: ORG_B, number: 'B-2', status: 'occupied', created_at: '2026-09-01' },
     ],
+    occupants: [{ id: OCC_B, org_id: ORG_B, name: 'Inquilino de B' }],
     contracts: [{ id: '11111111-1111-4111-8111-111111111111', org_id: ORG_A }],
     incidents: [],
     tasks: [],
@@ -154,6 +161,21 @@ describe('auth de /api/mcp', () => {
     }
   })
 
+  it('credencial expirada → 401', async () => {
+    const key = 'sk_live_ffff' + '6'.repeat(44)
+    h.tables.agent_credentials.push({ ...(await credential(key, ORG_A, ALL_TOOL_SCOPES)), expires_at: '2026-01-01T00:00:00Z' })
+    const { status } = await rawRpc(INIT, { authorization: `Bearer ${key}` })
+    expect(status).toBe(401)
+  })
+
+  it('revocar entre initialize y tools/call corta la siguiente llamada', async () => {
+    const client = await connect({ authorization: `Bearer ${KEYS.full}` })
+    expect((await client.listTools()).tools.length).toBeGreaterThan(0)
+    h.tables.agent_credentials.find((c) => c.id === 'cred-aaaa')!.status = 'revoked'
+    await expect(client.callTool({ name: 'crear_incidencia', arguments: { title: 'x' } })).rejects.toThrow()
+    expect(h.tables.incidents).toHaveLength(0)
+  })
+
   it('dos credenciales distintas → 401', async () => {
     const { status } = await rawRpc(INIT, { authorization: `Bearer ${KEYS.full}`, 'x-api-key': KEYS.orgB })
     expect(status).toBe(401)
@@ -187,12 +209,12 @@ describe('lectura acotada a la org de la credencial', () => {
     const ra = await a.callTool({ name: 'listar_unidades', arguments: {} })
     expect(ra.isError).toBeFalsy()
     const unitsA = JSON.parse(text(ra)).data as Row[]
-    expect(unitsA.map((u) => u.id)).toEqual(['unit-a-809'])
+    expect(unitsA.map((u) => u.id).sort()).toEqual(['unit-a-809', UNIT_A].sort())
 
     const b = await connect({ authorization: `Bearer ${KEYS.orgB}` })
     const rb = await b.callTool({ name: 'listar_unidades', arguments: {} })
     const unitsB = JSON.parse(text(rb)).data as Row[]
-    expect(unitsB.map((u) => u.id)).toEqual(['unit-b-1'])
+    expect(unitsB.map((u) => u.id).sort()).toEqual(['unit-b-1', UNIT_B].sort())
   })
 
   it('cada tool de lectura funciona con SOLO su scope (scopes en sync con v1)', async () => {
@@ -215,7 +237,7 @@ describe('escrituras pasan por el clasificador', () => {
     const client = await connect({ authorization: `Bearer ${KEYS.full}` })
     const r = await client.callTool({
       name: 'crear_incidencia',
-      arguments: { title: 'Fuga en baño', unit_id: '33333333-3333-4333-8333-333333333333', priority: 'high' },
+      arguments: { title: 'Fuga en baño', unit_id: UNIT_A, priority: 'high' },
     })
     expect(r.isError).toBeFalsy()
     expect(text(r)).toMatch(/^Incidencia creada/)
@@ -230,6 +252,57 @@ describe('escrituras pasan por el clasificador', () => {
     })
     expect(h.tables.agent_runs[0]).toMatchObject({ org_id: ORG_A, agent_id: 'grok-bot', status: 'succeeded' })
     expect(h.tables.agent_approvals).toHaveLength(0)
+  })
+
+  it('crear_incidencia con unidad de otra org → error y nada escrito', async () => {
+    const client = await connect({ authorization: `Bearer ${KEYS.full}` })
+    const r = await client.callTool({ name: 'crear_incidencia', arguments: { title: 'x', unit_id: UNIT_B } })
+    expect(r.isError).toBe(true)
+    expect(text(r)).toMatch(/404 not_found.*unit/)
+    expect(h.tables.incidents).toHaveLength(0)
+    expect(h.tables.agent_actions).toHaveLength(0)
+  })
+
+  it('aprobar una incidencia con refs de otra org tampoco la crea (dispatcher)', async () => {
+    for (const payload of [{ title: 'x', unit_id: UNIT_B }, { title: 'x', reported_by: OCC_B }]) {
+      const res = await dispatchApprovedAction({
+        approvalId: 'ap-1',
+        orgId: ORG_A,
+        agentId: 'grok-bot',
+        actionType: 'incident.create',
+        payload,
+        resolvedBy: null,
+      })
+      expect(res.ok).toBe(false)
+    }
+    expect(h.tables.incidents).toHaveLength(0)
+    const ok = await dispatchApprovedAction({
+      approvalId: 'ap-2',
+      orgId: ORG_A,
+      agentId: 'grok-bot',
+      actionType: 'incident.create',
+      payload: { title: 'ok', unit_id: UNIT_A },
+      resolvedBy: null,
+    })
+    expect(ok.ok).toBe(true)
+  })
+
+  it('motivo con emoji y saltos de línea no rompe la escritura', async () => {
+    const client = await connect({ authorization: `Bearer ${KEYS.full}` })
+    const r = await client.callTool({
+      name: 'crear_ocupante',
+      arguments: { name: 'Ana', motivo: 'Solicitud de Fran ✅\nurgente: ¿mañana?' },
+    })
+    expect(text(r)).toMatch(/Pendiente de aprobación de Fran/)
+    expect(h.tables.agent_approvals[0]).toMatchObject({ reason: 'Solicitud de Fran urgente: ¿mañana?' })
+    expect(headerSafe('a\r\nb\u0000c 🏠 d')).toBe('a b c d')
+  })
+
+  it('idempotency_key con caracteres inválidos → error de validación, nada escrito', async () => {
+    const client = await connect({ authorization: `Bearer ${KEYS.full}` })
+    const r = await client.callTool({ name: 'crear_tarea', arguments: { title: 'x', idempotency_key: 'clave ✅' } })
+    expect(r.isError).toBe(true)
+    expect(h.tables.tasks).toHaveLength(0)
   })
 
   it('enviar_mensaje_inquilino (REQUIRE_APPROVAL) crea agent_approvals y no ejecuta', async () => {
@@ -414,6 +487,6 @@ describe('interfaz de auth (slice 2 se enchufa sin tocar tools)', () => {
     await Promise.all([server.connect(a), client.connect(b)])
     expect((await client.listTools()).tools.map((t) => t.name)).toEqual(['listar_unidades'])
     const r = await client.callTool({ name: 'listar_unidades', arguments: {} })
-    expect((JSON.parse(text(r)).data as Row[]).map((u) => u.id)).toEqual(['unit-b-1'])
+    expect((JSON.parse(text(r)).data as Row[]).every((u) => u.org_id === ORG_B)).toBe(true)
   })
 })
