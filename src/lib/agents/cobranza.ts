@@ -10,6 +10,7 @@
 
 import { createServiceClient } from '@/lib/api-auth'
 import { calcMoraSurcharge, getMoraLevelOrder, type MoraLevel } from '@/lib/mora-engine'
+import { isCollectibleCharge } from '@/lib/billing'
 import {
   sendWhatsAppTemplate,
   whatsAppConfigured,
@@ -172,7 +173,8 @@ export const cobranzaRunner: AgentRunner = {
       }
     }
 
-    const rows = (payments || []) as PaymentRow[]
+    // Los cargos anulados ('void', BAW-18) no se cobran ni acumulan mora.
+    const rows = ((payments || []) as PaymentRow[]).filter((p) => isCollectibleCharge(p.status))
     if (rows.length === 0) {
       await ctx.recordAction({
         action_type: 'cobranza.scan_complete',

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createServiceClient, validateApiKey, unauthorized, apiOk, apiError, getOrgId } from '@/lib/api-auth'
 import { requireMemberCaller } from '@/lib/admin-auth'
 import { canFinance } from '@/lib/finance-permissions'
+import { isVoidCharge } from '@/lib/billing'
 
 export async function GET(request: NextRequest) {
   if (!validateApiKey(request)) return unauthorized()
@@ -56,12 +57,13 @@ export async function POST(request: NextRequest) {
     supabase.from('contracts').select('id').eq('id', contract_id).eq('org_id', orgId).maybeSingle(),
     supabase.from('units').select('id').eq('id', unit_id).eq('org_id', orgId).maybeSingle(),
     payment_id
-      ? supabase.from('payments').select('id').eq('id', payment_id).eq('org_id', orgId).maybeSingle()
+      ? supabase.from('payments').select('id, status').eq('id', payment_id).eq('org_id', orgId).maybeSingle()
       : Promise.resolve({ data: null }),
   ])
   if (!contract) return apiError('Contract not found', 404)
   if (!unit) return apiError('Unit not found', 404)
   if (payment_id && !payment) return apiError('Payment not found', 404)
+  if (payment && isVoidCharge(payment.status)) return apiError('Cargo anulado: no se puede marcar pagado', 409)
 
   // Check duplicate: if payment_id already has a ledger entry
   if (payment_id) {
