@@ -43,9 +43,38 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
 
 ## 2 · Para Fran: pasos exactos
 
-**Orden:** (a) mergear este PR y esperar el deploy, para que Cobranza, Cobros, estado de cuenta, reportes y portales reconozcan `void` → (b) migración → (c) dry-run → (d) aplicar.
+**Orden (estricto):**
+
+0. **Primero #164 (BAW-3) y su SQL de registro** (`docs/audits/BAW-3-registro-versiones.sql` de esa rama), con veredicto OK: 72 versiones, Local = Remote.
+   - Ese script se detiene si `20261015010000` ya aparece en `schema_migrations`: la cuenta como versión desconocida y, además, verifica que las reservadas sigan sin registrar (`docs/audits/BAW-3-registro-versiones.sql:10` y `:216-229` en la rama de #164). Por eso BAW-18 se registra **después**.
+1. Mergear este PR (#171) y esperar el deploy, para que Cobranza, Cobros, estado de cuenta, reportes y portales reconozcan `void`.
+2. Luego, en el SQL Editor: migración (paso 1) → registro (paso 1b) → dry-run (paso 2) → aplicar (paso 3).
 
 1. **Migración (una vez).** SQL Editor de Supabase (proyecto `zlcgxmllaeweypyodvzk`) → copiar **completo** `supabase/migrations/20261015010000_baw18_payments_void.sql` → Run. Debe responder `Success. No rows returned`.
+1b. **Registrar la migración en la bitácora de Supabase (una vez).** Como el paso 1 se corrió a mano y no con `supabase db push`, `20261015010000` no queda en `supabase_migrations.schema_migrations`; sin este paso, la bitácora que alineó BAW-3 vuelve a desfasarse. Es idempotente (`ON CONFLICT DO NOTHING`) y usa las mismas columnas que el registro de BAW-3. Copiar y Run:
+   ```sql
+   -- Solo registra si la migración de verdad se aplicó (la etiqueta 'void' existe).
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   SELECT '20261015010000', 'baw18_payments_void'
+    WHERE EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid
+                   WHERE t.typname = 'payment_status' AND e.enumlabel = 'void')
+   ON CONFLICT (version) DO NOTHING;
+
+   -- Verificación: debe salir UNA fila con registrada = true y void_en_enum = true.
+   SELECT (SELECT count(*) = 1 FROM supabase_migrations.schema_migrations
+            WHERE version = '20261015010000' AND name = 'baw18_payments_void') AS registrada,
+          EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid
+                   WHERE t.typname = 'payment_status' AND e.enumlabel = 'void') AS void_en_enum,
+          (SELECT count(*) FROM supabase_migrations.schema_migrations) AS total_versiones;
+   ```
+   - `total_versiones` debe ser **73**: las 72 de BAW-3 más esta. Si ya se registró `20261014010000` (BAW-15), son 74.
+   - Si sale `registrada = false` y `void_en_enum = false`, el paso 1 no se aplicó y no se registró nada: repite el paso 1 y luego este.
+   - Después, `supabase migration list --linked` debe mostrar `20261015010000` en Local y Remote.
+   - **Manifiesto de BAW-3** (`supabase/ci/applied-migrations.sha256`, introducido por #164): fija el contenido de cada migración ya aplicada en prod; el job `db-reset` falla si alguna cambia. Esta migración se agrega con la línea:
+     ```
+     d5b84b32a14e2ea0aaee69a04aea76cd3c43e7acf9eae88a6f222edb3917222d  20261015010000_baw18_payments_void.sql
+     ```
+     Ese archivo todavía no existe en `main` (solo en la rama de #164). La línea entra a #171 al rebasarlo sobre `main` cuando #164 se mergee; ya se verificó localmente que, con #171 encima de #164, `sha256sum --check` del manifiesto pasa con 73 líneas.
 2. **Dry-run.** Copiar **completo** `docs/audits/BAW-18-fase-b.sql`, sin editar → Run. Debe salir **en rojo** un error que empieza con:
    ```
    DRY-RUN OK (nada se guardó) · huella=xxxxxxxxxxxx · lote=… · corte=2026-10-01 · hoy=… · contratos_cerrados=3 · contratos_actualizados=3 · contratos_creados=1 · … · veredicto=OK
