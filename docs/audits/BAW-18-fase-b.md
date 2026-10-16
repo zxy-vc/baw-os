@@ -57,7 +57,7 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
    v_esperado_huella  text    := 'xxxxxxxxxxxx';   -- la «huella=…» del paso 2
    ```
    Debe salir una tabla de **una fila** con `veredicto = OK` y el `run_id` del lote. **Guarda el `run_id`**: la reversa lo pide.
-   - La huella resume **todo** el plan: cargos a anular, cargos a ajustar con su monto, rentas, los 6 contratos y las unidades. Si cualquiera de esas cosas cambió desde el dry-run, sale `DETENTE: la huella del dry-run (…) no coincide…` y no se guarda nada. Repite el paso 2.
+   - La huella resume **todo** el plan: todos los parámetros, cargos a anular, cargos a ajustar con su monto, rentas, los 6 contratos y las unidades. Si cualquiera de esas cosas cambió desde el dry-run, sale `DETENTE: la huella del dry-run (…) no coincide…` y no se guarda nada. Repite el paso 2.
 4. **No lo vuelvas a correr.** Una segunda corrida da `DETENTE: la Fase B ya se aplicó…`.
 5. **Revisar:** Q4 (`docs/audits/BAW-18-datos-809.md`) con `today` = hoy debe mostrar solo octubre.
 6. **Reversa** (solo si hace falta): `docs/audits/BAW-18-fase-b-reversa.sql`.
@@ -121,7 +121,7 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
 **Reversa.** No usa DELETE:
 
 - UPDATE → restaura solo las columnas que cambiaron;
-- cargos insertados → `void`;
+- cargos insertados (pagos de D301) → `void` con `amount_paid = 0`, para que no cuenten como cobrados en ningún agregado;
 - contrato insertado → terminado + `archived_at`;
 - occupant → `archived_at`;
 - crm_contact → `descartado`.
@@ -131,7 +131,8 @@ Antes de tocar nada, con las filas bloqueadas, se detiene si:
 - un cargo cambió en cualquier columna de dinero (`status`, `amount`, `rent_amount`, `water_fee`, `amount_paid`, `confirmed_at`, `reference`, `paid_date`) o tiene abonos, bitácora o CFDI;
 - una columna que tocó el lote cambió;
 - el contrato, occupant o crm_contact insertados ya no son idénticos a como se crearon;
-- el contrato nuevo tiene cargos que el lote no creó. Con `v_anular_cargos_posteriores` se anulan, pero solo si no tienen dinero.
+- el contrato nuevo tiene cargos que el lote no creó. Con `v_anular_cargos_posteriores` se anulan, pero solo si no tienen dinero;
+- reactivar un contrato que el lote cerró dejaría su unidad con dos contratos vigentes (por ejemplo, si después se dio de alta otro en D102).
 
 ## 4 · Saldos iniciales: no hay forma limpia hoy (propuesta, no implementada)
 
@@ -161,9 +162,13 @@ Un cargo «Saldo anterior al corte» con `due_date = corte − 1 día` no funcio
 | `src/app/api/tenant/[token]/route.ts:72`, `src/app/api/portal/[token]/route.ts:91` | El inquilino no ve los meses anulados |
 | `src/app/reportes/page.tsx:58` | Fuera de esperado y pendiente |
 | `src/app/units/[id]/page.tsx:356-359` | Etiqueta «Anulado» |
+| `src/app/api/cron/usage-snapshots/route.ts:111` | El GMV cobrado no cuenta cargos `void` |
+| `src/app/api/payments/[id]/recompute/route.ts:29` | Rechaza (409) recalcular un cargo `void`, que lo regresaría a `pending`. Además la escritura queda condicionada al estatus leído |
+| `src/app/api/payments/checkout/route.ts:30` | Antes de crear cualquier PaymentIntent, rechaza (409) cargos `void` o ya pagados |
+| `src/app/api/ledger/route.ts:66` | Rechaza (409) marcar pagado un cargo `void` |
 | `src/types/index.ts:8` | `PaymentStatus` incluye `'void'` |
 
-Lectores que ya lo excluían: `/api/mora` (`src/app/api/mora/route.ts:58`), conserje (`src/app/api/conserje/cobros/route.ts:30`), y los que solo suman `paid` (propietarios, liquidaciones, snapshots de uso).
+Lectores que ya lo excluían: `/api/mora` (`src/app/api/mora/route.ts:58`), conserje (`src/app/api/conserje/cobros/route.ts:30`), y los que solo suman `status = 'paid'` (propietarios, liquidaciones).
 
 **Pendiente después de B1:**
 
@@ -197,8 +202,13 @@ Lectores que ya lo excluían: `/api/mora` (`src/app/api/mora/route.ts:58`), cons
   - contrato nuevo o crm_contact editados después → la reversa se detiene;
   - `unit_id` nulo → `DETENTE`;
   - variante con pagos de D301 y octubre de D102 → MC $15,300; su reversa con un cargo del cron sin dinero → OK y 111 filas idénticas;
-  - guardas: 2 orgs, `late`, saldos.
-- **Código:** `tests/cobros/void-charges.test.ts` (cobranza, `rankPayment`, `computeMonthStatus` y `computeEstadoCuenta` con `void`).
+  - guardas: 2 orgs, `late`, saldos;
+  - reversa de los pagos de D301 → `void` con `amount_paid = 0`; el criterio de GMV del snapshot da $0;
+  - otro contrato vigente en D102 dado de alta después del lote → la reversa se detiene;
+  - cambiar un parámetro (la renta de D301) entre dry-run y aplicación → `DETENTE` por huella.
+- **Código:**
+  - `tests/cobros/void-charges.test.ts`: cobranza, `rankPayment`, `computeMonthStatus` y `computeEstadoCuenta` con `void`;
+  - `tests/cobros/void-api-guards.test.ts`: recompute y checkout responden 409 ante `void`; checkout no llega a llamar a Stripe (simulado).
 
 ## 7 · Fase B2 (NO en este PR; sin SQL)
 

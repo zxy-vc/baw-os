@@ -8,7 +8,8 @@
 -- exactamente lo que ese lote hizo, sin DELETE:
 --   · UPDATE de contratos, cargos y unidades → restaura SOLO las columnas que el
 --     lote cambió (diferencia before_data vs after_data), con su valor anterior.
---   · Cargos que el lote insertó (pagos de D301) → status 'void'.
+--   · Cargos que el lote insertó (pagos de D301) → status 'void' y amount_paid 0
+--     (no cuentan como cobrado en ningún agregado).
 --   · Contrato que el lote insertó (D301 nuevo) → estatus terminado + archived_at.
 --   · Occupant que el lote insertó → archived_at; su crm_contact → 'descartado'.
 --
@@ -90,7 +91,10 @@ BEGIN
    WHERE id IN (SELECT entity_id FROM _b18r_lote WHERE entity_type = 'payment')
       OR contract_id IN (SELECT entity_id FROM _b18r_lote WHERE action = 'baw18.fase_b.contract.insert')
    FOR UPDATE;
-  PERFORM 1 FROM public.contracts WHERE id IN (SELECT entity_id FROM _b18r_lote WHERE entity_type = 'contract') FOR UPDATE;
+  PERFORM 1 FROM public.contracts
+   WHERE id IN (SELECT entity_id FROM _b18r_lote WHERE entity_type = 'contract')
+      OR unit_id IN (SELECT (after_data->>'unit_id')::uuid FROM _b18r_lote WHERE entity_type = 'contract')
+   FOR UPDATE;
   PERFORM 1 FROM public.units     WHERE id IN (SELECT entity_id FROM _b18r_lote WHERE entity_type = 'unit') FOR UPDATE;
   PERFORM 1 FROM public.occupants WHERE id IN (SELECT entity_id FROM _b18r_lote WHERE entity_type = 'occupant') FOR UPDATE;
   IF EXISTS (SELECT 1 FROM _b18r_lote WHERE entity_type = 'crm_contact') THEN
@@ -134,6 +138,20 @@ BEGIN
          AND v_cur->k IS DISTINCT FROM a.after_data->k;
       IF v_txt IS NOT NULL THEN
         v_conflictos := v_conflictos || format('%s %s cambió después del lote en: %s', a.entity_type, a.entity_id, v_txt);
+      END IF;
+      -- Contrato que el lote cerró: no reactivarlo si su unidad ya tiene otro contrato
+      -- vigente que no sea del lote (sustitución posterior).
+      IF a.entity_type = 'contract'
+         AND a.before_data->>'status' IN ('active', 'en_renovacion', 'pending')
+         AND a.before_data->>'status' IS DISTINCT FROM a.after_data->>'status' THEN
+        SELECT string_agg(c.id::text || ':' || c.status::text, ',') INTO v_txt
+          FROM public.contracts c
+         WHERE c.unit_id = (a.before_data->>'unit_id')::uuid AND c.id <> a.entity_id
+           AND c.archived_at IS NULL AND c.status::text IN ('active', 'en_renovacion', 'pending')
+           AND c.id NOT IN (SELECT entity_id FROM _b18r_lote WHERE action = 'baw18.fase_b.contract.insert');
+        IF v_txt IS NOT NULL THEN
+          v_conflictos := v_conflictos || format('reactivar el contrato %s duplicaría la unidad: ya tiene vigente(s) %s', a.entity_id, v_txt);
+        END IF;
       END IF;
     ELSIF a.entity_type IN ('contract', 'occupant', 'crm_contact') THEN
       -- INSERT del lote: la fila sigue idéntica a como se creó.
@@ -213,10 +231,11 @@ BEGIN
       END IF;
       v_restaurados := v_restaurados + 1;
 
-    ELSIF a.entity_type = 'payment' THEN  -- cargo insertado por el lote → void
+    ELSIF a.entity_type = 'payment' THEN  -- cargo insertado por el lote → void y sin dinero registrado
       UPDATE public.payments p
          SET status = (jsonb_populate_record(p, '{"status":"void"}'::jsonb)).status,
-             notes  = concat_ws(' · ', NULLIF(p.notes, ''), v_tag),
+             amount_paid = 0,
+             notes  = concat_ws(' · ', NULLIF(p.notes, ''), v_tag || ': pago registrado por el lote, deshecho'),
              updated_at = now()
        WHERE p.id = a.entity_id AND p.status::text = a.after_data->>'status'
       RETURNING to_jsonb(p) INTO v_after;

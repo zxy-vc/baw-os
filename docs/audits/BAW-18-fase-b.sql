@@ -462,8 +462,17 @@ BEGIN
   END IF;
 
   -- (e) Huella del plan completo: si algo cambia entre el dry-run y la aplicación, no coincide.
+  -- Todos los parámetros que deciden qué y cuánto se escribe.
   SELECT left(md5(concat_ws('|',
-      v_fecha_corte, v_anular_octubre_d102, v_registrar_pagos_d301, v_ajustar_cargos_post_corte,
+      jsonb_build_object(
+        'org', v_org, 'corte', v_fecha_corte, 'actor', v_actor,
+        'st', jsonb_build_array(v_st_anulado, v_st_activo, v_st_terminado, v_st_d301_viejo), 'anulables', v_estatus_anulables,
+        'fin_d102', v_fin_d102, 'fin_d202', v_fin_d202, 'anular_oct_d102', v_anular_octubre_d102,
+        'd301', jsonb_build_array(v_d301_fin_viejo, v_d301_inicio, v_d301_fin, v_d301_renta, v_d301_dia, v_d301_titular,
+                                  v_d301_cotitular, v_d301_aval, v_d301_firmado, v_registrar_pagos_d301, v_d301_pago_agua),
+        'rentas', jsonb_build_array(v_d203_total, v_d203_incluye_agua, v_d204_total, v_d204_incluye_agua,
+                                    v_d302_total, v_d302_incluye_agua, v_ajustar_cargos_post_corte),
+        'saldos', v_cargar_saldos_iniciales)::text,
       (SELECT string_agg(format('%s:%s:%s', a.payment_id, a.regla, a.amount), ',' ORDER BY a.payment_id) FROM _b18_anular a),
       (SELECT string_agg(format('%s:%s>%s', a.payment_id, a.amount_antes, a.amount_nuevo), ',' ORDER BY a.payment_id) FROM _b18_ajustar a),
       (SELECT string_agg(format('%s:%s', contract_id, monto), ',' ORDER BY contract_id) FROM _b18_rentas),
