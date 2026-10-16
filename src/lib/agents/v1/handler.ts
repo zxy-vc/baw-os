@@ -59,23 +59,55 @@ export interface V1WriteHandlerCtx<TBody = unknown> extends V1HandlerCtx {
 }
 
 /**
+ * Ruta v1 exportada como GET/POST. Además de ser el handler HTTP, expone
+ * `withAuth`: el mismo núcleo (scopes, idempotencia, clasificador, auditoría)
+ * para una identidad que ya se autenticó por otro medio — p.ej. /api/mcp, que
+ * autentica por API key hoy y por OAuth después. REST y MCP comparten camino.
+ */
+export type V1Route = ((req: NextRequest) => Promise<NextResponse>) & {
+  withAuth: (auth: AgentAuthResult, req: NextRequest) => Promise<NextResponse>
+}
+
+function asV1Route(
+  scopes: string[],
+  run: (auth: AgentAuthResult, req: NextRequest) => Promise<NextResponse>
+): V1Route {
+  // withAuth revalida scopes: quien autentique por fuera no puede saltárselos.
+  const withAuth = async (auth: AgentAuthResult, req: NextRequest) => {
+    const missing = scopes.filter((s) => !auth.scopes.includes(s) && !auth.scopes.includes('*'))
+    if (missing.length > 0) {
+      return agentAuthErrorResponse({
+        ok: false,
+        status: 403,
+        code: 'forbidden_scope',
+        message: `Missing required scopes: ${missing.join(', ')}`,
+      })
+    }
+    return run(auth, req)
+  }
+  const route = async (req: NextRequest): Promise<NextResponse> => {
+    const auth = await authenticateAgentRequest(req, scopes)
+    if (!auth.ok) return agentAuthErrorResponse(auth)
+    return run(auth, req)
+  }
+  return Object.assign(route, { withAuth })
+}
+
+/**
  * Wrapper para endpoints read.
  */
 export function v1Read(opts: {
   scopes: string[]
   handler: (ctx: V1HandlerCtx) => Promise<NextResponse>
-}) {
-  return async function (req: NextRequest): Promise<NextResponse> {
-    const auth = await authenticateAgentRequest(req, opts.scopes)
-    if (!auth.ok) return agentAuthErrorResponse(auth)
-
+}): V1Route {
+  return asV1Route(opts.scopes, async (auth, req) => {
     try {
       return await opts.handler({ auth, req })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'unknown error'
       return v1Error('internal_error', msg, 500)
     }
-  }
+  })
 }
 
 /**
@@ -94,12 +126,9 @@ export function v1Write<TBody = Record<string, unknown>>(opts: {
    * Handler que ejecuta la acción cuando ya está autorizada (AUTO o approval granted).
    */
   handler: (ctx: V1WriteHandlerCtx<TBody>) => Promise<NextResponse>
-}) {
+}): V1Route {
   const method = opts.method || 'POST'
-  return async function (req: NextRequest): Promise<NextResponse> {
-    const auth = await authenticateAgentRequest(req, opts.scopes)
-    if (!auth.ok) return agentAuthErrorResponse(auth)
-
+  return asV1Route(opts.scopes, async (auth, req) => {
     // Parse body
     let rawBody = ''
     let parsed: unknown = {}
@@ -272,7 +301,7 @@ export function v1Write<TBody = Record<string, unknown>>(opts: {
       }
     }
     return response
-  }
+  })
 }
 
 // Re-export para conveniencia
