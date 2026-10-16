@@ -46,7 +46,11 @@ export async function checkTaskEntity(
   entityId: string | null | undefined
 ): Promise<string | null> {
   if (!entityId) return null
-  const table = entityType ? TASK_ENTITY_TABLE[entityType] : undefined
+  // hasOwn: 'constructor', '__proto__'… no son tipos de entidad.
+  const table =
+    entityType && Object.prototype.hasOwnProperty.call(TASK_ENTITY_TABLE, entityType)
+      ? TASK_ENTITY_TABLE[entityType]
+      : undefined
   if (!table) return `entity_type no soportado para entity_id: ${entityType ?? '(vacío)'}`
   return (await findForeignRef(db, orgId, [{ table, id: entityId, field: 'entity_id' }]))
     ? 'entity_id not found in this organization'
