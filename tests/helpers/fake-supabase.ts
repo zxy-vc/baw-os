@@ -54,6 +54,12 @@ export function makeFakeSupabase(tables: Record<string, Row[]>) {
         state.payload = p
         return b
       },
+      // Basta para los usos actuales (cache de idempotencia): se comporta como insert.
+      upsert: (p: Row) => {
+        state.op = 'insert'
+        state.payload = p
+        return b
+      },
       update: (p: Row) => {
         state.op = 'update'
         state.payload = p
@@ -76,5 +82,7 @@ export function makeFakeSupabase(tables: Record<string, Row[]>) {
     }
     return b
   }
-  return { from }
+  // RPCs fire-and-forget (p.ej. touch_agent_credential): no-op.
+  const rpc = async () => ({ data: null, error: null })
+  return { from, rpc }
 }
