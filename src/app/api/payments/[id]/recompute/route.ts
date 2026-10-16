@@ -7,6 +7,7 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient, apiError, apiOk } from '@/lib/api-auth'
 import { requireMemberCaller } from '@/lib/admin-auth'
+import { isVoidCharge } from '@/lib/billing'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,12 +19,14 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
 
   const { data: charge, error: chargeError } = await supabase
     .from('payments')
-    .select('id, amount, late_fee_amount')
+    .select('id, amount, late_fee_amount, status')
     .eq('id', params.id)
     .eq('org_id', auth.orgId)
     .maybeSingle()
   if (chargeError) return apiError(chargeError.message, 500)
   if (!charge) return apiError('Cargo no encontrado', 404)
+  // Un cargo anulado por corte (BAW-18) no se reactiva recalculando.
+  if (isVoidCharge(charge.status)) return apiError('Cargo anulado: no se puede recalcular', 409)
 
   const { data: receipts, error: receiptsError } = await supabase
     .from('payment_receipts')
@@ -51,12 +54,16 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
     confirmed_at: last ? new Date().toISOString() : null,
   }
 
-  const { error: updateError } = await supabase
+  // Escritura condicionada al estatus leído: si alguien lo anuló entre medio, no se pisa.
+  const { data: updated, error: updateError } = await supabase
     .from('payments')
     .update(updates)
     .eq('id', params.id)
     .eq('org_id', auth.orgId)
+    .eq('status', charge.status)
+    .select('id')
   if (updateError) return apiError(updateError.message, 500)
+  if (!updated || updated.length === 0) return apiError('El cargo cambió mientras se recalculaba; reintenta', 409)
 
   return apiOk({ id: params.id, ...updates })
 }
