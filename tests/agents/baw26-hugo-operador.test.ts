@@ -428,8 +428,10 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
     const route = v1TasksRoute.POST as unknown as WriteOpts<{ title: string; entity_type?: string; entity_id?: string }>
     const foreign = await route.handler({ auth, body: { title: 't', entity_type: 'unit', entity_id: 'unit-b' }, recordAction })
     expect(foreign.status).toBe(404)
-    const unknown = await route.handler({ auth, body: { title: 't', entity_type: 'secret', entity_id: 'x' }, recordAction })
-    expect(unknown.status).toBe(404)
+    for (const entity_type of ['secret', 'constructor', 'toString', '__proto__']) {
+      const unknown = await route.handler({ auth, body: { title: 't', entity_type, entity_id: 'x' }, recordAction })
+      expect(unknown.status).toBe(404)
+    }
     expect(tables.tasks).toHaveLength(0)
     const ok = await route.handler({ auth, body: { title: 't', entity_type: 'unit', entity_id: 'unit-a' }, recordAction })
     expect(ok.status).toBe(200)
