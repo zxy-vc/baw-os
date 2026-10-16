@@ -1,5 +1,11 @@
 # Runbook — Discord channel `#BaW-OS`
 
+> ## ⚠️ LEGACY para Alicia (BAW-26, 2026-10-16)
+> Alicia está retirada. Las interacciones de Discord ahora van a **Hugo** (`hugo-cos`): el
+> default de `/api/agents/discord-interactions` es el operador y los botones viejos
+> `baw:alicia-ops:…` se enrutan a Hugo. El ruteo de canales del lado OpenClaw debe apuntar al
+> workspace de Hugo — ver [`docs/specs/hugo-openclaw-mk2.md`](../specs/hugo-openclaw-mk2.md).
+
 > ## ⚠️ Parcialmente desactualizado — valores MK2 (2026-06-21)
 > El canal **sí existe** y es la interfaz operativa, pero los datos cambiaron en MK2:
 > - Canal de operación BaW = **`#baw-os`** (ID `1503898850601996369`), guild `1503865235575148635`.

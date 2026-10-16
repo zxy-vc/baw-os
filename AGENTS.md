@@ -139,7 +139,7 @@ Enum legacy `member_role` está en proceso de eliminación (issue [#23](https://
 
 Definido en tabla `agents` (S4-3, PR #18). Framework: capability `L0-L4` (autonomy) + feedback `F0-F5` (maturity).
 
-**Presentación UI (Sprint 5A MVP):** la página `/agents` muestra **solo la familia third-party**. El catálogo completo permanece intacto en la tabla `agents` — los nativos están ocultos de la UI, no eliminados. El runner de cobranza sigue operando como automatización interna vía `/api/cron/cobranza` (diario), sin presentarse como agente. Los únicos third-party activos del MVP son **Alicia** (operadora Mateos 809P) y **Hugo** (supervisor read-only de Alicia); el resto se muestra "Diferido".
+**Presentación UI (Sprint 5A MVP):** la página `/agents` muestra **solo la familia third-party**. El catálogo completo permanece intacto en la tabla `agents` — los nativos están ocultos de la UI, no eliminados. El runner de cobranza sigue operando como automatización interna vía `/api/cron/cobranza` (diario), sin presentarse como agente. **Desde BAW-26 (2026-10-16)** el único third-party activo es **Hugo** (`hugo-cos`, agente operador del 809, preset de scopes «Operador»); **Alicia** está retirada (`status='retired'`, historial conservado); el resto se muestra "Diferido".
 
 ### 2.8 — Features mergeadas y funcionales
 **No eliminar** features que ya están en main funcionando, sin issue previo que justifique la eliminación. Ejemplos vigentes:
@@ -228,7 +228,7 @@ Mejor un PR pausado 1 hora que un PR mergeado con regresión.
 
 ## 9 · Third-party agents — Discord Interactions (Sprint 5A MVP)
 
-> Agentes del MVP: **Alicia** (`id = alicia-ops`, operadora Mateos 809P) y **Hugo** (`id = hugo-cos`, supervisor de Alicia, **solo lectura**: `runs:read`, `approvals:read`, `insights:read` — nunca writes ni `approvals:resolve`; ver `docs/runbooks/hugo-cos-connect.md`).
+> **BAW-26 (2026-10-16):** el agente operador es **Hugo** (`id = hugo-cos`): Fran le habla desde el chat in-app y Discord; su credencial usa el preset «Operador» (`src/lib/agents/roster.ts`: lectura amplia + escrituras v1 + `interactions:read/write`; nunca `approvals:resolve` ni `agents:run`). Conector: `docs/specs/hugo-openclaw-mk2.md`. **Alicia** (`alicia-ops`) está retirada; lo que abajo dice "Alicia" es histórico y hoy aplica a Hugo. El servidor ya no emite `approvals:resolve` ni `*` a ninguna credencial, y solo owners/admins pueden darle órdenes a un agente por chat.
 > Único humano en el sistema: Fran. Los agentes NUNCA son referenciados como personas. Las aprobaciones las resuelve solo Fran.
 
 ### Arquitectura del flujo Discord → BaW OS
@@ -244,7 +244,7 @@ Fran (Discord) → Discord API → POST /api/agents/discord-interactions
                                     │
                          dispatch async → /api/agents/discord-interactions/process
                                     │
-                    push a ALICIA_WEBHOOK_URL (timeout 5s)
+                    push a HUGO_WEBHOOK_URL si existe (timeout 5s)
                          │                        │
                     push OK                  push falla
                          │                        │
@@ -329,7 +329,7 @@ const embed = withAgentDiscordEmbed({ title: 'Nueva incidencia', ... }, attr)
 | `DISCORD_PUBLIC_KEY` | Clave pública Ed25519 del bot Discord (hex). Del portal de Discord. |
 | `INTERNAL_WEBHOOK_SECRET` | Bearer secret para dispatch async entre funciones Vercel. |
 | `NEXT_PUBLIC_BASE_URL` | URL base de Vercel (ej. `https://baw-os.vercel.app`). |
-| `ALICIA_WEBHOOK_URL` | URL push al runtime de Alicia (tunnel Cloudflare, ej. `https://alicia.zxy.vc/incoming/baw-os`). Si falta o el push falla, la interacción queda `deferred` y la recoge el long-poll del skill. |
+| `HUGO_WEBHOOK_URL` | (Opcional) URL push al runtime de Hugo. Si falta o el push falla, la interacción queda `deferred` y la recoge el long-poll del conector. `ALICIA_WEBHOOK_URL` ya no se lee (BAW-26). |
 | `DISCORD_DEFAULT_ORG_ID` | Org UUID al que se atribuyen interacciones Discord (MVP: org `BaW Operations`). Mapeo guild→org multi-tenant es follow-up. |
 
 ### Tests de agentes
@@ -359,7 +359,8 @@ node tests/agents/discord-custom-id.test.mjs # parser custom_id aprobaciones
 | `supabase/migrations/20260523232305_agents_discord_interactions.sql` | agent_interactions + attribution columns |
 | `supabase/migrations/20260611010000_agent_approvals_discord_resolver.sql` | resolved_by_discord_user (ADR-021 D8) |
 | `docs/adr/ADR-021-third-party-agents-discord.md` | Decisiones arquitecturales |
-| `docs/runbooks/hugo-cos-connect.md` | Conexión de Hugo (supervisor read-only) |
+| `docs/specs/hugo-openclaw-mk2.md` | Conector de Hugo (agente operador, BAW-26) |
+| `src/lib/agents/roster.ts` | Operador, agentes retirados y preset de scopes «Operador» |
 
 ---
 

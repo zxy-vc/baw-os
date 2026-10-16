@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { verifyDiscordRequest } from '@/lib/agents/discord-verify'
 import { getAgentDisplayName } from '@/lib/agents/attribution'
+import { OPERATOR_AGENT_ID, isRetiredAgent } from '@/lib/agents/roster'
 import { dispatchApprovedAction } from '@/lib/agents/v1/dispatcher'
 
 export const runtime = 'nodejs'
@@ -66,8 +67,10 @@ interface DiscordInteraction {
 
 /**
  * Resuelve el agent_id desde la interacción Discord.
- * Estrategia: busca en custom_id (componentes) → guild custom data → default Alicia.
- * En Sprint 5A solo Alicia está conectada.
+ * Estrategia: busca en custom_id (componentes) → default: el operador (Hugo).
+ * Un custom_id de un agente retirado (botones viejos de Alicia) se enruta al
+ * operador para que la interacción no quede sin dueño. Las aprobaciones no
+ * dependen de esto: usan el agent_id guardado en agent_approvals.
  */
 function resolveAgentId(interaction: DiscordInteraction): string {
   const customId = interaction.data?.custom_id ?? ''
@@ -76,11 +79,13 @@ function resolveAgentId(interaction: DiscordInteraction): string {
   // Formato legacy: "baw:approval:<grant|deny>:<id>" — sin agent_id, no confundir
   if (customId.startsWith('baw:')) {
     const parts = customId.split(':')
-    if (parts[1] && parts[1] !== 'approval') return parts[1]
+    if (parts[1] && parts[1] !== 'approval') {
+      return isRetiredAgent(parts[1]) ? OPERATOR_AGENT_ID : parts[1]
+    }
   }
 
-  // Default: alicia-ops (única agente third-party conectada en Sprint 5A)
-  return 'alicia-ops'
+  // Default: el agente operador (BAW-26: Hugo reemplaza a Alicia)
+  return OPERATOR_AGENT_ID
 }
 
 interface ApprovalCustomId {
@@ -240,7 +245,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     void dispatchAsync(interaction, agentId, rawBody)
 
-    // Responder en <3s con deferred — Alicia procesará y hará followup
+    // Responder en <3s con deferred — el agente procesará y hará followup
     return NextResponse.json({
       type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
       data: {

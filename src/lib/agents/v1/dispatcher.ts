@@ -8,6 +8,7 @@
 
 import { createServiceClient } from '@/lib/supabase'
 import { archiveEntity, ENTITY_TABLE, type LifecycleEntity } from '@/lib/lifecycle'
+import { findForeignRef } from './org-refs'
 
 export interface DispatchContext {
   approvalId: string
@@ -39,6 +40,11 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         estimated_cost?: number
         reported_by?: string
       }
+      const foreign = await findForeignRef(supabase, ctx.orgId, [
+        { table: 'units', id: p.unit_id, field: 'unit_id' },
+        { table: 'occupants', id: p.reported_by, field: 'reported_by' },
+      ])
+      if (foreign) return { ok: false, error: `${foreign} no pertenece a esta organización` }
       const { data, error } = await supabase
         .from('incidents')
         .insert({
@@ -207,6 +213,11 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         payment_day?: number
         status?: string
       }
+      const foreign = await findForeignRef(supabase, ctx.orgId, [
+        { table: 'units', id: p.unit_id, field: 'unit_id' },
+        { table: 'occupants', id: p.occupant_id, field: 'occupant_id' },
+      ])
+      if (foreign) return { ok: false, error: `${foreign} no pertenece a esta organización` }
       const { data, error } = await supabase
         .from('contracts')
         .insert({

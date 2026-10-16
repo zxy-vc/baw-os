@@ -21,7 +21,7 @@ export interface CatalogAgent {
   updated_at: string
 }
 
-const STATUSES = ['planned', 'beta', 'live', 'paused', 'deprecated'] as const
+const STATUSES = ['planned', 'beta', 'live', 'paused', 'deprecated', 'retired'] as const
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   planned: { bg: 'var(--baw-neutral-bg-soft)', fg: 'var(--baw-neutral-fg)' },
@@ -29,6 +29,7 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   live: { bg: 'var(--baw-success-bg-soft)', fg: 'var(--baw-success-fg)' },
   paused: { bg: 'var(--baw-warning-bg-soft)', fg: 'var(--baw-warning-fg)' },
   deprecated: { bg: 'var(--baw-danger-bg-soft)', fg: 'var(--baw-danger-fg)' },
+  retired: { bg: 'var(--baw-neutral-bg-soft)', fg: 'var(--baw-neutral-fg)' },
 }
 
 export default function AgentsCatalogManager({

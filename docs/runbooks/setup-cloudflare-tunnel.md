@@ -1,5 +1,9 @@
 # Runbook — Cloudflare Tunnel `alicia.zxy.vc`
 
+> ## ⚠️ LEGACY — Alicia retirada (BAW-26, 2026-10-16)
+> `ALICIA_WEBHOOK_URL` ya no se lee en el código. El push opcional ahora es
+> `HUGO_WEBHOOK_URL`; el camino por defecto es long-poll (sin túnel).
+
 > ## ⚠️ OBSOLETO — no aplica en MK2 (2026-06-21)
 > En MK2 (Mac Studio M4 Max) la malla remota es **Tailscale** (variante `macsys`), **no**
 > Cloudflare Tunnel. No existe `alicia.zxy.vc` ni una ruta de callbacks entrantes para Alicia.
