@@ -68,8 +68,7 @@ const pageArgs = {
 const writeArgs = {
   idempotency_key: z
     .string()
-    .min(1)
-    .max(200)
+    .regex(/^[A-Za-z0-9._:-]{1,200}$/, 'Solo letras sin acento, números y . _ : - (máx. 200).')
     .optional()
     .describe(
       'Clave única por intento. Si repites la llamada con la misma clave y los mismos datos, no se duplica.'

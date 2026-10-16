@@ -72,6 +72,19 @@ export function buildMcpServer(ctx: McpCallContext): McpServer {
   return server
 }
 
+/**
+ * v1Write lee el motivo de un header, y un header no admite saltos de línea ni
+ * caracteres fuera de Latin-1 (emoji): Headers.set lanzaría y la escritura ni
+ * se encolaría. Acentos, ñ y ¿¡ sí pasan.
+ */
+export function headerSafe(text: string): string {
+  return text
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/[^\u0020-\u00ff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function toolError(text: string): CallToolResult {
   return { isError: true, content: [{ type: 'text', text }] }
 }
@@ -100,7 +113,10 @@ export async function callV1(
   } else {
     headers.set('content-type', 'application/json')
     if (typeof args.idempotency_key === 'string') headers.set('idempotency-key', args.idempotency_key)
-    if (typeof args.motivo === 'string') headers.set('x-baw-reason', args.motivo)
+    if (typeof args.motivo === 'string') {
+      const motivo = headerSafe(args.motivo)
+      if (motivo) headers.set('x-baw-reason', motivo)
+    }
     body = JSON.stringify(def.toBody ? def.toBody(args) : args)
   }
 

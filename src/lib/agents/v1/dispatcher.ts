@@ -7,6 +7,7 @@
 // Mantener este dispatcher en sync con los handlers de cada endpoint write.
 
 import { createServiceClient } from '@/lib/supabase'
+import { incidentRefsOutsideOrg } from './org-refs'
 import { archiveEntity, ENTITY_TABLE, type LifecycleEntity } from '@/lib/lifecycle'
 
 export interface DispatchContext {
@@ -39,6 +40,9 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         estimated_cost?: number
         reported_by?: string
       }
+      // BAW-11: mismo guard que POST /v1/incidents — refs de la org o nada.
+      const foreign = await incidentRefsOutsideOrg(supabase, ctx.orgId, p)
+      if (foreign) return { ok: false, error: foreign }
       const { data, error } = await supabase
         .from('incidents')
         .insert({
