@@ -43,6 +43,18 @@ export function scheduleMonths(startISO: string | null, cutoff: string): string[
   return out.slice(-MAX_MONTHS_BACK)
 }
 
+/**
+ * Cargo anulado por el punto de corte de BAW-18 (nunca se borra). Solo existe en el
+ * ENUM payment_status tras la migración 20261015010000; por eso se filtra en JS y no
+ * en PostgREST (un filtro con una etiqueta inexistente truena la consulta).
+ */
+export const VOID_PAYMENT_STATUS = 'void'
+
+/** ¿Cobranza debe perseguir este cargo? Ni los pagados ni los anulados. */
+export function isCollectibleCharge(status: string | null | undefined): boolean {
+  return status !== 'paid' && status !== VOID_PAYMENT_STATUS
+}
+
 /** Rank para elegir el pago representativo de un mes (paid > partial > otros). */
 export function rankPayment(status: string): number {
   if (status === 'paid') return 3
