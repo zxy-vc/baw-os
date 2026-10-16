@@ -128,7 +128,8 @@ export const SCOPE_PRESETS: Record<ScopePresetId, ScopePreset> = {
 }
 
 export function getScopePreset(id: unknown): ScopePreset | null {
-  return typeof id === 'string' && id in SCOPE_PRESETS
+  // hasOwn: 'constructor', 'toString'… no son presets.
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(SCOPE_PRESETS, id)
     ? SCOPE_PRESETS[id as ScopePresetId]
     : null
 }

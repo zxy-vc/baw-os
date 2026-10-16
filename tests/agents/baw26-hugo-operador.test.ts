@@ -42,6 +42,9 @@ vi.mock('@/lib/agents/v1/handler', () => ({
   v1Read: (opts: unknown) => opts,
   v1Write: (opts: unknown) => opts,
 }))
+vi.mock('@/lib/agents/discord-verify', () => ({
+  verifyDiscordRequest: async (req: Request) => ({ valid: true, rawBody: await req.text() }),
+}))
 vi.mock('@/lib/agents/auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/agents/auth')>()),
   authenticateAgentRequest: async () =>
@@ -65,6 +68,8 @@ import * as interactionsRoute from '@/app/api/v1/interactions/route'
 import * as interactionRoute from '@/app/api/v1/interactions/[id]/route'
 import * as v1ContractsRoute from '@/app/api/v1/contracts/route'
 import * as v1IncidentsRoute from '@/app/api/v1/incidents/route'
+import * as v1TasksRoute from '@/app/api/v1/tasks/route'
+import * as discordRoute from '@/app/api/agents/discord-interactions/route'
 import { dispatchApprovedAction } from '@/lib/agents/v1/dispatcher'
 
 const ORG_A = '00000000-0000-0000-0000-00000000000a'
@@ -150,6 +155,7 @@ beforeEach(() => {
     ],
     contracts: [],
     incidents: [],
+    tasks: [],
   }
   h.db = makeFakeSupabase(tables)
 })
@@ -221,6 +227,16 @@ describe('preset operador', () => {
       params('hugo-cos')
     )
     expect(unknown.status).toBe(400)
+  })
+
+  it('nombres heredados de Object no son presets (400, no 500)', async () => {
+    for (const preset of ['constructor', 'toString', '__proto__']) {
+      const res = await credentialsRoute.POST(
+        jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: `p-${preset}`, preset }),
+        params('hugo-cos')
+      )
+      expect(res.status).toBe(400)
+    }
   })
 
   it('no emite credenciales nuevas a Alicia (retirada)', async () => {
@@ -408,6 +424,27 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
     expect(tables.incidents).toHaveLength(0)
   })
 
+  it('POST /v1/tasks no liga entidades de otra org ni tipos no verificables', async () => {
+    const route = v1TasksRoute.POST as unknown as WriteOpts<{ title: string; entity_type?: string; entity_id?: string }>
+    const foreign = await route.handler({ auth, body: { title: 't', entity_type: 'unit', entity_id: 'unit-b' }, recordAction })
+    expect(foreign.status).toBe(404)
+    const unknown = await route.handler({ auth, body: { title: 't', entity_type: 'secret', entity_id: 'x' }, recordAction })
+    expect(unknown.status).toBe(404)
+    expect(tables.tasks).toHaveLength(0)
+    const ok = await route.handler({ auth, body: { title: 't', entity_type: 'unit', entity_id: 'unit-a' }, recordAction })
+    expect(ok.status).toBe(200)
+    const r = await dispatchApprovedAction({
+      approvalId: 'ap-3',
+      resolvedBy: 'u-owner-a',
+      orgId: ORG_A,
+      agentId: 'hugo-cos',
+      actionType: 'task.create',
+      payload: { title: 't', entity_type: 'occupant', entity_id: 'occ-b' },
+    })
+    expect(r.ok).toBe(false)
+    expect(tables.tasks).toHaveLength(1)
+  })
+
   it('el dispatcher (aprobación concedida) tampoco liga refs de otra org', async () => {
     const r1 = await dispatchApprovedAction({
       approvalId: 'ap-1',
@@ -429,5 +466,33 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
     expect(r2.ok).toBe(false)
     expect(tables.contracts).toHaveLength(0)
     expect(tables.incidents).toHaveLength(0)
+  })
+})
+
+describe('Discord → Hugo', () => {
+  it('la interacción se guarda con su org ANTES del dispatch y va a hugo-cos', async () => {
+    process.env.DISCORD_PUBLIC_KEY = 'aa'
+    process.env.DISCORD_DEFAULT_ORG_ID = ORG_A
+    let rowAtDispatch: Row | undefined
+    const fetchSpy = vi.fn(async () => {
+      rowAtDispatch = tables.agent_interactions.find((i) => i.interaction_id === 'd-1')
+      return new Response('{}')
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+    try {
+      const res = await discordRoute.POST(
+        new NextRequest('http://x/api/agents/discord-interactions', {
+          method: 'POST',
+          body: JSON.stringify({ id: 'd-1', type: 2, token: 't', application_id: 'app', data: { name: 'baw' } }),
+        })
+      )
+      expect(res.status).toBe(200)
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(rowAtDispatch).toMatchObject({ agent_id: 'hugo-cos', org_id: ORG_A, channel: 'discord', status: 'deferred' })
+    } finally {
+      vi.unstubAllGlobals()
+      delete process.env.DISCORD_PUBLIC_KEY
+      delete process.env.DISCORD_DEFAULT_ORG_ID
+    }
   })
 })
