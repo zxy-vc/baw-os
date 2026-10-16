@@ -8,7 +8,7 @@
 
 import { createServiceClient } from '@/lib/supabase'
 import { archiveEntity, ENTITY_TABLE, type LifecycleEntity } from '@/lib/lifecycle'
-import { findForeignRef } from './org-refs'
+import { checkTaskEntity, findForeignRef } from './org-refs'
 
 export interface DispatchContext {
   approvalId: string
@@ -75,6 +75,8 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         due_date?: string
         priority?: string
       }
+      const bad = await checkTaskEntity(supabase, ctx.orgId, p.entity_type, p.entity_id)
+      if (bad) return { ok: false, error: bad }
       const { data, error } = await supabase
         .from('tasks')
         .insert({

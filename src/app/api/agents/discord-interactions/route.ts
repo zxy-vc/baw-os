@@ -127,8 +127,11 @@ function ephemeralMessage(content: string): NextResponse {
 }
 
 /**
- * Loggea la interacción en la tabla agent_interactions (fire-and-forget).
- * No lanza errores — el endpoint no debe fallar por un log.
+ * Loggea la interacción en agent_interactions. No lanza errores — el endpoint
+ * no debe fallar por un log. Se espera (await) ANTES de dispatchAsync y se
+ * inserta ya con la org (DISCORD_DEFAULT_ORG_ID): /v1/interactions está acotado
+ * a la org de la credencial, así que una fila con org_id null —p.ej. si /process
+ * llegaba antes del INSERT o el dispatch fallaba— quedaba invisible (BAW-26).
  */
 async function logInteraction(
   interaction: DiscordInteraction,
@@ -140,6 +143,7 @@ async function logInteraction(
     const supabase = createServiceClient()
     await supabase.from('agent_interactions').insert({
       agent_id: agentId,
+      org_id: process.env.DISCORD_DEFAULT_ORG_ID || null,
       channel: 'discord',
       channel_id: interaction.channel_id ?? null,
       interaction_type: typeName,
@@ -236,7 +240,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const agentId = resolveAgentId(interaction)
     const agentName = getAgentDisplayName(agentId as Parameters<typeof getAgentDisplayName>[0])
 
-    void logInteraction(
+    await logInteraction(
       interaction,
       agentId,
       'APPLICATION_COMMAND',
@@ -259,7 +263,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const agentId = resolveAgentId(interaction)
     const customId = interaction.data?.custom_id ?? ''
 
-    void logInteraction(
+    await logInteraction(
       interaction,
       agentId,
       'MESSAGE_COMPONENT',
