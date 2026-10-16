@@ -282,6 +282,7 @@ export default function CuentaInquilinoPage() {
         payment,
         today,
       })
+      if (status === 'anulado') continue // mes anulado por corte (BAW-18): no se cobra
       monthRows.push({
         month,
         dueDate,

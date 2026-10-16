@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/api-auth'
-import { scheduleMonths, computeMonthStatus, rankPayment, pad2 } from '@/lib/billing'
+import { scheduleMonths, computeMonthStatus, rankPayment, pad2, isVoidCharge } from '@/lib/billing'
 import { resolveServiceRate, type ServiceRate } from '@/lib/cobros'
 
 const WATER_FEE_DEFAULT = 250
@@ -67,7 +67,10 @@ export async function GET(
   const cutoff = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`
   const day = contract.payment_day || 1
 
-  const projected = scheduleMonths(contract.billing_start_date ?? contract.start_date, cutoff).map((month) => {
+  const projected = scheduleMonths(contract.billing_start_date ?? contract.start_date, cutoff)
+    // Meses anulados por corte (BAW-18) no se muestran al inquilino.
+    .filter((month) => !isVoidCharge(paymentByKey.get(month)?.status))
+    .map((month) => {
     const dueDate = `${month}-${pad2(day)}`
     const payment = paymentByKey.get(month) || null
     const waterFee = resolveServiceRate(waterRates, 'agua', buildingId, month) ?? WATER_FEE_DEFAULT
