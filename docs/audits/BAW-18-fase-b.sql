@@ -38,7 +38,10 @@
 --     solo ese lote.
 --
 -- Pasos exactos para Fran (SQL Editor, proyecto zlcgxmllaeweypyodvzk):
+--   (Antes que nada: #164 BAW-3 mergeado y su SQL de registro aplicado; luego este PR.)
 --   0. Aplicar la migración 20261015010000 (copiar el archivo y Run). Una vez.
+--   0b. Registrarla en supabase_migrations.schema_migrations (INSERT ON CONFLICT DO
+--       NOTHING + SELECT de verificación): ver paso 1b en docs/audits/BAW-18-fase-b.md.
 --   1. DRY-RUN: copiar ESTE archivo COMPLETO tal cual y Run. Debe salir en ROJO:
 --        DRY-RUN OK (nada se guardó) · huella=xxxxxxxxxxxx · lote=… · contratos_cerrados=3 · … · veredicto=OK
 --      Si empieza con «DETENTE:», no seguir y pegar el mensaje en el PR.
