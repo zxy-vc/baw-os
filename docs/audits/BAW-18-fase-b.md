@@ -71,7 +71,7 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
 |---|---|---|
 | `v_aplicar` | `false` | `true` solo en el paso 3 |
 | `v_esperado_huella` | `NULL` | Copiar del dry-run; si no coincide, no aplica |
-| `v_fecha_corte` | `2026-10-01` | Desde aquí cobra BaW OS |
+| `v_fecha_corte` | `2026-10-01` | Desde aquí cobra BaW OS. **Confirmada por Fran** |
 | `v_hoy` | hoy en CDMX | Fecha para estimar la morosidad de MC en el resumen |
 | `v_actor` | `fran@zxy.vc` | `audit_log.actor_id` |
 | `v_st_anulado` | `void` | Etiqueta de `payment_status` (la crea la migración) |
@@ -87,7 +87,7 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
 | `v_d204_total` / `v_d204_incluye_agua` | `5300` / `false` | **POR CONFIRMAR**: la tabla no dice si incluye agua. Con `false` se cobran 5300 + agua |
 | `v_d302_total` / `v_d302_incluye_agua` | `4500` / `false` | «4500 + 250» |
 | `v_ajustar_cargos_post_corte` | `true` | Ajusta a la renta nueva los cargos pendientes ≥ corte (octubre) |
-| `v_cargar_saldos_iniciales` (+ `v_saldo_*`) | `false` | Con `true` se detiene (§4). Montos listos: D302 32,256 · D102 26,000 · D202 26,000 · D301 7,450 · D402 80,000 |
+| `v_cargar_saldos_iniciales` (+ `v_saldo_*`) | `false` | Se definen después con el expediente (**BAW-24**). Con `true` se detiene (§4). Montos listos: D302 32,256 · D102 26,000 · D202 26,000 · D301 7,450 · D402 80,000 |
 
 **Por qué «incluye agua»:** Mission Control y el cron **suman** el agua al `monthly_amount` (`src/app/page.tsx:188`, `src/lib/billing.ts:91`, `src/app/api/cron/payments/route.ts:100-106`). Si D203 guardara 5000, se le cobrarían 5250. El script resta el agua vigente del edificio para el mes del corte, con la misma regla que el cron (`service_rates` o $250, `src/lib/cobros.ts:56-76`). Al ajustar el cargo de octubre usa esa misma agua, y se detiene si el total de un «incluye agua» no cuadra.
 
@@ -134,7 +134,7 @@ Antes de tocar nada, con las filas bloqueadas, se detiene si:
 - el contrato nuevo tiene cargos que el lote no creó. Con `v_anular_cargos_posteriores` se anulan, pero solo si no tienen dinero;
 - reactivar un contrato que el lote cerró dejaría su unidad con dos contratos vigentes (por ejemplo, si después se dio de alta otro en D102).
 
-## 4 · Saldos iniciales: no hay forma limpia hoy (propuesta, no implementada)
+## 4 · Saldos iniciales: no hay forma limpia hoy (propuesta, no implementada; se definen en BAW-24)
 
 Un cargo «Saldo anterior al corte» con `due_date = corte − 1 día` no funciona con el esquema y el código actuales:
 
@@ -217,5 +217,5 @@ Se hará a partir del **expediente digital** que arman Fran y el Lic. Hugo Sierr
 1. **D401, D402 y D404:** dar de alta occupant + contrato (hoy no existen en BaW OS), con las fechas, renta y agua del contrato digitalizado; `billing_start_date = corte`; unidades → `occupied`. Deudas estimadas: D402 ~$80,000.
 2. **Renovar D203, D204 y D302** con los contratos nuevos: estatus, `start_date`/`end_date` reales y renta confirmada. Hasta entonces siguen `active` con `end_date` vencida (§5).
 3. **D102:** corregir el inicio real (11-feb-2026 según Fran; Q3 dice 2026-02-01) si el expediente lo confirma.
-4. **Saldos iniciales** (§4), una vez aprobada la propuesta: D302 ~$32,256, D402 ~$80,000, grupo Núñez $52,000 (D102/D202), D301 marzo $7,450.
+4. **Saldos iniciales** (§4, ticket **BAW-24**), una vez aprobada la propuesta y con el expediente: D302 ~$32,256, D402 ~$80,000, grupo Núñez $52,000 (D102/D202), D301 marzo $7,450.
 5. Mismo formato: bloque `DO`, dry-run, huella, guardas, bitácora por lote y reversa.
