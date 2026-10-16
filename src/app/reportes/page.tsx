@@ -5,6 +5,7 @@ import { BarChart3, Download, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useOrgContext } from '@/hooks/useOrgContext'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { isVoidCharge } from '@/lib/billing'
 import { SkeletonTable } from '@/components/Skeleton'
 import EmptyState from '@/components/EmptyState'
 
@@ -53,9 +54,11 @@ export default function ReportesPage() {
     fetchPayments()
   }, [monthsBack])
 
+  // Los cargos anulados por corte (BAW-18) no son ni esperado ni cobrado.
+  const live = payments.filter((p) => !isVoidCharge(p.status))
   const filtered = filterStatus === 'all'
-    ? payments
-    : payments.filter((p) => {
+    ? live
+    : live.filter((p) => {
         if (filterStatus === 'paid') return p.status === 'paid'
         if (filterStatus === 'pending') return p.status === 'pending'
         if (filterStatus === 'late') return p.status === 'late'

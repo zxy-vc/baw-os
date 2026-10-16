@@ -6,7 +6,7 @@
 // centraliza el cálculo: dado un contrato y un mes, ¿cuál es su estatus y cuánto
 // se debe? Sin React ni DB.
 
-export type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | 'verbal'
+export type BillingStatus = 'pagado' | 'parcial' | 'pendiente' | 'vencido' | 'mora' | 'verbal' | 'anulado'
 
 export const MAX_MONTHS_BACK = 24
 
@@ -50,15 +50,23 @@ export function scheduleMonths(startISO: string | null, cutoff: string): string[
  */
 export const VOID_PAYMENT_STATUS = 'void'
 
-/** ¿Cobranza debe perseguir este cargo? Ni los pagados ni los anulados. */
-export function isCollectibleCharge(status: string | null | undefined): boolean {
-  return status !== 'paid' && status !== VOID_PAYMENT_STATUS
+export function isVoidCharge(status: string | null | undefined): boolean {
+  return status === VOID_PAYMENT_STATUS
 }
 
-/** Rank para elegir el pago representativo de un mes (paid > partial > otros). */
+/** ¿Cobranza debe perseguir este cargo? Ni los pagados ni los anulados. */
+export function isCollectibleCharge(status: string | null | undefined): boolean {
+  return status !== 'paid' && !isVoidCharge(status)
+}
+
+/**
+ * Rank para elegir el pago representativo de un mes (paid > partial > otros >
+ * anulado): un cargo vivo del mismo mes siempre gana a uno anulado.
+ */
 export function rankPayment(status: string): number {
   if (status === 'paid') return 3
   if (status === 'partial') return 2
+  if (isVoidCharge(status)) return 0
   return 1
 }
 
@@ -86,6 +94,10 @@ export function computeMonthStatus(i: MonthStatusInput): MonthStatusResult {
   const hasCollection = i.payment != null && (i.payment.status === 'paid' || i.payment.status === 'partial')
   const todayMid = new Date(i.today.getFullYear(), i.today.getMonth(), i.today.getDate())
 
+  // Mes anulado (BAW-18): el cargo existe para la auditoría, pero no se cobra.
+  if (i.payment != null && isVoidCharge(i.payment.status)) {
+    return { status: 'anulado', moraAmount: 0, remaining: 0, owed: 0 }
+  }
   if (hasCollection) {
     const remaining = Math.max(0, base + fee - paid)
     return { status: remaining > 0.001 ? 'parcial' : 'pagado', moraAmount: 0, remaining, owed: remaining }
