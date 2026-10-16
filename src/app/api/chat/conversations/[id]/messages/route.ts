@@ -3,10 +3,14 @@
 //
 // Crea una interacción channel='app' status='deferred' que el agente recoge por
 // su long-poll (GET /v1/interactions) y responde (PATCH response + completed).
+// Si el agente está retirado (Alicia) o ya no tiene credencial activa en la org,
+// se rechaza con un mensaje claro en vez de dejar la interacción en el limbo.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireMemberCaller } from '@/lib/admin-auth'
+import { OPERATOR_AGENT_ID, OPERATOR_NO_CREDENTIAL_MESSAGE, isRetiredAgent } from '@/lib/agents/roster'
+import { COMMAND_FORBIDDEN_MESSAGE, canCommandAgents, chattableAgents } from '@/lib/agents/chat-agents'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +21,9 @@ interface RouteContext {
 export async function POST(req: NextRequest, ctx: RouteContext) {
   const auth = await requireMemberCaller()
   if (!auth.ok) return NextResponse.json({ success: false, error: auth.message }, { status: auth.status })
+  if (!canCommandAgents(auth)) {
+    return NextResponse.json({ success: false, error: COMMAND_FORBIDDEN_MESSAGE }, { status: 403 })
+  }
 
   const { id } = await ctx.params
 
@@ -40,10 +47,31 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ success: false, error: 'Conversación no encontrada' }, { status: 404 })
   }
 
+  const agentId = (conv as { agent_id: string }).agent_id
+  if (isRetiredAgent(agentId)) {
+    return NextResponse.json(
+      { success: false, error: 'Este agente fue retirado; su historial se conserva. Inicia una conversación con Hugo.' },
+      { status: 409 }
+    )
+  }
+  const agents = await chattableAgents(db, auth.orgId)
+  if (!agents.some((a) => a.id === agentId)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          agentId === OPERATOR_AGENT_ID
+            ? OPERATOR_NO_CREDENTIAL_MESSAGE
+            : 'Ese agente ya no está disponible para chat en esta organización.',
+      },
+      { status: 409 }
+    )
+  }
+
   const { data: interaction, error } = await db
     .from('agent_interactions')
     .insert({
-      agent_id: (conv as { agent_id: string }).agent_id,
+      agent_id: agentId,
       org_id: auth.orgId,
       channel: 'app',
       channel_id: id,

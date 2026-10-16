@@ -14,7 +14,7 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
-const VALID_STATUS = ['planned', 'beta', 'live', 'paused', 'deprecated']
+const VALID_STATUS = ['planned', 'beta', 'live', 'paused', 'deprecated', 'retired']
 
 // Campos de texto editables: límite de longitud para evitar payloads abusivos.
 const TEXT_FIELDS: { key: 'display_name' | 'full_name' | 'description' | 'role_label' | 'domain' | 'family'; max: number; nullable: boolean }[] = [

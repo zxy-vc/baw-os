@@ -1,6 +1,8 @@
 // BaW OS v1 — GET /v1/interactions
-// Safety net de long-poll para el skill del agente: lista interacciones Discord
-// pendientes de procesar (deferred/processing) del propio agente. El payload
+// Long-poll del conector del agente: lista interacciones pendientes
+// (deferred/processing) del propio agente EN SU ORG — Discord y chat in-app
+// (channel='app'). Una credencial solo ve su org: el mismo agent_id puede
+// tener credenciales en varias orgs (BAW-26). El payload de Discord
 // completo incluye application_id + token para que el skill haga el followup.
 // Filtros: status (CSV, default 'deferred,processing'), limit/cursor estándar.
 import { v1Read } from '@/lib/agents/v1/handler'
@@ -34,6 +36,7 @@ export const GET = v1Read({
         'id, agent_id, org_id, channel, channel_id, interaction_type, interaction_id, discord_guild_id, discord_user_id, payload, status, error, created_at, completed_at'
       )
       .eq('agent_id', auth.agentId) // cada agente solo ve sus propias interacciones
+      .eq('org_id', auth.orgId) // …y solo las de la org de su credencial
       .in('status', statuses)
       .order('created_at', { ascending: true }) // FIFO: procesar lo más viejo primero
       .order('id', { ascending: true })

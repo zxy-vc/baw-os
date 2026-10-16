@@ -1,6 +1,7 @@
 // BaW OS — Admin: gestión de credenciales por agente
 // GET   /api/admin/agents/[id]/credentials              — listar (sin hash)
 // POST  /api/admin/agents/[id]/credentials              — crear nueva (devuelve key plana 1 vez)
+//        body: { label, scopes } o { label, preset: 'operador' } (scopes fijados en el servidor)
 // DELETE /api/admin/agents/[id]/credentials?credential_id=... — revocar
 //
 // RLS protege a nivel DB; aquí además validamos que el caller sea owner/admin
@@ -13,6 +14,7 @@ import { createSupabaseServer } from '@/lib/supabase-server'
 import { generateApiKey, hashApiKey } from '@/lib/agents/auth'
 import type { AgentId } from '@/lib/agents/types'
 import { ORG_ADMIN_ROLES } from '@/lib/admin-auth'
+import { getScopePreset, isRetiredAgent, unknownScopes } from '@/lib/agents/roster'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -109,6 +111,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   let body: {
     label?: string
     scopes?: string[]
+    preset?: string
     rate_limit_tier?: 'standard' | 'elevated' | 'unlimited'
     expires_in_days?: number | null
   }
@@ -128,7 +131,35 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       { status: 400 }
     )
   }
-  const scopes = Array.isArray(body.scopes) ? body.scopes.filter((s) => typeof s === 'string') : []
+  // Preset (p.ej. 'operador'): el servidor fija los scopes exactos; no se
+  // mezcla con una lista manual para que no haya ambigüedad sobre qué se emitió.
+  let scopes: string[]
+  if (body.preset !== undefined) {
+    const preset = getScopePreset(body.preset)
+    if (!preset) {
+      return NextResponse.json(
+        { success: false, error: `preset desconocido: ${String(body.preset)}` },
+        { status: 400 }
+      )
+    }
+    if (Array.isArray(body.scopes) && body.scopes.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'usa preset o scopes, no ambos' },
+        { status: 400 }
+      )
+    }
+    scopes = [...preset.scopes]
+  } else {
+    scopes = Array.isArray(body.scopes) ? body.scopes.filter((s) => typeof s === 'string') : []
+  }
+  // Solo scopes emitibles: approvals:resolve y '*' nunca salen de aquí.
+  const rejected = unknownScopes(scopes)
+  if (rejected.length > 0) {
+    return NextResponse.json(
+      { success: false, error: `scopes no permitidos: ${rejected.join(', ')}` },
+      { status: 400 }
+    )
+  }
   const rateLimitTier = body.rate_limit_tier || 'standard'
   if (!['standard', 'elevated', 'unlimited'].includes(rateLimitTier)) {
     return NextResponse.json(
@@ -141,13 +172,19 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   const service = createServiceClient()
   const { data: agent, error: agentErr } = await service
     .from('agents')
-    .select('id')
+    .select('id, status')
     .eq('id', agentId)
     .maybeSingle()
   if (agentErr || !agent) {
     return NextResponse.json(
       { success: false, error: 'Agent not found' },
       { status: 404 }
+    )
+  }
+  if (isRetiredAgent(agentId, (agent as { status?: string }).status)) {
+    return NextResponse.json(
+      { success: false, error: 'Este agente está retirado; no se le emiten credenciales nuevas' },
+      { status: 409 }
     )
   }
 
