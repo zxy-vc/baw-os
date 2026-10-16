@@ -25,11 +25,14 @@
 --
 -- Requisito: la migración supabase/migrations/20261015010000_baw18_payments_void.sql
 -- aplicada ANTES (agrega 'void' al ENUM payment_status). Sin ella: «DETENTE: …».
+-- Usa payment_receipts, payment_ledger e invoices (Q0.a confirma que existen en prod).
 --
 -- Mismo mecanismo que BAW-3 (un solo bloque DO):
 --   · Dry-run = el bloque SIEMPRE termina en excepción con el resumen en el mensaje;
 --     Postgres deshace todo solo. El error rojo ES el resultado del dry-run.
---   · Aplicar = v_aplicar := true + copiar v_esperado_* del dry-run.
+--   · Aplicar = v_aplicar := true + copiar la «huella» del dry-run. La huella
+--     resume TODO el plan (cargos a anular y a ajustar, contratos, unidades); si
+--     algo cambió entre el dry-run y la aplicación, no coincide y no aplica nada.
 --   · Bitácora: cada fila tocada queda en audit_log (before_data/after_data) con
 --     metadata.run_id = id del lote. La reversa (BAW-18-fase-b-reversa.sql) deshace
 --     solo ese lote.
@@ -37,22 +40,20 @@
 -- Pasos exactos para Fran (SQL Editor, proyecto zlcgxmllaeweypyodvzk):
 --   0. Aplicar la migración 20261015010000 (copiar el archivo y Run). Una vez.
 --   1. DRY-RUN: copiar ESTE archivo COMPLETO tal cual y Run. Debe salir en ROJO:
---        DRY-RUN OK (nada se guardó) · lote=… · contratos_cerrados=3 · contratos_actualizados=3 · contratos_creados=1 · … · veredicto=OK
+--        DRY-RUN OK (nada se guardó) · huella=xxxxxxxxxxxx · lote=… · contratos_cerrados=3 · … · veredicto=OK
 --      Si empieza con «DETENTE:», no seguir y pegar el mensaje en el PR.
---   2. APLICAR: editar SOLO estas 3 líneas y Run con el archivo completo:
---        v_aplicar := true;  v_esperado_anuladas := <anuladas del paso 1>;
---        v_esperado_monto_anulado := <monto_anulado del paso 1>;
+--   2. APLICAR: editar SOLO estas 2 líneas y Run con el archivo completo:
+--        v_aplicar := true;   v_esperado_huella := 'xxxxxxxxxxxx';  (la del paso 1)
 --      Debe salir una tabla de UNA fila con veredicto = OK y el run_id del lote.
---   3. No volver a correrlo: una segunda corrida da «DETENTE: … ya aplicado».
+--   3. No volver a correrlo: una segunda corrida da «DETENTE: … ya se aplicó».
 --   (psql: `psql -v ON_ERROR_STOP=1 -f …`.)
 -- =============================================================================
 
 DO $baw18b$
 DECLARE
   -- ═════════════════════ PARÁMETROS (lo único que se edita) ═════════════════════
-  v_aplicar                 boolean := false;  -- ← DRY-RUN. true SOLO en el paso 2.
-  v_esperado_anuladas       integer := NULL;   -- ← paso 2: copiar «anuladas=N» del dry-run
-  v_esperado_monto_anulado  numeric := NULL;   -- ← paso 2: copiar «monto_anulado=X» del dry-run
+  v_aplicar          boolean := false;  -- ← DRY-RUN. true SOLO en el paso 2.
+  v_esperado_huella  text    := NULL;   -- ← paso 2: copiar «huella=…» del dry-run
 
   v_org          uuid := '81a011c4-4ea6-4b79-924d-73dbe6d35e14';
   v_fecha_corte  date := '2026-10-01';         -- BaW OS cobra desde aquí
@@ -61,10 +62,10 @@ DECLARE
 
   -- Etiquetas de ENUM (verificar con Q0.b; el script se detiene si no existen)
   v_st_anulado     text := 'void';           -- payment_status
-  v_st_activo      text := 'active';         -- contract_status (contrato con vigencia)
+  v_st_activo      text := 'active';         -- contract_status del contrato nuevo de D301
   v_st_terminado   text := 'terminated';     -- contract_status (D102, D202)
   v_st_d301_viejo  text := 'expired';        -- contract_status del contrato viejo de D301 ('renewed' también vale)
-  v_estatus_anulables text[] := ARRAY['pending'];  -- estatus de cargo que se anulan antes del corte
+  v_estatus_anulables text[] := ARRAY['pending'];  -- estatus de cargo que se anulan/ajustan
 
   -- D102 / D202
   v_fin_d102              date    := '2026-10-11';
@@ -86,13 +87,13 @@ DECLARE
 
   -- Renta real = lo que paga el inquilino al mes. Si «incluye agua», monthly_amount
   -- = total − agua del edificio (Mission Control y el cron SUMAN el agua aparte:
-  -- src/app/page.tsx:188 + src/lib/billing.ts:71, src/app/api/cron/payments/route.ts:100-106).
+  -- src/app/page.tsx:188 + src/lib/billing.ts:91, src/app/api/cron/payments/route.ts:100-106).
   v_d203_total numeric := 5000;  v_d203_incluye_agua boolean := true;   -- «5000 (incluye agua)»
   v_d204_total numeric := 5300;  v_d204_incluye_agua boolean := false;  -- POR CONFIRMAR (la tabla no dice)
   v_d302_total numeric := 4500;  v_d302_incluye_agua boolean := false;  -- «4500 + 250»
   v_ajustar_cargos_post_corte boolean := true;  -- ajustar cargos pendientes ≥ corte a la renta nueva
 
-  -- Saldos históricos (por confirmar). Ver «Saldos iniciales» en el PR.
+  -- Saldos históricos (por confirmar). Ver «Saldos iniciales» en el doc §4.
   v_cargar_saldos_iniciales boolean := false;
   v_saldo_d302 numeric := 32256;  v_saldo_d402 numeric := 80000;
   v_saldo_d102 numeric := 26000;  v_saldo_d202 numeric := 26000;  v_saldo_d301 numeric := 7450;
@@ -109,7 +110,19 @@ DECLARE
   c_unidad CONSTANT text[] := ARRAY['D102','D202','D203','D204','D301','D302'];
   c_unidades_tocadas CONSTANT text[] := ARRAY['D102','D202','D203','D204','D301','D302','D303'];
 
-  -- MC: réplica de Q4 (src/app/page.tsx:119-199 + src/lib/billing.ts:21-94). $1 = org, $2 = hoy.
+  -- Agua vigente: misma regla que el cron y Mission Control (src/lib/cobros.ts:56-76,
+  -- fallback 250). $1 = org, $2 = edificio, $3 = mes (date).
+  c_sql_agua CONSTANT text := $ag$
+    SELECT COALESCE((SELECT sr.amount FROM public.service_rates sr
+                      WHERE sr.org_id = $1 AND sr.service = 'agua'
+                        AND to_char(sr.effective_from::date, 'YYYY-MM') <= to_char($3::date, 'YYYY-MM')
+                        AND (sr.building_id = $2 OR sr.building_id IS NULL)
+                      ORDER BY (sr.building_id IS NOT DISTINCT FROM $2) DESC, sr.effective_from DESC
+                      LIMIT 1), 250)
+  $ag$;
+
+  -- MC: réplica de Q4 (src/app/page.tsx:119-199 + src/lib/billing.ts) con el
+  -- tratamiento de 'void' de este PR. $1 = org, $2 = hoy.
   c_sql_mc CONSTANT text := $mc$
     WITH c AS (
       SELECT c.id AS contract_id, COALESCE(c.monthly_amount, 0) AS monthly_amount, c.payment_day,
@@ -131,7 +144,8 @@ DECLARE
       FROM public.payments py
       WHERE py.contract_id IN (SELECT contract_id FROM c)
       ORDER BY py.contract_id, date_trunc('month', py.due_date),
-               CASE py.status::text WHEN 'paid' THEN 3 WHEN 'partial' THEN 2 ELSE 1 END DESC, py.created_at
+               CASE py.status::text WHEN 'paid' THEN 3 WHEN 'partial' THEN 2 WHEN 'void' THEN 0 ELSE 1 END DESC,
+               py.created_at
     ),
     x AS (
       SELECT m.*, pay.payment_id, pay.payment_status, pay.payment_amount, pay.amount_paid, pay.late_fee_amount,
@@ -152,6 +166,7 @@ DECLARE
     v AS (
       SELECT s.*,
              CASE
+               WHEN s.payment_status = 'void' THEN 'anulado'
                WHEN s.payment_status IN ('paid', 'partial') THEN
                  CASE WHEN GREATEST(0, s.base + s.fee - s.paid) > 0.001 THEN 'parcial' ELSE 'pagado' END
                WHEN COALESCE(s.payment_day, 0) = 0 THEN 'verbal'
@@ -182,11 +197,11 @@ DECLARE
   v_uid jsonb := '{}'::jsonb;       -- número de unidad → id
   v_building uuid;
   v_agua numeric;
-  v_monto numeric;
   v_occ uuid;
   v_d301_nuevo uuid;
   v_before jsonb;
   v_after jsonb;
+  v_huella text;
   r record;
   i integer;
   v_mes date;
@@ -216,7 +231,7 @@ BEGIN
 
   -- ═══════════════════════════════ GUARDAS ═══════════════════════════════════
   IF v_cargar_saldos_iniciales THEN
-    RAISE EXCEPTION 'DETENTE: v_cargar_saldos_iniciales=true, pero el esquema no tiene una forma limpia de registrar un saldo inicial (un cargo con due_date antes del corte queda fuera de Mission Control y cobranza le cobraría mora). Ver «Saldos iniciales» en el PR. Nada se guardó.';
+    RAISE EXCEPTION 'DETENTE: v_cargar_saldos_iniciales=true, pero el esquema no tiene una forma limpia de registrar un saldo inicial (un cargo con due_date antes del corte queda fuera de Mission Control y cobranza le cobraría mora). Ver «Saldos iniciales» en docs/audits/BAW-18-fase-b.md §4. Nada se guardó.';
   END IF;
 
   SELECT count(*) INTO v_n FROM public.organizations;
@@ -262,16 +277,24 @@ BEGIN
     v_uid := v_uid || jsonb_build_object(v_msg, v_unit_id);
   END LOOP;
 
+  -- Bloqueo de todo lo que se va a leer y tocar, hasta el fin de la transacción.
+  -- Con las FKs hacia payments (abonos, bitácora, CFDI), nadie puede colgarles
+  -- dinero nuevo a estos cargos mientras corre el script.
+  PERFORM 1 FROM public.contracts WHERE id = ANY (c_ids) OR unit_id = (v_uid->>'D301')::uuid FOR UPDATE;
+  PERFORM 1 FROM public.payments  WHERE contract_id = ANY (c_ids) FOR UPDATE;
+  PERFORM 1 FROM public.units     WHERE org_id = v_org AND number = ANY (c_unidades_tocadas) FOR UPDATE;
+
   -- Los 6 contratos esperados existen, son de la org, de su unidad y siguen 'active'.
   FOR i IN 1 .. cardinality(c_ids) LOOP
     SELECT to_jsonb(c) INTO v_before FROM public.contracts c WHERE c.id = c_ids[i];
     IF v_before IS NULL THEN
       RAISE EXCEPTION 'DETENTE: no existe el contrato % de %. Nada se guardó.', c_ids[i], c_unidad[i];
     END IF;
-    IF (v_before->>'org_id')::uuid <> v_org OR (v_before->>'unit_id')::uuid <> (v_uid->>c_unidad[i])::uuid THEN
+    IF (v_before->>'org_id')::uuid IS DISTINCT FROM v_org
+       OR (v_before->>'unit_id')::uuid IS DISTINCT FROM (v_uid->>c_unidad[i])::uuid THEN
       RAISE EXCEPTION 'DETENTE: el contrato % no es de la org o no está en %. Nada se guardó.', c_ids[i], c_unidad[i];
     END IF;
-    IF v_before->>'status' <> 'active' OR v_before->>'archived_at' IS NOT NULL THEN
+    IF v_before->>'status' IS DISTINCT FROM 'active' OR v_before->>'archived_at' IS NOT NULL THEN
       RAISE EXCEPTION 'DETENTE: el contrato % de % está «%»%; se esperaba active (¿ya aplicado?). Nada se guardó.',
         c_ids[i], c_unidad[i], v_before->>'status',
         CASE WHEN v_before->>'archived_at' IS NOT NULL THEN ' y archivado' ELSE '' END;
@@ -288,26 +311,32 @@ BEGIN
     RAISE EXCEPTION 'DETENTE: ya hay contrato vigente en %. Nada se guardó.', v_msg;
   END IF;
 
-  -- Bloqueo de todo lo que se va a tocar (hasta el fin de la transacción).
-  PERFORM 1 FROM public.contracts WHERE id = ANY (c_ids) FOR UPDATE;
-  PERFORM 1 FROM public.payments  WHERE contract_id = ANY (c_ids) FOR UPDATE;
-  PERFORM 1 FROM public.units     WHERE org_id = v_org AND number = ANY (c_unidades_tocadas) FOR UPDATE;
-
   -- Morosidad de Mission Control ANTES (con v_hoy).
   EXECUTE c_sql_mc INTO v_mc_antes_n, v_mc_antes_total, v_mc_antes_sinfila, v_mc_antes_det USING v_org, v_hoy;
 
-  -- ═══════════════════════════ PLAN DE ANULACIÓN ════════════════════════════
+  -- ════════════════════════ PLAN (todavía sin escribir) ════════════════════════
+  -- Guarda de dinero única: un cargo «limpio» no tiene dinero ni rastro de cobro.
+  CREATE TEMP TABLE _b18_sucio ON COMMIT DROP AS
+  SELECT py.id AS payment_id
+    FROM public.payments py
+   WHERE py.contract_id = ANY (c_ids)
+     AND (COALESCE(py.amount_paid, 0) <> 0
+          OR py.confirmed_at IS NOT NULL
+          OR COALESCE(py.reference, '') LIKE 'pi\_%'
+          OR EXISTS (SELECT 1 FROM public.payment_receipts x WHERE x.payment_id = py.id)
+          OR EXISTS (SELECT 1 FROM public.payment_ledger l WHERE l.payment_id = py.id)
+          OR EXISTS (SELECT 1 FROM public.invoices f WHERE f.payment_id = py.id AND COALESCE(f.status, '') <> 'cancelled'));
+
+  -- (a) Cargos a anular.
   CREATE TEMP TABLE _b18_anular (
     payment_id uuid PRIMARY KEY, contract_id uuid, unidad text, regla text, amount numeric, due_date date
   ) ON COMMIT DROP;
-
   -- A) Renta pendiente antes del corte, en los 6 contratos.
   INSERT INTO _b18_anular
   SELECT py.id, py.contract_id, c_unidad[array_position(c_ids, py.contract_id)], 'A_antes_del_corte', py.amount, py.due_date
     FROM public.payments py
    WHERE py.contract_id = ANY (c_ids) AND py.ancillary_charge_id IS NULL
      AND py.status::text = ANY (v_estatus_anulables) AND py.due_date < v_fecha_corte;
-
   -- B) Renta pendiente de contratos que se cierran, con vencimiento después de su nuevo fin.
   INSERT INTO _b18_anular
   SELECT py.id, py.contract_id, c_unidad[array_position(c_ids, py.contract_id)], 'B_despues_del_fin', py.amount, py.due_date
@@ -317,7 +346,6 @@ BEGIN
        OR (py.contract_id = c_d202 AND py.due_date > v_fin_d202)
        OR (py.contract_id = c_d301 AND py.due_date > v_d301_fin_viejo))
   ON CONFLICT (payment_id) DO NOTHING;
-
   -- C) Opcional: el cargo de octubre de D102 (por defecto se queda como deuda real).
   IF v_anular_octubre_d102 THEN
     INSERT INTO _b18_anular
@@ -329,22 +357,12 @@ BEGIN
     ON CONFLICT (payment_id) DO NOTHING;
   END IF;
 
-  -- Guarda de dinero: nada de lo que se anula puede tener dinero o rastro de cobro.
-  SELECT count(*) INTO v_n
-    FROM _b18_anular a JOIN public.payments py ON py.id = a.payment_id
-   WHERE COALESCE(py.amount_paid, 0) <> 0
-      OR py.confirmed_at IS NOT NULL
-      OR (to_regclass('public.payment_receipts') IS NOT NULL
-          AND EXISTS (SELECT 1 FROM public.payment_receipts x WHERE x.payment_id = py.id))
-      OR EXISTS (SELECT 1 FROM public.payment_ledger l WHERE l.payment_id = py.id)
-      OR (to_regclass('public.invoices') IS NOT NULL
-          AND EXISTS (SELECT 1 FROM public.invoices f WHERE f.payment_id = py.id AND COALESCE(f.status, '') <> 'cancelled'))
-      OR COALESCE(py.reference, '') LIKE 'pi\_%';
+  SELECT count(*) INTO v_n FROM _b18_anular a JOIN _b18_sucio s ON s.payment_id = a.payment_id;
   IF v_n > 0 THEN
     RAISE EXCEPTION 'DETENTE: % cargo(s) a anular tienen dinero, confirmación, abonos, bitácora, CFDI o intent de Stripe. Revísalos con Q10. Nada se guardó.', v_n;
   END IF;
 
-  -- Guarda: antes del corte no debe quedar renta impaga con otro estatus (late, partial…).
+  -- Antes del corte no debe quedar renta impaga con otro estatus (late, partial…).
   SELECT string_agg(DISTINCT py.status::text, ','), count(*) INTO v_msg, v_n
     FROM public.payments py
    WHERE py.contract_id = ANY (c_ids) AND py.ancillary_charge_id IS NULL
@@ -362,17 +380,111 @@ BEGIN
 
   SELECT count(*), COALESCE(sum(amount), 0) INTO v_anuladas, v_monto_anulado FROM _b18_anular;
 
-  IF v_aplicar AND (v_esperado_anuladas IS NULL OR v_esperado_monto_anulado IS NULL) THEN
-    RAISE EXCEPTION 'DETENTE: para aplicar copia del dry-run v_esperado_anuladas (=%) y v_esperado_monto_anulado (=%). Nada se guardó.',
-      v_anuladas, v_monto_anulado;
+  -- (b) Renta real de D203, D204 y D302 (monthly_amount = total − agua si «incluye agua»).
+  CREATE TEMP TABLE _b18_rentas (
+    contract_id uuid PRIMARY KEY, unidad text, building_id uuid, total numeric, incluye_agua boolean,
+    agua_corte numeric, monto numeric
+  ) ON COMMIT DROP;
+  FOR r IN SELECT * FROM (VALUES
+      (c_d203, 'D203', v_d203_total, v_d203_incluye_agua),
+      (c_d204, 'D204', v_d204_total, v_d204_incluye_agua),
+      (c_d302, 'D302', v_d302_total, v_d302_incluye_agua)
+    ) AS t(cid, unidad, total, incluye_agua)
+  LOOP
+    SELECT u.building_id INTO v_building FROM public.units u WHERE u.id = (v_uid->>r.unidad)::uuid;
+    EXECUTE c_sql_agua INTO v_agua USING v_org, v_building, v_fecha_corte;  -- agua del mes del corte
+    INSERT INTO _b18_rentas VALUES (r.cid, r.unidad, v_building, r.total, r.incluye_agua, v_agua,
+                                    r.total - CASE WHEN r.incluye_agua THEN v_agua ELSE 0 END);
+  END LOOP;
+  IF EXISTS (SELECT 1 FROM _b18_rentas WHERE monto <= 0) THEN
+    RAISE EXCEPTION 'DETENTE: renta resultante ≤ 0 (revisa v_d2xx_total). Nada se guardó.';
   END IF;
-  IF v_aplicar AND (v_esperado_anuladas <> v_anuladas OR v_esperado_monto_anulado <> v_monto_anulado) THEN
-    RAISE EXCEPTION 'DETENTE: el dry-run dijo anuladas=% monto=% y ahora son anuladas=% monto=% (los datos cambiaron). Repite el dry-run. Nada se guardó.',
-      v_esperado_anuladas, v_esperado_monto_anulado, v_anuladas, v_monto_anulado;
+  SELECT string_agg(format('%s=%s+agua%s', unidad, monto, agua_corte), ' ' ORDER BY unidad) INTO v_montos FROM _b18_rentas;
+
+  -- (c) Cargos pendientes desde el corte a ajustar a la renta nueva. El agua de cada
+  --     cargo es la vigente para SU mes (como el cron), así el total cuadra.
+  CREATE TEMP TABLE _b18_ajustar (
+    payment_id uuid PRIMARY KEY, contract_id uuid, unidad text, amount_antes numeric,
+    agua numeric, rent_nuevo numeric, amount_nuevo numeric, due_date date
+  ) ON COMMIT DROP;
+  IF v_ajustar_cargos_post_corte THEN
+    FOR r IN SELECT py.id, py.contract_id, py.amount, py.due_date, py.rent_amount, py.water_fee,
+                    re.unidad, re.building_id, re.monto, re.total, re.incluye_agua
+               FROM public.payments py JOIN _b18_rentas re ON re.contract_id = py.contract_id
+              WHERE py.ancillary_charge_id IS NULL AND py.status::text = ANY (v_estatus_anulables)
+                AND py.due_date >= v_fecha_corte
+    LOOP
+      EXECUTE c_sql_agua INTO v_agua USING v_org, r.building_id, r.due_date;
+      CONTINUE WHEN r.rent_amount IS NOT DISTINCT FROM r.monto AND r.water_fee IS NOT DISTINCT FROM v_agua
+                    AND r.amount IS NOT DISTINCT FROM r.monto + v_agua;
+      INSERT INTO _b18_ajustar VALUES (r.id, r.contract_id, r.unidad, r.amount, v_agua, r.monto, r.monto + v_agua, r.due_date);
+    END LOOP;
+    SELECT count(*) INTO v_n FROM _b18_ajustar a JOIN _b18_sucio s ON s.payment_id = a.payment_id;
+    IF v_n > 0 THEN
+      RAISE EXCEPTION 'DETENTE: % cargo(s) a ajustar tienen dinero, confirmación, abonos, bitácora, CFDI o intent de Stripe. Nada se guardó.', v_n;
+    END IF;
+    -- Con «incluye agua», el cargo del mes del corte debe quedar exactamente en el total pactado.
+    SELECT count(*) INTO v_n
+      FROM _b18_ajustar a JOIN _b18_rentas re ON re.contract_id = a.contract_id
+     WHERE re.incluye_agua AND date_trunc('month', a.due_date) = date_trunc('month', v_fecha_corte)
+       AND a.amount_nuevo <> re.total;
+    IF v_n > 0 THEN
+      RAISE EXCEPTION 'DETENTE: % cargo(s) «incluye agua» no cuadran con el total pactado. Nada se guardó.', v_n;
+    END IF;
+  END IF;
+
+  -- (d) D301: pagos jul–oct solo si no hay ya dinero o recibos de esos meses.
+  IF v_registrar_pagos_d301 THEN
+    SELECT count(*) INTO v_n
+      FROM public.payments py JOIN public.contracts c ON c.id = py.contract_id
+     WHERE c.org_id = v_org
+       AND ((c.unit_id = (v_uid->>'D301')::uuid
+             AND py.due_date >= date_trunc('month', v_d301_inicio)
+             AND py.due_date < date_trunc('month', v_fecha_corte) + interval '1 month'
+             AND (py.status::text IN ('paid', 'partial') OR COALESCE(py.amount_paid, 0) <> 0))
+         OR COALESCE(py.reference, '') ILIKE 'BaW-D301-%'
+         OR COALESCE(py.notes, '') ILIKE '%BaW-D301-%');
+    IF v_n = 0 THEN
+      SELECT count(*) INTO v_n FROM public.payment_receipts x
+       WHERE x.org_id = v_org AND COALESCE(x.reference, '') ILIKE 'BaW-D301-%';
+    END IF;
+    IF v_n > 0 THEN
+      RAISE EXCEPTION 'DETENTE: ya hay % cargo(s)/recibo(s) de D301 jul–oct o con referencia BaW-D301-…; registrar los pagos los duplicaría. Nada se guardó.', v_n;
+    END IF;
+  END IF;
+
+  -- Occupant del contrato nuevo de D301 (solo no archivados).
+  SELECT count(*), min(o.id::text)::uuid INTO v_n, v_occ
+    FROM public.occupants o
+   WHERE o.org_id = v_org AND o.archived_at IS NULL AND lower(btrim(o.name)) = lower(btrim(v_d301_titular));
+  IF v_n > 1 THEN
+    RAISE EXCEPTION 'DETENTE: hay % occupants llamados «%» en la org; deja uno. Nada se guardó.', v_n, v_d301_titular;
+  END IF;
+
+  -- (e) Huella del plan completo: si algo cambia entre el dry-run y la aplicación, no coincide.
+  SELECT left(md5(concat_ws('|',
+      v_fecha_corte, v_anular_octubre_d102, v_registrar_pagos_d301, v_ajustar_cargos_post_corte,
+      (SELECT string_agg(format('%s:%s:%s', a.payment_id, a.regla, a.amount), ',' ORDER BY a.payment_id) FROM _b18_anular a),
+      (SELECT string_agg(format('%s:%s>%s', a.payment_id, a.amount_antes, a.amount_nuevo), ',' ORDER BY a.payment_id) FROM _b18_ajustar a),
+      (SELECT string_agg(format('%s:%s', contract_id, monto), ',' ORDER BY contract_id) FROM _b18_rentas),
+      (SELECT string_agg(format('%s:%s:%s:%s:%s:%s', c.id, c.status, c.end_date, c.billing_start_date, c.monthly_amount, c.payment_day),
+                         ',' ORDER BY c.id) FROM public.contracts c WHERE c.id = ANY (c_ids)),
+      (SELECT string_agg(format('%s:%s', u.number, u.status), ',' ORDER BY u.number)
+         FROM public.units u WHERE u.org_id = v_org AND u.number = ANY (c_unidades_tocadas)),
+      COALESCE(v_occ::text, 'occupant_nuevo'))), 12)
+    INTO v_huella;
+
+  IF v_aplicar AND v_esperado_huella IS NULL THEN
+    RAISE EXCEPTION 'DETENTE: para aplicar copia del dry-run v_esperado_huella := ''%''. Nada se guardó.', v_huella;
+  END IF;
+  IF v_aplicar AND v_esperado_huella <> v_huella THEN
+    RAISE EXCEPTION 'DETENTE: la huella del dry-run (%) no coincide con la de ahora (%): los datos cambiaron. Repite el dry-run. Nada se guardó.',
+      v_esperado_huella, v_huella;
   END IF;
 
   -- ════════════════════════════ 1. ANULAR CARGOS ════════════════════════════
   -- jsonb_populate_record convierte el texto al tipo real de la columna (ENUM o TEXT).
+  -- Las guardas se revalidan en el propio UPDATE.
   WITH antes AS (
     SELECT py.id, to_jsonb(py) AS before_data, a.regla
       FROM public.payments py JOIN _b18_anular a ON a.payment_id = py.id
@@ -384,7 +496,7 @@ BEGIN
       FROM _b18_anular a
      WHERE py.id = a.payment_id
        AND py.status::text = ANY (v_estatus_anulables)
-       AND COALESCE(py.amount_paid, 0) = 0
+       AND NOT EXISTS (SELECT 1 FROM _b18_sucio s WHERE s.payment_id = py.id)
     RETURNING py.id, to_jsonb(py) AS after_data
   )
   INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
@@ -408,8 +520,10 @@ BEGIN
        SET status   = (jsonb_populate_record(NULL::public.contracts, jsonb_build_object('status', r.n_status))).status,
            end_date = r.n_end,
            notes    = concat_ws(' · ', NULLIF(c.notes, ''), v_tag || ': ' || r.nota)
-     WHERE c.id = r.cid
+     WHERE c.id = r.cid AND c.status::text = 'active'
     RETURNING to_jsonb(c) INTO v_after;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n <> 1 THEN RAISE EXCEPTION 'DETENTE: no se pudo cerrar el contrato de %. Nada se guardó.', r.unidad; END IF;
     INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
     VALUES (v_org, 'human', v_actor, 'baw18.fase_b.contract.update', 'contract', r.cid, v_before, v_after,
             jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'regla', 'cerrar_' || r.unidad));
@@ -420,88 +534,56 @@ BEGIN
   -- Estatus y end_date NO se tocan (Fase B2). Siguen 'active' con end_date vencida:
   -- Mission Control y el cron no miran end_date (src/app/page.tsx:179-182,
   -- src/app/api/cron/payments/route.ts:66-70), así que cobran desde el corte.
-  FOR r IN SELECT * FROM (VALUES
-      (c_d203, 'D203', v_d203_total, v_d203_incluye_agua),
-      (c_d204, 'D204', v_d204_total, v_d204_incluye_agua),
-      (c_d302, 'D302', v_d302_total, v_d302_incluye_agua)
-    ) AS t(cid, unidad, total, incluye_agua)
-  LOOP
-    SELECT u.building_id INTO v_building FROM public.units u WHERE u.id = (v_uid->>r.unidad)::uuid;
-    v_agua := 250;  -- fallback de src/lib/cobros.ts (WATER_FEE_DEFAULT)
-    IF to_regclass('public.service_rates') IS NOT NULL THEN
-      SELECT COALESCE((SELECT sr.amount FROM public.service_rates sr
-                        WHERE sr.org_id = v_org AND sr.service = 'agua'
-                          AND to_char(sr.effective_from::date, 'YYYY-MM') <= to_char(v_fecha_corte, 'YYYY-MM')
-                          AND (sr.building_id = v_building OR sr.building_id IS NULL)
-                        ORDER BY (sr.building_id IS NOT DISTINCT FROM v_building) DESC, sr.effective_from DESC
-                        LIMIT 1), 250) INTO v_agua;
-    END IF;
-    v_monto := r.total - CASE WHEN r.incluye_agua THEN v_agua ELSE 0 END;
-    IF v_monto <= 0 THEN
-      RAISE EXCEPTION 'DETENTE: renta resultante % para % (total %, agua %). Nada se guardó.', v_monto, r.unidad, r.total, v_agua;
-    END IF;
-    v_montos := v_montos || format('%s=%s+agua%s ', r.unidad, v_monto, v_agua);
-
-    SELECT to_jsonb(c) INTO v_before FROM public.contracts c WHERE c.id = r.cid;
+  FOR r IN SELECT * FROM _b18_rentas ORDER BY unidad LOOP
+    SELECT to_jsonb(c) INTO v_before FROM public.contracts c WHERE c.id = r.contract_id;
     UPDATE public.contracts c
        SET billing_start_date = v_fecha_corte,
-           monthly_amount     = v_monto,
+           monthly_amount     = r.monto,
            notes              = concat_ws(' · ', NULLIF(c.notes, ''),
                                   format('%s: contrato vencido el %s, sin renovar (Fase B2); se cobra desde el corte; renta real %s/mes (%s); antes monthly_amount=%s',
                                          v_tag, c.end_date, r.total,
                                          CASE WHEN r.incluye_agua THEN 'incluye agua' ELSE 'más agua' END,
                                          c.monthly_amount))
-     WHERE c.id = r.cid
+     WHERE c.id = r.contract_id AND c.status::text = 'active'
     RETURNING to_jsonb(c) INTO v_after;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    IF v_n <> 1 THEN RAISE EXCEPTION 'DETENTE: no se pudo actualizar el contrato de %. Nada se guardó.', r.unidad; END IF;
     INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
-    VALUES (v_org, 'human', v_actor, 'baw18.fase_b.contract.update', 'contract', r.cid, v_before, v_after,
+    VALUES (v_org, 'human', v_actor, 'baw18.fase_b.contract.update', 'contract', r.contract_id, v_before, v_after,
             jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'regla', 'renta_y_corte_' || r.unidad));
     v_contratos_actualizados := v_contratos_actualizados + 1;
-
-    -- Cargos pendientes desde el corte (p. ej. octubre) a la renta nueva.
-    IF v_ajustar_cargos_post_corte THEN
-      WITH antes AS (
-        SELECT py.id, to_jsonb(py) AS before_data, py.amount AS amount_antes
-          FROM public.payments py
-         WHERE py.contract_id = r.cid AND py.ancillary_charge_id IS NULL
-           AND py.status::text = ANY (v_estatus_anulables) AND py.due_date >= v_fecha_corte
-           AND COALESCE(py.amount_paid, 0) = 0
-           AND NOT EXISTS (SELECT 1 FROM public.payment_ledger l WHERE l.payment_id = py.id)
-           AND (to_regclass('public.payment_receipts') IS NULL
-                OR NOT EXISTS (SELECT 1 FROM public.payment_receipts x WHERE x.payment_id = py.id))
-           AND (py.rent_amount IS DISTINCT FROM v_monto
-                OR py.amount IS DISTINCT FROM v_monto + COALESCE(py.water_fee, v_agua))
-      ), upd AS (
-        UPDATE public.payments py
-           SET rent_amount = v_monto,
-               water_fee   = COALESCE(py.water_fee, v_agua),
-               amount      = v_monto + COALESCE(py.water_fee, v_agua),
-               notes       = concat_ws(' · ', NULLIF(py.notes, ''), v_tag || ': ajustado a la renta real'),
-               updated_at  = now()
-          FROM antes WHERE py.id = antes.id
-        RETURNING py.id, to_jsonb(py) AS after_data, py.amount AS amount_despues
-      )
-      INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
-      SELECT v_org, 'human', v_actor, 'baw18.fase_b.payment.update', 'payment', upd.id, antes.before_data, upd.after_data,
-             jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'regla', 'renta_real_' || r.unidad,
-                                'delta', upd.amount_despues - antes.amount_antes)
-        FROM upd JOIN antes ON antes.id = upd.id;
-      GET DIAGNOSTICS v_n = ROW_COUNT;
-      v_cargos_ajustados := v_cargos_ajustados + v_n;
-    END IF;
   END LOOP;
 
-  SELECT COALESCE(sum((metadata->>'delta')::numeric), 0) INTO v_cargos_ajuste_delta
-    FROM public.audit_log WHERE action = 'baw18.fase_b.payment.update' AND metadata->>'run_id' = v_run::text;
+  -- Cargos pendientes desde el corte → renta nueva (guardas revalidadas en el UPDATE).
+  WITH antes AS (
+    SELECT py.id, to_jsonb(py) AS before_data, a.unidad, a.amount_nuevo - a.amount_antes AS delta
+      FROM public.payments py JOIN _b18_ajustar a ON a.payment_id = py.id
+  ), upd AS (
+    UPDATE public.payments py
+       SET rent_amount = a.rent_nuevo,
+           water_fee   = a.agua,
+           amount      = a.amount_nuevo,
+           notes       = concat_ws(' · ', NULLIF(py.notes, ''), v_tag || ': ajustado a la renta real'),
+           updated_at  = now()
+      FROM _b18_ajustar a
+     WHERE py.id = a.payment_id
+       AND py.status::text = ANY (v_estatus_anulables)
+       AND py.amount IS NOT DISTINCT FROM a.amount_antes
+       AND NOT EXISTS (SELECT 1 FROM _b18_sucio s WHERE s.payment_id = py.id)
+    RETURNING py.id, to_jsonb(py) AS after_data
+  )
+  INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
+  SELECT v_org, 'human', v_actor, 'baw18.fase_b.payment.update', 'payment', upd.id, antes.before_data, upd.after_data,
+         jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'regla', 'renta_real_' || antes.unidad, 'delta', antes.delta)
+    FROM upd JOIN antes ON antes.id = upd.id;
+  GET DIAGNOSTICS v_cargos_ajustados = ROW_COUNT;
+  SELECT count(*), COALESCE(sum(amount_nuevo - amount_antes), 0) INTO v_n, v_cargos_ajuste_delta FROM _b18_ajustar;
+  IF v_cargos_ajustados <> v_n THEN
+    RAISE EXCEPTION 'DETENTE: se ajustarían % de % cargos planeados. Nada se guardó.', v_cargos_ajustados, v_n;
+  END IF;
 
   -- ═══════════════════════════ 4. CONTRATO NUEVO DE D301 ═══════════════════════════
-  -- Occupant: reusar si ya existe (mismo nombre normalizado); crear si no.
-  SELECT count(*), min(o.id::text)::uuid INTO v_n, v_occ
-    FROM public.occupants o
-   WHERE o.org_id = v_org AND o.archived_at IS NULL AND lower(btrim(o.name)) = lower(btrim(v_d301_titular));
-  IF v_n > 1 THEN
-    RAISE EXCEPTION 'DETENTE: hay % occupants llamados «%» en la org; deja uno. Nada se guardó.', v_n, v_d301_titular;
-  ELSIF v_n = 1 THEN
+  IF v_occ IS NOT NULL THEN
     v_ocupantes_reusados := 1;
   ELSE
     INSERT INTO public.occupants (org_id, name, notes)
@@ -533,7 +615,7 @@ BEGIN
   VALUES (v_org, 'human', v_actor, 'baw18.fase_b.contract.insert', 'contract', v_d301_nuevo, NULL, v_after,
           jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'regla', 'contrato_nuevo_D301'));
   v_contratos_creados := 1;
-  v_montos := v_montos || format('D301=%s+agua(cálculo de MC) ', v_d301_renta);
+  v_montos := v_montos || format(' D301=%s+agua', v_d301_renta);
 
   -- D301: cargos jul–oct pagados (solo si Fran lo pide). Modelo «pago directo en el
   -- cargo», igual que conserje/Stripe (src/app/api/conserje/cobros/[id]/route.ts:44-58).
@@ -602,12 +684,12 @@ BEGIN
   END;
 
   v_resumen := format(
-    'lote=%s · corte=%s · hoy=%s · contratos_cerrados=%s · contratos_actualizados=%s · contratos_creados=%s · '
+    'huella=%s · lote=%s · corte=%s · hoy=%s · contratos_cerrados=%s · contratos_actualizados=%s · contratos_creados=%s · '
     'ocupantes_creados=%s · ocupantes_reusados=%s · unidades_cambiadas=%s · anuladas=%s · monto_anulado=%s · '
     'cargos_ajustados=%s (delta %s) · pagos_d301_registrados=%s · accesorios_pre_corte_sin_tocar=%s · rentas[%s] · '
     'MC_antes=%s meses $%s (%s sin fila) · MC_despues=%s meses $%s (%s sin fila) · MC_despues_detalle=[%s] · '
     'deuda_fuera_de_MC (contratos cerrados)=$%s [%s] · veredicto=%s',
-    v_run, v_fecha_corte, v_hoy, v_contratos_cerrados, v_contratos_actualizados, v_contratos_creados,
+    v_huella, v_run, v_fecha_corte, v_hoy, v_contratos_cerrados, v_contratos_actualizados, v_contratos_creados,
     v_ocupantes_creados, v_ocupantes_reusados, v_unidades_cambiadas, v_anuladas, v_monto_anulado,
     v_cargos_ajustados, v_cargos_ajuste_delta, v_pagos_d301, v_accesorios_sin_tocar, btrim(v_montos),
     v_mc_antes_n, v_mc_antes_total, v_mc_antes_sinfila, v_mc_desp_n, v_mc_desp_total, v_mc_desp_sinfila,
@@ -616,7 +698,7 @@ BEGIN
   -- Cabecera del lote (la reversa la usa como índice).
   INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
   VALUES (v_org, 'human', v_actor, 'baw18.fase_b.lote', 'lote', v_run, NULL, NULL,
-          jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'fecha_corte', v_fecha_corte, 'hoy', v_hoy,
+          jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'huella', v_huella, 'fecha_corte', v_fecha_corte, 'hoy', v_hoy,
                              'anular_octubre_d102', v_anular_octubre_d102, 'registrar_pagos_d301', v_registrar_pagos_d301,
                              'st_terminado', v_st_terminado, 'st_d301_viejo', v_st_d301_viejo, 'resumen', v_resumen));
 
@@ -630,7 +712,7 @@ BEGIN
 
   DROP TABLE IF EXISTS pg_temp._b18_resumen;
   CREATE TEMP TABLE _b18_resumen AS
-  SELECT v_veredicto AS veredicto, v_run AS run_id, v_fecha_corte AS fecha_corte,
+  SELECT v_veredicto AS veredicto, v_run AS run_id, v_huella AS huella, v_fecha_corte AS fecha_corte,
          v_anuladas AS anuladas, v_monto_anulado AS monto_anulado,
          v_contratos_cerrados AS contratos_cerrados, v_contratos_actualizados AS contratos_actualizados,
          v_contratos_creados AS contratos_creados, v_unidades_cambiadas AS unidades_cambiadas,
