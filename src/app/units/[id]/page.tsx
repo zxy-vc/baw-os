@@ -353,9 +353,10 @@ export default function UnitDetailPage() {
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     p.status === 'paid' ? 'bg-green-500/15 text-green-600 dark:text-green-400' :
                     p.status === 'late' ? 'bg-red-500/15 text-red-500' :
+                    p.status === 'void' ? 'bg-gray-500/15 text-gray-500' :
                     'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
                   }`}>
-                    {p.status === 'paid' ? 'Pagado' : p.status === 'late' ? 'Atrasado' : 'Pendiente'}
+                    {p.status === 'paid' ? 'Pagado' : p.status === 'late' ? 'Atrasado' : p.status === 'void' ? 'Anulado' : 'Pendiente'}
                   </span>
                 </div>
               </div>

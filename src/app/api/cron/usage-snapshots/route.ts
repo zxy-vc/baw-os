@@ -10,6 +10,7 @@
 // tienen ningún abono (Stripe/conserje/legacy marcan payments directo).
 import { NextResponse } from 'next/server'
 import { createServiceClient, timingSafeEqualStr } from '@/lib/api-auth'
+import { isVoidCharge } from '@/lib/billing'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,7 +73,7 @@ export async function GET(request: Request) {
             .lte('paid_date', end),
           supabase
             .from('payments')
-            .select('id, amount_paid')
+            .select('id, amount_paid, status')
             .eq('org_id', orgId)
             .gte('paid_date', start)
             .lte('paid_date', end)
@@ -105,8 +106,9 @@ export async function GET(request: Request) {
         (s, r) => s + Number(r.amount || 0),
         0,
       )
+      // Un cargo anulado (BAW-18) no es dinero cobrado.
       const directSum = (paidR.data ?? [])
-        .filter((p) => !withReceipts.has(p.id))
+        .filter((p) => !withReceipts.has(p.id) && !isVoidCharge(p.status))
         .reduce((s, p) => s + Number(p.amount_paid || 0), 0)
       const gmv = Math.round((receiptsSum + directSum) * 100) / 100
 

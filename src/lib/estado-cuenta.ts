@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MoraLevel } from '@/lib/mora-engine'
+import { isVoidCharge } from '@/lib/billing'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -150,9 +151,10 @@ export function computeEstadoCuenta(
   const corte = corteISO ?? periodEndOf(periodo)
   const corteDate = new Date(corte)
 
-  // Solo renglones con due_date <= corte entran al documento.
+  // Solo renglones con due_date <= corte entran al documento; los anulados
+  // (BAW-18) no son cargo ni saldo.
   const rows = payments
-    .filter((p) => p.due_date <= corte)
+    .filter((p) => p.due_date <= corte && !isVoidCharge(p.status))
     .sort((a, b) => a.due_date.localeCompare(b.due_date))
 
   let saldoAnterior = 0
