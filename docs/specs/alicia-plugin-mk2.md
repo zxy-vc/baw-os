@@ -1,5 +1,10 @@
 # Spec — Reconstrucción del conector BaW OS para Alicia (MK2)
 
+> ## ⚠️ LEGACY — Alicia retirada (BAW-26, 2026-10-16)
+> Fran apagó a Alicia (`alicia-ops`). El agente operador ahora es **Hugo** (`hugo-cos`) y su
+> conector se especifica en [`hugo-openclaw-mk2.md`](./hugo-openclaw-mk2.md). Este spec se
+> conserva por trazabilidad; no construir un conector para Alicia.
+
 **Status:** propuesto · pendiente de construir
 **Audience:** quien construya el plugin del lado OpenClaw (Mac Studio M4 Max) + Fran
 **Repos involucrados:** `baw-os` (servidor, ya listo) · `openclaw-skill-baw-os` (plugin, a reconstruir)

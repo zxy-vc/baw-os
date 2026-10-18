@@ -47,6 +47,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     })
     .eq('id', id)
     .eq('agent_id', auth.agentId) // cada agente solo cierra sus propias interacciones
+    .eq('org_id', auth.orgId) // …de la org de su credencial
     .in('status', ['received', 'processing', 'deferred']) // no reabrir cerradas
     .select('id, agent_id, status, completed_at')
     .maybeSingle()

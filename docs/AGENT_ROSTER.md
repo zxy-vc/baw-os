@@ -1,6 +1,8 @@
 # BaW OS — Agent Roster
 
-> Quiénes son los agentes que operan BaW OS. Última actualización: 2026-05-03 (post ADR-016).
+> Quiénes son los agentes que operan BaW OS. Última actualización: 2026-10-16 (BAW-26: Hugo reemplaza a Alicia como agente operador).
+>
+> **Estado vivo (2026-10-16):** el único agente operador conectado es **Hugo** (`hugo-cos`). **Alicia** (`alicia-ops`) está **retirada** (`status='retired'`, migración `20261016010000`): no es chateable ni recibe credenciales; su historial se conserva. Conector de Hugo: [`specs/hugo-openclaw-mk2.md`](./specs/hugo-openclaw-mk2.md).
 >
 > **Aclaración crítica:** existe **un solo humano** en este sistema: **Fran**. Todas las demás entidades nombradas (Hugo, Alicia, Beto, Maribel, Luis, Rafa, Andrés, etc.) son **agentes de IA**. Nunca deben ser referidas como personas en código, copy, error messages, audit logs o commits.
 >
@@ -21,12 +23,12 @@
 | **Nativo BaW OS** | `inteligencia` | 3 | Reportes, Auditoría, Fiscal | Concept-only, Sprint 7+ |
 | **Third Party (ZXY)** | `third-party` | 7 | Hugo-COS, Alicia-Ops, Beto-Conta, Maribel-Law, Luis-Growth, Andrés-CTO, Rafa-Research | Operativos en M1 de Fran (OpenClaw) |
 
-**Conexión a BaW OS production (Sprint 5A en curso):**
+**Conexión a BaW OS production (BAW-26, 2026-10-16):**
 
 | Agente | Conectado | Scopes | Canal | Notas |
 |---|---|---|---|---|
-| Alicia-Ops | ✅ Sprint 5A | incidents:rw, tasks:rw, units:r, contracts:r, payments:r, approvals:r | Discord `#baw-os-operations` | Puente operativo principal |
-| Hugo-COS | ⏸️ Diferido | TBD | TBD | Chief of Staff de ZXY entero, no operador BaW específico |
+| Hugo-COS | 🟡 Beta · por encender | Preset «Operador» (21): lectura amplia + escrituras v1 + `interactions:rw`. Nunca `approvals:resolve` ni `agents:run` | Chat in-app + Discord `#baw-os` (long-poll `/v1/interactions`) | **Agente operador del 809.** Encender: credencial + plugin OpenClaw |
+| Alicia-Ops | ⛔ Retirada (BAW-26) | — (credenciales revocadas) | — | Apagada por Fran. Historial conservado |
 | Beto-Conta | ⏸️ Sprint 5B+ | payments:r, reports:r | Discord (futuro) | Reportes financieros |
 | Maribel-Law | ⏸️ Sprint 5B+ | contracts:r, contracts:w | Discord (futuro) | Registro contratos |
 | Luis-Growth | ⏸️ Sprint 6+ | TBD | TBD | Bloqueado por accesos GA4/Meta/etc |
@@ -39,16 +41,18 @@
 
 Agentes externos que **operan en nombre de la org BaW** vía API pública con identidad propia.
 
-### Hugo Sánchez — Chief of Staff
+### Hugo Sánchez — Agente operador del 809 (desde BAW-26)
 
 - `id`: `hugo-cos`
-- **Rol:** orquestador. Recibe instrucciones del humano CEO/CoS y delega a Alicia, Beto, Maribel, Luis, Andrés, Rafa. Sintetiza outputs y rinde cuentas.
-- **Autonomy default:** L2 (approve each delegation)
-- **Scopes default:** `agents:run`, `runs:read`, `tasks:read`, `tasks:write`, `messages:send`, `insights:read`
-- **Patrón:** supervisor. Nunca actúa directo en payments/contracts/CFDI; siempre delega.
-- **Acción típica:** "Coordina cierre mensual: ejecuta Beto-Conta, espera resultado, dispara Reportes."
+- **Rol (2026-10-16):** agente operador del 809. Fran le pide cosas desde el **chat in-app** (botón «Hugo») o Discord y Hugo las registra vía API v1. Reemplaza a Alicia. Ya no es supervisor de solo lectura.
+- **Scopes:** preset **«Operador»** (`OPERATOR_SCOPES` en `src/lib/agents/roster.ts`): lectura amplia (`units`, `reservations`, `payments`, `contracts`, `occupants`, `incidents`, `tasks`, `runs`, `insights`, `approvals`, `agents`), escrituras v1 (`units`, `payments`, `contracts`, `occupants`, `incidents`, `tasks`, `messages:send`, `lifecycle:archive`) e `interactions:read/write`. **Nunca** `approvals:resolve` ni `agents:run`.
+- **Guardrails:** cada escritura pasa por el classifier; los candados duros (`payment.charge/refund`, `cfdi.emit`, `contract.sign/terminate`, `policy.modify`, `lifecycle.archive`) siempre piden aprobación de Fran. Solo owners/admins de la org pueden darle órdenes por chat.
+- **Acción típica:** "Registra el pago en efectivo de D104 de octubre."
+- _Rol anterior (hasta 2026-10): Chief of Staff ZXY / supervisor read-only de Alicia (ver `runbooks/hugo-cos-connect.md`, superseded)._
 
-### Alicia Cervantes — COO / Operadora Virtual BaW Mateos 809P
+### Alicia Cervantes — COO / Operadora Virtual BaW Mateos 809P · ⛔ RETIRADA (BAW-26)
+
+> Apagada por Fran el 2026-10-16. `status='retired'`, sin credenciales activas, fuera del chat y del catálogo `/agents`. Runs, approvals, interacciones y conversaciones se conservan. Lo de abajo es histórico.
 
 - `id`: `alicia-ops`
 - **Rol:** operaciones diarias del producto BaW. Tiene acceso amplio a unidades, reservas, incidencias.
@@ -202,8 +206,8 @@ Agentes externos que **operan en nombre de la org BaW** vía API pública con id
 
 | Agente | Family | Autonomía default | Scopes count | Riesgo principal |
 |---|---|---:|---:|---|
-| Hugo-COS | third-party | L2 | 6 | Mala delegación |
-| Alicia-Ops | third-party | L3 | 8+ | Volumen alto |
+| Hugo-COS (operador) | third-party | L2 | 21 (preset Operador) | Volumen / acciones por chat |
+| Alicia-Ops (retirada) | third-party | — | 0 | — |
 | Beto-Conta | third-party | L1 | 4 | Dinero |
 | Maribel-Law | third-party | L1 | 4 | Legal |
 | Luis-Growth | third-party | L2 | 4 | Spam |

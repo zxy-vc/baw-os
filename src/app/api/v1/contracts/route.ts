@@ -3,6 +3,7 @@ import { v1Read, v1Write } from '@/lib/agents/v1/handler'
 import { v1Ok, v1Error } from '@/lib/agents/v1/responses'
 import { parsePagination, makeCursor } from '@/lib/agents/v1/pagination'
 import { createServiceClient } from '@/lib/supabase'
+import { findForeignRef } from '@/lib/agents/v1/org-refs'
 
 export const GET = v1Read({
   scopes: ['contracts:read'],
@@ -82,6 +83,12 @@ export const POST = v1Write<ContractCreateBody>({
   },
   handler: async ({ auth, body, recordAction }) => {
     const supabase = createServiceClient()
+    const foreign = await findForeignRef(supabase, auth.orgId, [
+      { table: 'units', id: body.unit_id, field: 'unit_id' },
+      { table: 'occupants', id: body.occupant_id, field: 'occupant_id' },
+    ])
+    if (foreign) return v1Error('not_found', `${foreign} not found in this organization`, 404)
+
     const { data, error } = await supabase
       .from('contracts')
       .insert({
