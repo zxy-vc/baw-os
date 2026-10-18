@@ -125,7 +125,7 @@ export default function UnidadCalendarioPage() {
           supabase.from('str_seasons').select('*').order('start_date'),
         ])
 
-        // Fase 3: bloqueos + overrides de precio. Si la migración 20260703_03
+        // Fase 3: bloqueos + overrides de precio. Si la migración 20260703030000
         // no está aplicada, estas queries fallan y degradamos sin ellas.
         const [blocksRes, overridesRes] = await Promise.all([
           supabase
@@ -909,7 +909,7 @@ function RangePanel({
             </button>
           </div>
           <p className="text-[10px] muted-text">
-            Gana sobre tarifa base × temporada. Requiere la migración 20260703_03 aplicada.
+            Gana sobre tarifa base × temporada. Requiere la migración 20260703030000 aplicada.
           </p>
         </div>
       </div>
@@ -1026,7 +1026,7 @@ function RangePanel({
         </div>
         <p className="text-[10px] muted-text">
           La unidad se pinta como no disponible esos días (sin tocar su status). El bloqueo se
-          puede mover/quitar desde el timeline. Requiere la migración 20260703_03.
+          puede mover/quitar desde el timeline. Requiere la migración 20260703030000.
         </p>
       </div>
 

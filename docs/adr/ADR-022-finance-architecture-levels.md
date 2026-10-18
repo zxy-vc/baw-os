@@ -21,7 +21,7 @@ Definición de Fran (2026-07-04): *Plataforma > Property Management Company > Pr
 | **A5** | **Pagador** | `payer` | Quien pone el dinero: empresa (housing B2B), huésped que reserva, o el propio titular | `contracts.payer_occupant_id`, `engagements.payer_occupant_id`, `occupants.kind = 'empresa'` |
 | **A6** | **Ocupantes** | `occupants` / `guests` | Quienes habitan la unidad (residentes o huéspedes) | `stay_occupants`, `reservations.guest_*` |
 
-**Nota estructural importante:** A4-A6 no son personas necesariamente distintas — son **roles de la parte residente** que el modelo debe permitir separar. En el caso simple (inquilino individual) una misma persona es titular, pagador y ocupante. Los casos que obligan a separarlos ya existen en producción: empresa que paga por sus empleados (payer = empresa, titulares/ocupantes = empleados), papá que paga por estudiante, huésped que reserva para su familia. El refactor party/payer de junio (`20260627_party_kind_payer.sql`, `20260627_stay_occupants.sql`, `engagements`) ya tomó exactamente esta dirección — este ADR lo eleva a taxonomía canónica.
+**Nota estructural importante:** A4-A6 no son personas necesariamente distintas — son **roles de la parte residente** que el modelo debe permitir separar. En el caso simple (inquilino individual) una misma persona es titular, pagador y ocupante. Los casos que obligan a separarlos ya existen en producción: empresa que paga por sus empleados (payer = empresa, titulares/ocupantes = empleados), papá que paga por estudiante, huésped que reserva para su familia. El refactor party/payer de junio (`20260627010000_party_kind_payer.sql`, `20260627020000_stay_occupants.sql`, `engagements`) ya tomó exactamente esta dirección — este ADR lo eleva a taxonomía canónica.
 
 A3 (Proveedor) tampoco es un eslabón "debajo" del propietario en la cadena de rentas: es un actor **lateral** al que la operadora le paga, y cuyo costo se refactura al propietario vía el estado de cuenta. Se lista en la jerarquía porque es un actor financiero de primera clase que hoy no está modelado.
 
@@ -81,14 +81,14 @@ Todas las sub-páginas (`/cobros`, `/invoices`, `/gastos`, `/mora`, `/ledger`, `
 |---|---|---|---|
 | D1 | Doble camino de captura: `/payments/new` (legacy, escribe `payments.amount_paid` directo, **sin `org_id`**, sin receipts/ledger) convive con `/cobros` (modelo nuevo) | `src/app/payments/new/page.tsx` | Alta |
 | D2 | Ruta huérfana: `/payments` está en `navigation.ts` routes[] pero no tiene `page.tsx`; el "volver" de `/payments/new` da 404 | `src/lib/navigation.ts:127` | Media |
-| D3 | `invoices.org_id` es **TEXT con default `'baw'`** (hardcodeado también en `POST /api/invoices`), inconsistente con el resto del multi-tenant (uuid) | `supabase/migrations/20260404_invoices.sql` | Alta |
+| D3 | `invoices.org_id` es **TEXT con default `'baw'`** (hardcodeado también en `POST /api/invoices`), inconsistente con el resto del multi-tenant (uuid) | `supabase/migrations/20260404020000_invoices.sql` | Alta |
 | D4 | RLS abierta o ausente en tablas de dinero: `invoices` y `payment_ledger` con `USING (true)`; `expenses` sin RLS en su migración | migraciones 20260401/20260403/20260404 | Alta |
 | D5 | Conserje escribe `payments` client-side detrás de un **PIN estático `1234`** | `src/app/[orgSlug]/conserje/page.tsx` (TabCobros) | Alta |
 | D6 | `ancillary_charges` no se materializa en cobranza (el cron "PR B3" nunca aterrizó): hoy es solo catálogo/proyección | `src/app/api/ancillary-charges/` | Media |
 | D7 | `GET /api/gastos` filtra por columna `date` que no existe (el esquema usa `expense_date`) — endpoint desalineado | `src/app/api/gastos/route.ts` | Baja |
 | D8 | Comisión de administración 10% hardcodeada y sin fuente en datos | `src/app/api/owner/[token]/route.ts:167` | Alta (bloquea Flujo B) |
 | D9 | ADR-009 (Stripe payouts interno) se referencia desde ADR-018 pero no existe en `docs/adr/` | — | Baja |
-| D10 | Proveedores sin entidad: `expenses.provider` texto libre, sin catálogo ni CxP | `supabase/migrations/20260401_expenses.sql` | Media (bloquea Flujo D) |
+| D10 | Proveedores sin entidad: `expenses.provider` texto libre, sin catálogo ni CxP | `supabase/migrations/20260401010000_expenses.sql` | Media (bloquea Flujo D) |
 
 ---
 

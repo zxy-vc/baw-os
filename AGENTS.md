@@ -356,8 +356,8 @@ node tests/agents/discord-custom-id.test.mjs # parser custom_id aprobaciones
 | `src/lib/agents/discord-verify.ts` | Verificación firma Ed25519 |
 | `src/lib/agents/auth.ts` | verifyAgentBearer + requireAgentAuth HOF |
 | `src/lib/agents/attribution.ts` | Badge "via Alicia" / "via Hugo" en mensajes y DB |
-| `supabase/migrations/20260523_agents_discord_interactions.sql` | agent_interactions + attribution columns |
-| `supabase/migrations/20260611_agent_approvals_discord_resolver.sql` | resolved_by_discord_user (ADR-021 D8) |
+| `supabase/migrations/20260523232305_agents_discord_interactions.sql` | agent_interactions + attribution columns |
+| `supabase/migrations/20260611010000_agent_approvals_discord_resolver.sql` | resolved_by_discord_user (ADR-021 D8) |
 | `docs/adr/ADR-021-third-party-agents-discord.md` | Decisiones arquitecturales |
 | `docs/runbooks/hugo-cos-connect.md` | Conexión de Hugo (supervisor read-only) |
 
