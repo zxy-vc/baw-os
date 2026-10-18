@@ -7,7 +7,7 @@
 > - `docs/audits/BAW-18-fase-b-reversa.sql`: deshace **un** lote.
 > - Código que reconoce `void` (§5).
 >
-> **Base:** `origin/main` @ `ad7a34c`. Datos de prod según Q0/Q1/Q3/Q4 corridas por Fran el 15-oct-2026 y su documento consolidado. Este PR no consultó la base.
+> **Base:** `origin/main` @ `20d6a5b` (ya incluye #164, BAW-3). Datos de prod según Q0/Q1/Q3/Q4 corridas por Fran el 15-oct-2026 y su documento consolidado. Este PR no consultó la base.
 
 ---
 
@@ -27,7 +27,7 @@ Los pagos cobrados antes del corte **nunca se registraron** en BaW OS: Fran tien
 | 2 | Anular renta `pending` anterior al corte | En los 6 contratos de Q3. También se anula la renta `pending` que vence **después del nuevo fin** de un contrato que se cierra (oct de D202; jul–oct del contrato viejo de D301) |
 | 3 | Cerrar D102 y D202 | `status = v_st_terminado` (`terminated`), `end_date` 2026-10-11 y 2026-09-30. Unidades → `available`. El cargo de oct de D102 **se queda** (deuda real) salvo `v_anular_octubre_d102` |
 | 3b | D303 → `available` | Sin contrato |
-| 4 | D301 | El contrato viejo `c38fdd8f…` pasa a `v_st_d301_viejo` (`expired`) con fin 2024-12-06. Se crea el nuevo: Rodrigo Jiménez Ontiveros (occupant nuevo si no existe uno activo con ese nombre), 2026-07-01 → 2026-12-31, $8,000 + agua, día 5. La columna `aval` es José Luis Bautista Cano (`supabase/migrations/20260330_contracts_legal.sql:3`); el cotitular D. Jacobsen y la fecha de firma van en `notes`. Cargos jul–oct **pagados** solo si `v_registrar_pagos_d301` |
+| 4 | D301 | El contrato viejo `c38fdd8f…` pasa a `v_st_d301_viejo` (`expired`) con fin 2024-12-06. Se crea el nuevo: Rodrigo Jiménez Ontiveros (occupant nuevo si no existe uno activo con ese nombre), 2026-07-01 → 2026-12-31, $8,000 + agua, día 5. La columna `aval` es José Luis Bautista Cano (`supabase/migrations/20260330010000_contracts_legal.sql:3`); el cotitular D. Jacobsen y la fecha de firma van en `notes`. Cargos jul–oct **pagados** solo si `v_registrar_pagos_d301` |
 | 5 | `billing_start_date = corte` | D203, D204, D302 y el nuevo de D301 |
 | 6 | `monthly_amount` real | D203, D204, D302 (ver §2: agua). Sus cargos `pending` desde el corte (octubre) se ajustan a la renta nueva, con el agua vigente de su mes (`v_ajustar_cargos_post_corte`). **Estatus y `end_date` no se tocan**: eso es la Fase B2 |
 | 7 | Saldo inicial | `v_cargar_saldos_iniciales` default `false`. Con `true` el script **se detiene** (§4) |
@@ -45,8 +45,9 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
 
 **Orden (estricto):**
 
-0. **Primero #164 (BAW-3) y su SQL de registro** (`docs/audits/BAW-3-registro-versiones.sql` de esa rama), con veredicto OK: 72 versiones, Local = Remote.
-   - Ese script se detiene si `20261015010000` ya aparece en `schema_migrations`: la cuenta como versión desconocida y, además, verifica que las reservadas sigan sin registrar (`docs/audits/BAW-3-registro-versiones.sql:10` y `:216-229` en la rama de #164). Por eso BAW-18 se registra **después**.
+0. ✅ **Hecho:** #164 (BAW-3) está mergeado (`20d6a5b`) y Fran corrió su SQL de registro en prod: 72 versiones, veredicto OK.
+   - Ese script reservaba `20261015010000` para BAW-18 y no lo registró (`docs/audits/BAW-3-registro-versiones.sql:10`, `docs/audits/BAW-3-registro-versiones.sql:216-229`). Por eso este PR lo registra en el paso 1b, **después** de aplicar la migración.
+   - No se debe volver a correr el SQL de BAW-3: con esta versión ya registrada se detendría, y está bien que lo haga.
 1. Mergear este PR (#171) y esperar el deploy, para que Cobranza, Cobros, estado de cuenta, reportes y portales reconozcan `void`.
 2. Luego, en el SQL Editor: migración (paso 1) → registro (paso 1b) → dry-run (paso 2) → aplicar (paso 3).
 
@@ -70,11 +71,11 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
    - `total_versiones` debe ser **73**: las 72 de BAW-3 más esta. Si ya se registró `20261014010000` (BAW-15), son 74.
    - Si sale `registrada = false` y `void_en_enum = false`, el paso 1 no se aplicó y no se registró nada: repite el paso 1 y luego este.
    - Después, `supabase migration list --linked` debe mostrar `20261015010000` en Local y Remote.
-   - **Manifiesto de BAW-3** (`supabase/ci/applied-migrations.sha256`, introducido por #164): fija el contenido de cada migración ya aplicada en prod; el job `db-reset` falla si alguna cambia. Esta migración se agrega con la línea:
+   - **Manifiesto de BAW-3** (`supabase/ci/applied-migrations.sha256`, de #164): fija el contenido de cada migración aplicada en prod. El job `db-reset` falla si alguna cambia (`supabase/ci/prepare-rebuild.sh:19`). Este PR agrega la línea de esta migración:
      ```
      d5b84b32a14e2ea0aaee69a04aea76cd3c43e7acf9eae88a6f222edb3917222d  20261015010000_baw18_payments_void.sql
      ```
-     Ese archivo todavía no existe en `main` (solo en la rama de #164). La línea entra a #171 al rebasarlo sobre `main` cuando #164 se mergee; ya se verificó localmente que, con #171 encima de #164, `sha256sum --check` del manifiesto pasa con 73 líneas.
+     Con ella, el manifiesto tiene 73 líneas, una por cada archivo de `supabase/migrations/`, y `sha256sum --check` pasa. Así, el archivo que Fran aplica en el paso 1 queda fijado byte por byte: si alguien lo editara después, el CI fallaría.
 2. **Dry-run.** Copiar **completo** `docs/audits/BAW-18-fase-b.sql`, sin editar → Run. Debe salir **en rojo** un error que empieza con:
    ```
    DRY-RUN OK (nada se guardó) · huella=xxxxxxxxxxxx · lote=… · corte=2026-10-01 · hoy=… · contratos_cerrados=3 · contratos_actualizados=3 · contratos_creados=1 · … · veredicto=OK
@@ -141,11 +142,11 @@ En prod los montos de mora persistida difieren (cobranza los reescribe a diario)
 - la huella no coincide;
 - piden saldos iniciales.
 
-**Bitácora.** Todo va en `audit_log` (`supabase/migrations/20260403_audit_log.sql:1-13`):
+**Bitácora.** Todo va en `audit_log` (`supabase/migrations/20260403010000_audit_log.sql:1-13`):
 
 - una fila por entidad tocada, con `before_data`/`after_data` y `metadata.run_id`;
 - una cabecera `baw18.fase_b.lote` con la huella, los parámetros y el resumen;
-- el `crm_contact` que crea el trigger al dar de alta un occupant (`supabase/migrations/20260625_crm_occupant_sync.sql:42-54`) también queda registrado.
+- el `crm_contact` que crea el trigger al dar de alta un occupant (`supabase/migrations/20260625010000_crm_occupant_sync.sql:42-54`) también queda registrado.
 
 **Reversa.** No usa DELETE:
 
@@ -169,7 +170,7 @@ Un cargo «Saldo anterior al corte» con `due_date = corte − 1 día` no funcio
 
 - **Mission Control no lo ve:** su mes es anterior a `billing_start_date` y la proyección empieza en el corte (`src/app/page.tsx:179-182`). Si se fechara dentro del corte, competiría con la renta del mes por la fila representante; solo una cuenta (`src/app/page.tsx:166-171`).
 - **Cobranza sí lo ve y le persistiría 10% de mora** cada día, como a cualquier fila no pagada (`src/lib/agents/cobranza.ts:87-107`, `src/lib/mora-engine.ts:32-40`): $3,225 sobre los $32,256 de D302 y $8,000 sobre los $80,000 de D402.
-- No hay columna para distinguir un saldo de una renta. `ancillary_charge_id` es para cargos accesorios (`supabase/migrations/20260616_03_payments_ancillary_link.sql:15`).
+- No hay columna para distinguir un saldo de una renta. `ancillary_charge_id` es para cargos accesorios (`supabase/migrations/20260616030000_payments_ancillary_link.sql:15`).
 
 **Propuesta para un PR aparte** (requiere OK de Fran, porque toca esquema y la regla de mora):
 

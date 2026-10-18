@@ -605,7 +605,7 @@ BEGIN
     VALUES (v_org, 'human', v_actor, 'baw18.fase_b.occupant.insert', 'occupant', v_occ, NULL, v_after,
             jsonb_build_object('run_id', v_run, 'ticket', 'BAW-18', 'regla', 'ocupante_D301'));
     v_ocupantes_creados := 1;
-    -- El trigger trg_crm_contact_for_occupant (20260625_crm_occupant_sync.sql:42-54) crea su crm_contact.
+    -- El trigger trg_crm_contact_for_occupant (20260625010000_crm_occupant_sync.sql:42-54) crea su crm_contact.
     IF to_regclass('public.crm_contacts') IS NOT NULL THEN
       INSERT INTO public.audit_log (org_id, actor_type, actor_id, action, entity_type, entity_id, before_data, after_data, metadata)
       SELECT v_org, 'human', v_actor, 'baw18.fase_b.crm_contact.insert', 'crm_contact', cc.id, NULL, to_jsonb(cc),
