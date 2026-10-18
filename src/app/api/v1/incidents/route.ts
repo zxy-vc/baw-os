@@ -3,6 +3,7 @@ import { v1Read, v1Write } from '@/lib/agents/v1/handler'
 import { v1Ok, v1Error } from '@/lib/agents/v1/responses'
 import { parsePagination, makeCursor } from '@/lib/agents/v1/pagination'
 import { createServiceClient } from '@/lib/supabase'
+import { incidentRefsOutsideOrg } from '@/lib/agents/v1/org-refs'
 
 export const GET = v1Read({
   scopes: ['incidents:read'],
@@ -71,6 +72,10 @@ export const POST = v1Write<IncidentCreateBody>({
   },
   handler: async ({ auth, body, recordAction }) => {
     const supabase = createServiceClient()
+    // BAW-11: unidad y reportante deben ser de la org del agente.
+    const foreign = await incidentRefsOutsideOrg(supabase, auth.orgId, body)
+    if (foreign) return v1Error('not_found', foreign, 404)
+
     const { data, error } = await supabase
       .from('incidents')
       .insert({

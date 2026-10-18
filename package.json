@@ -13,6 +13,7 @@
     "test": "vitest run && bash tests/v1/run-all.sh && bash tests/public-booking/run-all.sh && bash tests/agents/run-all.sh"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@react-pdf/renderer": "^4.5.1",
     "@stripe/stripe-js": "^3.5.0",
     "@supabase/ssr": "^0.5.2",
