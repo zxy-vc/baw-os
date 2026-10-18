@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAnonClient, createServiceClient } from '@/lib/public-booking/supabase-public'
-import { createCheckoutSession } from '@/lib/public-booking/stripe-public'
+import { createCheckoutSession, getStripePublic } from '@/lib/public-booking/stripe-public'
 import {
   featureDisabled,
   handlePreflight,
@@ -13,6 +13,13 @@ import { CheckoutRequest, CheckoutResponse } from '@/lib/public-booking/schemas'
 import { computeQuote } from '@/lib/public-booking/pricing'
 
 export const runtime = 'nodejs'
+
+// The Checkout session must close before the hold does, so a guest can never
+// pay for nights that were already released. Stripe's minimum session lifetime
+// is 30 min (31 leaves headroom for clock drift); the 29 extra hold minutes
+// cover webhook delivery. checkout.session.expired releases the hold earlier.
+const CHECKOUT_SESSION_TTL_MS = 31 * 60_000
+const HOLD_TTL_MS = 60 * 60_000
 
 export async function OPTIONS(request: NextRequest) {
   return handlePreflight(request.headers.get('origin'))
@@ -67,6 +74,34 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (cached && new Date(cached.expires_at) > new Date()) {
+    // The cache row lives 24 h but its Checkout session only 31 min. Never
+    // hand back a dead payment URL: the client must start over with a new key
+    // (reusing this one would hit the hold's and Stripe's idempotency keys).
+    const cachedResponse = cached.response as Partial<CheckoutResponse> | null
+    if (cachedResponse?.expires_at && new Date(cachedResponse.expires_at) <= new Date()) {
+      console.log(`action=checkout_start idem=${idempotencyKey} status=cache_hit_session_expired`)
+      const released = cachedResponse.session_id
+        ? await releaseExpiredCheckout(cachedResponse.session_id, svc)
+        : 'released' // legacy cache row without session id: nothing to check
+      if (released === 'paid') {
+        return withCors(
+          errorResponse('CHECKOUT_COMPLETED', 'This checkout was already paid.', 409),
+          origin,
+        )
+      }
+      if (released === 'unknown') {
+        // Keep the key: its hold is still in place, and only a retry with this
+        // same key can re-check the session and release it.
+        return withCors(
+          errorResponse('CHECKOUT_STATUS_UNAVAILABLE', 'Could not verify the previous checkout. Please retry.', 503),
+          origin,
+        )
+      }
+      return withCors(
+        errorResponse('CHECKOUT_EXPIRED', 'Checkout session expired. Retry with a new Idempotency-Key.', 409),
+        origin,
+      )
+    }
     console.log(`action=checkout_start idem=${idempotencyKey} status=cache_hit`)
     return withCors(NextResponse.json({ data: cached.response }), origin)
   }
@@ -84,6 +119,23 @@ export async function POST(request: NextRequest) {
       errorResponse('UNIT_NOT_FOUND', `Unit "${unit_slug}" not found`, 404),
       origin,
     )
+  }
+
+  // The public view deliberately does not expose tenant ownership. Resolve it
+  // through the service client and persist it in the hold before a customer can
+  // be sent to Stripe. The webhook must never derive tenant context from
+  // client-visible metadata.
+  const { data: unitOwnership, error: unitOwnershipErr } = await svc
+    .from('units')
+    .select('org_id')
+    .eq('id', unit.id)
+    .single()
+
+  if (unitOwnershipErr || !unitOwnership?.org_id) {
+    console.log(
+      `action=checkout_start unit=${unit_slug} error=unit_organization_missing msg=${unitOwnershipErr?.message ?? 'org_id missing'}`,
+    )
+    return withCors(errorResponse('UNIT_CONFIGURATION_ERROR', 'Unit is not configured for booking', 500), origin)
   }
 
   // ── Availability check ────────────────────────────────────────────────────
@@ -109,16 +161,26 @@ export async function POST(request: NextRequest) {
     return withCors(errorResponse('QUOTE_ERROR', msg), origin)
   }
 
-  // ── Create hold (15 min) ──────────────────────────────────────────────────
+  // ── Create hold (outlives the Checkout session) ─────────────────────────────
+  const now = Date.now()
   const { data: hold, error: holdErr } = await svc
     .from('reservation_holds')
     .insert({
       unit_id: unit.id,
+      organization_id: unitOwnership.org_id,
       from_date: from,
       to_date: to,
       guests_count: guests,
+      guest_name: guest.name,
       guest_email: guest.email,
+      guest_phone: guest.phone ?? null,
+      // Snapshot the price accepted by the customer. It must not be recomputed
+      // after payment because the unit's public rate may have changed.
+      price_per_night: Math.round((quote.subtotal_mxn / quote.nights) * 100) / 100,
+      total_price: quote.total_mxn,
+      booking_mode: 'full',
       idempotency_key: idempotencyKey,
+      expires_at: new Date(now + HOLD_TTL_MS).toISOString(),
     })
     .select('id, expires_at')
     .single()
@@ -163,6 +225,7 @@ export async function POST(request: NextRequest) {
         guest_phone: guest.phone ?? '',
       },
       idempotencyKey,
+      expiresAt: Math.floor((now + CHECKOUT_SESSION_TTL_MS) / 1000),
     })
   } catch (err: unknown) {
     // Cleanup hold on Stripe failure
@@ -173,10 +236,29 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Update hold with stripe_session_id ───────────────────────────────────
-  await svc
+  const { error: holdSessionErr } = await svc
     .from('reservation_holds')
     .update({ stripe_session_id: session.id })
     .eq('id', hold.id)
+
+  if (holdSessionErr) {
+    // Do not return a live Checkout URL unless its paid event can be tied to a
+    // durable, complete hold. Expiring this newly-created session avoids a
+    // customer being able to pay for an unpromotable booking.
+    console.log(
+      `action=checkout_session_link hold_id=${hold.id} session_id=${session.id} error=${holdSessionErr.message}`,
+    )
+    try {
+      await getStripePublic().checkout.sessions.expire(session.id)
+    } catch (expireErr: unknown) {
+      const msg = expireErr instanceof Error ? expireErr.message : 'Unknown Stripe expiration error'
+      console.log(
+        `action=checkout_session_expire hold_id=${hold.id} session_id=${session.id} error=${msg}`,
+      )
+    }
+    await svc.from('reservation_holds').delete().eq('id', hold.id)
+    return withCors(errorResponse('HOLD_LINK_FAILED', 'Failed to initialize checkout. Please try again.', 500), origin)
+  }
 
   console.log(
     `action=checkout_session_created unit=${unit_slug} hold_id=${hold.id} session_id=${session.id}`,
@@ -187,7 +269,8 @@ export async function POST(request: NextRequest) {
     checkout_url: session.url!,
     session_id: session.id,
     hold_id: hold.id,
-    expires_at: hold.expires_at,
+    // The guest must pay before the Checkout session closes, not the hold.
+    expires_at: new Date(session.expires_at * 1000).toISOString(),
   }
 
   // ── Save to idempotency cache ─────────────────────────────────────────────
@@ -200,4 +283,35 @@ export async function POST(request: NextRequest) {
   )
 
   return withCors(NextResponse.json({ data: responseBody }), origin)
+}
+
+// Frees the nights of a timed-out attempt right away instead of waiting for
+// the checkout.session.expired webhook, so the guest's own new attempt is not
+// refused as unavailable. The clock alone is not enough (a payment's webhook
+// may still be in flight): Stripe must confirm the session can no longer be
+// paid. 'open' past expires_at is expired by us first, as in the link-failure
+// path above.
+async function releaseExpiredCheckout(
+  sessionId: string,
+  svc: ReturnType<typeof createServiceClient>,
+): Promise<'released' | 'paid' | 'unknown'> {
+  try {
+    const stripe = getStripePublic()
+    let session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.status === 'open') session = await stripe.checkout.sessions.expire(sessionId)
+    if (session.status === 'complete') return 'paid'
+    if (session.status !== 'expired') return 'unknown'
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Unknown Stripe error'
+    console.log(`action=checkout_release_expired session_id=${sessionId} error=${msg}`)
+    return 'unknown'
+  }
+
+  const { error } = await svc.from('reservation_holds').delete().eq('stripe_session_id', sessionId)
+  if (error) {
+    console.log(`action=checkout_release_expired session_id=${sessionId} error=${error.message}`)
+    return 'unknown'
+  }
+  console.log(`action=checkout_release_expired session_id=${sessionId} status=hold_deleted`)
+  return 'released'
 }
