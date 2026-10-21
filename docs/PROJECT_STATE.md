@@ -1,7 +1,20 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-10 (Ícono iOS + manifest PWA #160; gap hamburguesa↔título — rama `fix/header-hamburger-gap`).
+> **Última actualización:** 2026-10-21 (ENG-624 conector de solo lectura para Engrane — rama `feat/connectors-v1-engrane`).
+
+---
+
+## 0.-6 · Conector de solo lectura para Engrane (2026-10-21, rama `feat/connectors-v1-engrane`, ENG-624)
+
+Decisión de Fran (2026-10-18): BaW OS es el sistema especializado y Engrane se conecta encima, **solo lectura**; cada dato vive en un solo lugar. Contrato completo en **`docs/connectors-v1.md`**.
+
+- **`GET /api/connectors/v1/{units,reservations,occupancy,revenue,guests}`** — cada respuesta con `as_of` + `source` (incluye versión de reglas). Solo `GET`; lo único que escribe es su bitácora.
+- **Llaves propias** (`connector_keys`, prefijo `ck_live_`, separadas de `agent_credentials`): una por org × espacio de Engrane, limitables por edificio y por dataset, revocables sin vuelta atrás, solo hash en base. Admin: `/api/admin/connectors/keys` (crear/listar), `/[id]` (revocar), `/[id]/access-log`.
+- **Rastro** (`connector_access_log`, append-only, fail closed): quién/cuándo/qué de cada lectura con llave reconocida.
+- **Una regla por cifra** en `src/lib/connectors/rules.ts`: ocupación = noches con estancia firme ÷ noches disponibles (sin bloqueos; incluye contratos); tarifa = realizada (total ÷ noches), no base × temporada; pago = reserva (devengado por noche + cobrado registrado), nunca `payments`/`payment_receipts`. Las pantallas NO se tocaron (diferencias en el doc §5).
+- Pruebas: `tests/connectors/` (llave, alcance por edificio, revocación, idempotencia, bitácora, cifras contra fixture).
+- **⚠️ Aplicar `20261021010000_connector_keys.sql` en Supabase prod** (y su sha256 al manifiesto de CI) antes de crear la primera llave.
 
 ---
 
