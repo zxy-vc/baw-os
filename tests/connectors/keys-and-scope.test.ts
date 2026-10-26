@@ -550,3 +550,11 @@ describe('deploy inerte: tablas connector_* aún sin aplicar', () => {
     }
   })
 })
+
+// Observaciones BAJA de la revisión independiente de 3208657, aceptadas como
+// follow-up (docs/connectors-v1.md §8.0). Quedan visibles aquí, sin implementar.
+describe('follow-ups BAJA (revisión 3208657)', () => {
+  it.todo("toCents: notación científica en string ('1e3' → 100000) y límite de centavos exactos (1e308)")
+  it.todo('auditQuery: ?__proto__=x&__proto__=y → 400 duplicate_param y bitácora fiel')
+  it.todo('UUID en mayúsculas: normalizar building_ids al crear la llave y building_id/unit_id al leer')
+})

@@ -197,7 +197,7 @@ Ingreso de octubre: 5 reservas, 12 noches, devengado **$11,400.00** (2,000 + 3,9
 
 ## 7 · Activación
 
-**Deploy antes de la migración es inerte.** Si el código se despliega sin `connector_keys`/`connector_access_log`: las 5 rutas de lectura responden `401` sin llave y `503 auth_unavailable` con cualquier llave `ck_live_` (no se sirven datos); las 4 rutas de admin exigen sesión `pm_owner`/`pm_admin` (`401`/`403`) y con sesión fallan con `500` sin generar ni devolver ninguna llave (el valor solo se devuelve tras un INSERT exitoso). No hay UI ni navegación nueva, ni crons. Cubierto en `tests/connectors/keys-and-scope.test.ts` («deploy inerte»).
+**Deploy antes de la migración es inerte.** Si el código se despliega sin `connector_keys`/`connector_access_log`: las 5 rutas de lectura responden `401` sin llave y `503 auth_unavailable` con cualquier llave `ck_live_` (no se sirven datos); las 4 rutas de admin exigen sesión `pm_owner`/`pm_admin` (`401`/`403`) y con sesión fallan con `500` **sin emitir** ninguna llave: el POST puede generar una candidata en memoria antes del INSERT, pero si el INSERT falla nunca se persiste ni se devuelve (el valor solo sale tras un INSERT exitoso). No hay UI ni navegación nueva, ni crons. Cubierto en `tests/connectors/keys-and-scope.test.ts` («deploy inerte»).
 
 1. Aplicar `supabase/migrations/20261021010000_connector_keys.sql` en Supabase (crea `connector_keys` y `connector_access_log`; no toca tablas existentes) y agregar su sha256 a `supabase/ci/applied-migrations.sha256`.
 2. Deploy.
@@ -208,8 +208,19 @@ Ingreso de octubre: 5 reservas, 12 noches, devengado **$11,400.00** (2,000 + 3,9
 - Sin rate limit propio (el rastro permite detectar abuso; se puede agregar por llave).
 - Sin UI para gestionar llaves (solo API de admin).
 - Reservas del checkout público creadas **antes** de #167 (mergeado, 659aef0) no traen `organization_id` ni fuente: el conector las encuentra por su unidad y su fuente sale `unknown`. Desde #167 se insertan con `organization_id` y `platform='direct'`, y salen `direct` sin cambios aquí.
+- Rentas de contratos en `/revenue` (regla propuesta en §4.3).
+
+### 8.0 · Observaciones BAJA de la revisión independiente (aceptadas como follow-up, sin implementar en v1)
+
+Revisión de `3208657` (Codex gpt-6.1-sol, «APROBADO CON OBSERVACIONES»). Ninguna permite saltarse el alcance por org o edificio:
+
+1. **`toCents` y notación científica** (`src/lib/connectors/rules.ts`): un string con exponente (`'1e3'`, `'1e+21'`) da `0` en vez de su valor; un número finito enorme (`1e308`) da `Infinity`. PostgREST entrega `numeric` como número o string decimal sin exponente en los montos reales; corregir con un parser decimal común con exponente y un límite de centavos exactos.
+2. **`auditQuery` y `__proto__`** (`src/lib/connectors/handler.ts`): `?__proto__=x&__proto__=y` no se detecta como repetido (200 en vez de `400 duplicate_param`) y la bitácora lo guarda como `{}`. Corregir construyendo el registro sobre `Object.create(null)` y probar el nombre reservado.
+3. **UUID en mayúsculas** (`src/app/api/admin/connectors/keys/route.ts`, y filtros `building_id`/`unit_id` de lectura): se aceptan por formato pero se comparan contra la forma en minúsculas de Postgres → un edificio propio en mayúsculas da 400 al crear la llave. Normalizar a minúsculas antes de deduplicar y comparar.
 
 ### 8.1 · Interacción con BAW-18 Fase B (#171) — decisión pendiente de Fran
+
+> **La cifra de ocupación del conector NO está aceptada para el corte del 809.** Mientras Fran no decida las dos reglas de abajo (y hasta la Fase B2), la ocupación de las unidades del 809 afectadas puede quedar **subestimada**; no debe usarse como cifra de cierre/corte del 809 ni estamparse como tal en Engrane.
 
 La Fase B del 809 (`docs/audits/BAW-18-fase-b.sql`) deja dos situaciones que la regla de ocupación v1 (§4.1) cuenta de forma conservadora:
 
@@ -217,4 +228,3 @@ La Fase B del 809 (`docs/audits/BAW-18-fase-b.sql`) deja dos situaciones que la 
 - **D203, D204 y D302 siguen `active` con `end_date` vencida** hasta la Fase B2. La regla v1 respeta `end_date`, así que el conector los muestra **vacantes** después de esa fecha aunque el inquilino siga (igual que el calendario). Opción: tratar un `active` vencido como ocupado hasta hoy (regla de "sobreestadía").
 
 Ninguna de las dos se cambia en v1 sin decisión de Fran; si se adopta, sube `RULES_VERSION` y se ajusta §4.1 y el fixture.
-- Rentas de contratos en `/revenue` (regla propuesta en §4.3).
