@@ -3,6 +3,7 @@ import { v1Read, v1Write } from '@/lib/agents/v1/handler'
 import { v1Ok, v1Error } from '@/lib/agents/v1/responses'
 import { parsePagination, makeCursor } from '@/lib/agents/v1/pagination'
 import { createServiceClient } from '@/lib/supabase'
+import { checkTaskEntity } from '@/lib/agents/v1/org-refs'
 
 export const GET = v1Read({
   scopes: ['tasks:read'],
@@ -74,6 +75,9 @@ export const POST = v1Write<TaskCreateBody>({
   },
   handler: async ({ auth, body, recordAction }) => {
     const supabase = createServiceClient()
+    const bad = await checkTaskEntity(supabase, auth.orgId, body.entity_type, body.entity_id)
+    if (bad) return v1Error('not_found', bad, 404)
+
     const { data, error } = await supabase
       .from('tasks')
       .insert({

@@ -8,12 +8,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Send, Loader2, MessageSquare, ChevronLeft, X } from 'lucide-react'
 import { useToast } from '@/components/Toast'
 import { ActorAvatar } from '@/components/ui/status'
+import { noResponseMessage } from '@/lib/agents/chat-status'
 
 const STALE_MS = 45000 // si el agente no responde en 45s, lo marcamos como sin respuesta
+// No hay indicador de "conectado": que exista credencial no dice si el conector
+// está encendido. Solo reportamos lo observable: esperando / respondió / no respondió.
 
 interface AgentLite { id: string; display_name: string; full_name: string; role_label?: string | null; domain?: string | null }
-interface Conversation { id: string; agent_id: string; agent_name?: string; agent_role?: string | null; title: string | null; last_message_at: string }
-interface Message { id: string; user_text: string; agent_text: string | null; status: string; created_at: string }
+interface Conversation { id: string; agent_id: string; agent_name?: string; agent_short_name?: string; agent_role?: string | null; title: string | null; last_message_at: string }
+interface Message { id: string; user_text: string; agent_text: string | null; status: string; error?: string | null; created_at: string }
 
 function palette(dark: boolean) {
   return dark
@@ -42,6 +45,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
   const c = palette(dark)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [agents, setAgents] = useState<AgentLite[]>([])
+  const [canSend, setCanSend] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -57,6 +61,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
       if (json.success) {
         setConversations(json.data.conversations)
         setAgents(json.data.agents)
+        setCanSend(json.data.can_send !== false)
       }
     } catch {
       /* noop */
@@ -134,6 +139,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
 
   const selectedConv = conversations.find((cv) => cv.id === selectedId)
   const noAgents = !loadingList && agents.length === 0
+  const agentShort = selectedConv?.agent_short_name || selectedConv?.agent_name || 'El agente'
 
   return (
     <div className="flex flex-col h-full min-h-0" style={{ backgroundColor: c.bg, color: c.text }}>
@@ -154,7 +160,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
           <>
             <MessageSquare className="w-4 h-4" style={{ color: c.muted }} />
             <span className="text-[13px] font-semibold flex-1">Conversaciones</span>
-            <button onClick={() => setPicking((p) => !p)} disabled={noAgents} className="p-1 rounded disabled:opacity-40 hover:opacity-70" style={{ color: 'var(--baw-accent)' }} title="Nueva conversación">
+            <button onClick={() => setPicking((p) => !p)} disabled={noAgents || !canSend} className="p-1 rounded disabled:opacity-40 hover:opacity-70" style={{ color: 'var(--baw-accent)' }} title="Nueva conversación">
               <Plus className="w-4 h-4" />
             </button>
           </>
@@ -187,7 +193,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
             <div className="p-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline" /></div>
           ) : conversations.length === 0 ? (
             <p className="p-4 text-[12px] text-center" style={{ color: c.muted }}>
-              {noAgents ? 'No tienes agentes conectados. Conéctalos en /agents.' : 'Sin conversaciones. Empieza una con +.'}
+              {noAgents ? 'No hay agentes con credencial activa. Emite una en /agents.' : 'Sin conversaciones. Empieza una con +.'}
             </p>
           ) : (
             conversations.map((cv) => (
@@ -218,11 +224,13 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
                       {m.agent_text ? (
                         <div className="max-w-[80%] rounded-lg px-3 py-2 text-[13px]" style={{ backgroundColor: c.agentBubble, color: c.text, border: `1px solid ${c.border}` }}>{m.agent_text}</div>
                       ) : m.status === 'failed' ? (
-                        <div className="text-[12px] px-2" style={{ color: 'var(--baw-danger-fg)' }}>El agente no pudo responder.</div>
+                        <div className="text-[12px] px-2" style={{ color: 'var(--baw-danger-fg)' }}>
+                          {agentShort} no pudo completar la solicitud{m.error ? `: ${m.error}` : '.'}
+                        </div>
                       ) : stale ? (
-                        <div className="text-[12px] px-2" style={{ color: c.muted }}>Sin respuesta aún — el agente puede no estar disponible.</div>
+                        <div className="text-[12px] px-2" style={{ color: c.muted }}>{noResponseMessage(agentShort)}</div>
                       ) : (
-                        <div className="flex items-center gap-1.5 text-[12px] px-2" style={{ color: c.muted }}><Loader2 className="w-3 h-3 animate-spin" /> pensando…</div>
+                        <div className="flex items-center gap-1.5 text-[12px] px-2" style={{ color: c.muted }}><Loader2 className="w-3 h-3 animate-spin" /> enviado · esperando a {agentShort}…</div>
                       )}
                     </div>
                   </div>
@@ -230,6 +238,11 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
               })
             )}
           </div>
+          {!canSend ? (
+            <p className="shrink-0 p-3 text-[12px]" style={{ borderTop: `1px solid ${c.border}`, color: c.muted }}>
+              Solo owners y admins de la organización pueden pedirle cosas a los agentes.
+            </p>
+          ) : (
           <div className="shrink-0 p-2.5 flex items-end gap-2" style={{ borderTop: `1px solid ${c.border}` }}>
             <textarea
               value={input}
@@ -244,6 +257,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>
           </div>
+          )}
         </>
       )}
     </div>

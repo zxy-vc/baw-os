@@ -155,7 +155,7 @@ function ConnectionBadge({
           color: 'var(--baw-success-fg)',
         }}
       >
-        Conectado
+        Credencial activa
       </span>
     )
   }

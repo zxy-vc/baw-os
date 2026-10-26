@@ -1,6 +1,7 @@
 // BaW OS — Admin: gestión de credenciales por agente
 // GET   /api/admin/agents/[id]/credentials              — listar (sin hash)
 // POST  /api/admin/agents/[id]/credentials              — crear nueva (devuelve key plana 1 vez)
+//        body: { label, scopes } — solo scopes de ISSUABLE_SCOPES (nunca approvals:resolve ni '*')
 // DELETE /api/admin/agents/[id]/credentials?credential_id=... — revocar
 //
 // RLS protege a nivel DB; aquí además validamos que el caller sea owner/admin
@@ -13,6 +14,7 @@ import { createSupabaseServer } from '@/lib/supabase-server'
 import { generateApiKey, hashApiKey } from '@/lib/agents/auth'
 import type { AgentId } from '@/lib/agents/types'
 import { ORG_ADMIN_ROLES } from '@/lib/admin-auth'
+import { unknownScopes } from '@/lib/agents/issuable-scopes'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -129,6 +131,14 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     )
   }
   const scopes = Array.isArray(body.scopes) ? body.scopes.filter((s) => typeof s === 'string') : []
+  // Solo scopes emitibles: approvals:resolve y '*' nunca salen de aquí.
+  const rejected = unknownScopes(scopes)
+  if (rejected.length > 0) {
+    return NextResponse.json(
+      { success: false, error: `scopes no permitidos: ${rejected.join(', ')}` },
+      { status: 400 }
+    )
+  }
   const rateLimitTier = body.rate_limit_tier || 'standard'
   if (!['standard', 'elevated', 'unlimited'].includes(rateLimitTier)) {
     return NextResponse.json(

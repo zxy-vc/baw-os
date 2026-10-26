@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ISSUABLE_SCOPES } from '@/lib/agents/issuable-scopes'
 
 interface CredentialRow {
   id: string
@@ -27,33 +28,8 @@ interface Props {
   initialCredentials: CredentialRow[]
 }
 
-const COMMON_SCOPES = [
-  'units:read',
-  'units:write',
-  'reservations:read',
-  'reservations:write',
-  'payments:read',
-  'payments:write',
-  'payments:trigger',
-  'contracts:read',
-  'contracts:write',
-  'occupants:read',
-  'occupants:write',
-  'incidents:read',
-  'incidents:write',
-  'tasks:read',
-  'tasks:write',
-  'agents:run',
-  'runs:read',
-  'insights:read',
-  'messages:send',
-  'messages:read',
-  'approvals:read',
-  'agents:read',
-  'interactions:read',
-  'interactions:write',
-  'lifecycle:archive',
-]
+// Misma lista que valida el servidor (approvals:resolve y '*' no se emiten).
+const COMMON_SCOPES = ISSUABLE_SCOPES
 
 export default function CredentialsManager({
   agentId,

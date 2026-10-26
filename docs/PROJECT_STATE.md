@@ -1,7 +1,33 @@
 # PROJECT_STATE.md — Estado vivo de BaW OS
 
 > **Este archivo cambia seguido.** Cualquier agente que vaya a tocar el repo debe leerlo después de `AGENTS.md` y antes de empezar.
-> **Última actualización:** 2026-07-10 (Ícono iOS + manifest PWA #160; gap hamburguesa↔título — rama `fix/header-hamburger-gap`).
+> **Última actualización:** 2026-10-26 (BAW-26 #173: seguridad reutilizable de los rieles de agentes; operador sin cambios).
+
+---
+
+## 0.-6 · BAW-26 — Seguridad reutilizable de los rieles de agentes (2026-10-26, PR #173)
+
+Por decisión del CPO, #173 se recortó a infraestructura de seguridad **sin cambiar qué agente opera**. La selección del chat sigue siendo «agentes con credencial activa en la org» y el default de Discord sigue en `alicia-ops`.
+
+**Qué entra:**
+- **Long-poll por org:** `/v1/interactions` GET/PATCH acotados a la org de la credencial. Antes, una credencial leía y cerraba el chat de otra org.
+- **Referencias de la misma org:** contratos, incidencias y tasks (ruta y dispatcher) rechazan unidades, inquilinos o entidades de otra org (`org-refs.ts`, mismo helper que la rama de #172).
+- **Emisión de credenciales:** solo los scopes de `ISSUABLE_SCOPES`; ya no se emiten `approvals:resolve` ni `*`.
+- **Órdenes por chat:** solo owners/admins pueden darle órdenes a un agente; un `pm_viewer` lee el historial pero recibe 403.
+- **Estado honesto en el chat:**
+  - mientras espera muestra «enviado · esperando a X», y a los 45 s «X no ha respondido; revisa que su conector en OpenClaw esté encendido»;
+  - si la interacción falla, se ve el error;
+  - un mensaje a un agente sin credencial activa da 409;
+  - en `/agents` el badge «Conectado» ahora dice «Credencial activa».
+- **Discord:** la interacción se guarda con su org (`DISCORD_DEFAULT_ORG_ID`) antes del dispatch.
+- **Sin migraciones.**
+
+**Diferido (pendiente de decidir quién administra el 809: 809Bot/Grok Bot vía #172, Hugo como puente/supervisor):**
+- **Hugo como operador:** `OPERATOR_AGENT_ID` como default del chat y de Discord, `HUGO_WEBHOOK_URL`, y un preset «operador» de 21 scopes.
+- **Retiro de Alicia:** status `retired`, revocación de sus credenciales y cierre de sus interacciones pendientes. Incluía la migración `20261016010000_baw26_hugo_operador_alicia_retired.sql`.
+- **Spec del conector** `docs/specs/hugo-openclaw-mk2.md` y las marcas LEGACY en los runbooks de Alicia.
+- **Dónde recuperarlo:** commit «BAW-26: review r2 — own-property lookup for task entity types» (`e1c5fdb`) en el historial de la rama de #173, si se decide retomarlo.
+- **Follow-ups preexistentes abiertos:** #174 (`x-baw-trigger: human` autodeclarado; relevante antes de dar escrituras a cualquier bot), #175, #176 y #177.
 
 ---
 

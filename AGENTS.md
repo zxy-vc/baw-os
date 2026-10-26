@@ -280,6 +280,15 @@ import { verifyAgentBearer } from '@/lib/agents/auth'
 const identity = await verifyAgentBearer(token) // null si inválido
 ```
 
+**Aislamiento y emisión (BAW-26):**
+- **Emisión de scopes:** `POST /api/admin/agents/[id]/credentials` solo emite scopes de `ISSUABLE_SCOPES` (`src/lib/agents/issuable-scopes.ts`, la misma lista que muestra la UI). Nunca `approvals:resolve` ni `*`.
+- **Long-poll por org:** `GET/PATCH /v1/interactions` filtran por `agent_id` **y** por la `org_id` de la credencial.
+- **Referencias de la misma org:** las escrituras v1 y el dispatcher exigen que los ids del body sean de la org de la credencial (`src/lib/agents/v1/org-refs.ts`):
+  - `unit_id` y `occupant_id` en contratos;
+  - `unit_id` y `reported_by` en incidencias;
+  - `entity_type`/`entity_id` en tasks.
+- **Quién da órdenes por chat:** solo owners/admins de la org y el platform admin (`canCommandAgents` en `src/lib/agents/chat-agents.ts`). El conector relaya el chat como `x-baw-trigger: human`; los demás miembros solo leen el historial.
+
 ### Capacidad de escritura de Alicia + modelo de autonomía por origen del disparo
 
 Alicia (`alicia-ops`) puede REGISTRAR estas entidades vía API v1 (además de incidencias/tareas/mensajes que ya existían):

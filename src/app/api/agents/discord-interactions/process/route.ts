@@ -160,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (applicationId) {
     const displayName = getAgentDisplayName(agentId as AgentId)
     const content = withAgentAttribution(
-      `⏳ ${displayName} está fuera de línea en este momento. Tu solicitud quedó en cola y se procesará en cuanto se reconecte.`,
+      `⏳ Tu solicitud quedó en cola para ${displayName}. Si no responde en unos minutos, revisa que su conector en OpenClaw esté encendido.`,
       {
         agentId: agentId as AgentId,
         agentDisplayName: displayName,
