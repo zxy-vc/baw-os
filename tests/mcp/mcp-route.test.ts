@@ -432,6 +432,9 @@ describe('catálogo', () => {
       if (name === 'listar_pagos') {
         for (const s of PAYMENT_STATUSES) expect(text).toContain(s)
         expect(text).toContain('late_fee_amount')
+        // No promete el adeudo oficial: es estimado y remite a Cobros.
+        expect(text).toMatch(/estimado/)
+        expect(text).toMatch(/Cobros/)
       }
     }
   })

@@ -102,11 +102,10 @@ Pregúntale a Grok Bot:
 
 > ¿cuánto me deben en el 809?
 
-Debe llamar `listar_pagos` (status `late`, `partial` y `pending`) y sumar como Cobros:
-`amount + late_fee_amount − amount_paid` en `partial`, `amount + late_fee_amount` en `late`/`pending`
-ya vencidos; los `pending` que aún no vencen y los `void` del corte de BAW-18 no cuentan. Compara
-el total con `/cobros`
-y contestar con montos reales. Luego prueba una escritura:
+Debe llamar `listar_pagos` y contestar con un **estimado** a partir de los cargos (`amount`,
+`amount_paid`, `late_fee_amount`, `status`), aclarando que el saldo oficial está en Cobros. Las
+tools aún no exponen el adeudo canónico de Cobros (`computeMonthStatus`: contratos sin día de
+pago, saldo mínimo 0, etc.), así que compara el estimado con `/cobros`. Luego prueba una escritura:
 
 > Crea una incidencia: fuga en el baño del 809-3
 

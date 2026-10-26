@@ -153,9 +153,10 @@ export const MCP_TOOLS: McpToolDef[] = [
     name: 'listar_pagos',
     title: 'Listar pagos y cargos',
     description:
-      'Lista los cargos de renta con monto, monto pagado, mora (late_fee_amount), vencimiento y estado. Úsala para saber cuánto se debe; por cargo, igual que Cobros: ' +
-      'paid o partial → amount + late_fee_amount − amount_paid; pending o late con due_date ya vencido → amount + late_fee_amount; pending que aún no vence → nada todavía; void → anulado, no se debe. ' +
-      'La cifra oficial es la de Cobros en BaW OS.',
+      'Lista los cargos de renta tal como están guardados: amount, amount_paid, late_fee_amount (mora), due_date y status ' +
+      '(pending, late, partial, paid, waived; void = anulado por el corte, no se cobra). Son datos crudos, NO el adeudo oficial: ' +
+      'el saldo de Cobros aplica reglas que aquí no vienen (contratos sin día de pago, abonos, saldo mínimo 0). ' +
+      'Si te preguntan cuánto se debe, da la cifra como estimado y remite a Cobros en BaW OS para el saldo oficial.',
     scope: 'payments:read',
     kind: 'read',
     inputShape: {
@@ -209,7 +210,7 @@ export const MCP_TOOLS: McpToolDef[] = [
     name: 'resumen_operativo',
     title: 'Resumen operativo',
     description:
-      'Foto rápida de la organización: unidades por estado, contratos activos, pagos por estado con totales, incidencias abiertas por prioridad y tareas por estado. Para «¿cuánto me deben?» no sumes estos totales (no incluyen mora ni abonos ni vencimiento): usa listar_pagos con status late, partial y pending.',
+      'Foto rápida de la organización: unidades por estado, contratos activos, pagos por estado con totales, incidencias abiertas por prioridad y tareas por estado. No sirve para «¿cuánto me deben?»: sus totales no incluyen mora, abonos ni vencimientos. Para eso usa listar_pagos (estimado) y remite a Cobros.',
     scope: 'insights:read',
     kind: 'read',
     inputShape: {},
