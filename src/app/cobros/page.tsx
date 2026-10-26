@@ -179,6 +179,7 @@ export default function CobrosPage() {
           today,
         })
 
+        if (status === 'anulado') continue // mes anulado por corte (BAW-18): no se cobra
         billingRows.push({ contract: c, payment, month, dueDate, status, moraAmount, remaining, waterFee })
       }
     }
@@ -347,7 +348,7 @@ export default function CobrosPage() {
 
   // Orden de la tabla según el encabezado elegido.
   const STATUS_ORDER: Record<BillingStatus, number> = {
-    mora: 0, vencido: 1, parcial: 2, pendiente: 3, verbal: 4, pagado: 5,
+    mora: 0, vencido: 1, parcial: 2, pendiente: 3, verbal: 4, pagado: 5, anulado: 6,
   }
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0
