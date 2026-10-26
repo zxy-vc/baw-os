@@ -3,9 +3,7 @@
 // BaW OS — Dock de chat lateral (derecha), global y oscuro como el sidebar.
 // Mismo ancho que el menú izquierdo (240px). Al abrirse, empuja el contenido
 // central vía la variable --chat-dock-width (el <main> aplica padding-right).
-// Solo se monta si hay al menos un agente chateable en la org (credencial
-// activa, no retirado) y el usuario puede darle órdenes (owner/admin). Con un
-// solo agente (Hugo), el launcher lleva su nombre.
+// Solo se monta si hay al menos un agente conectado en la org.
 
 import { useEffect, useState } from 'react'
 import { Bot } from 'lucide-react'
@@ -16,20 +14,13 @@ const DOCK_WIDTH = 240 // = EXPANDED_WIDTH del sidebar
 export default function ChatDock() {
   const [open, setOpen] = useState(false)
   const [hasAgents, setHasAgents] = useState(false)
-  const [launcherLabel, setLauncherLabel] = useState('Agentes')
 
   useEffect(() => {
     let alive = true
     fetch('/api/chat/conversations')
       .then((r) => r.json())
       .then((j) => {
-        if (!alive || !j?.success) return
-        const agents = (j.data.agents ?? []) as { id: string }[]
-        // Solo quien puede darle órdenes ve el launcher (owners/admins).
-        setHasAgents(agents.length > 0 && j.data.can_send !== false)
-        if (agents.length === 1 && j.data.operator?.id === agents[0].id) {
-          setLauncherLabel(j.data.operator.short_name)
-        }
+        if (alive && j?.success) setHasAgents((j.data.agents?.length ?? 0) > 0)
       })
       .catch(() => {})
     return () => {
@@ -57,11 +48,11 @@ export default function ChatDock() {
             bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
             backgroundColor: 'var(--baw-primary)',
           }}
-          title={`Chat con ${launcherLabel}`}
-          aria-label={`Abrir chat con ${launcherLabel}`}
+          title="Chat con tus agentes"
+          aria-label="Abrir chat con tus agentes"
         >
           <Bot className="w-5 h-5" />
-          <span className="text-[13px] font-medium">{launcherLabel}</span>
+          <span className="text-[13px] font-medium">Agentes</span>
         </button>
       )}
 

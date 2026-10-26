@@ -1,16 +1,18 @@
-// BAW-26: Hugo reemplaza a Alicia como agente operador.
+// BAW-26: aislamiento por org y permisos en los rieles de agentes (chat in-app,
+// credenciales, long-poll de interacciones y escrituras v1). No cambia qué
+// agente opera: la selección del chat sigue siendo "agentes con credencial
+// activa en la org".
 //
 // Qué es real y qué es simulado:
-//  - Real: rutas de credenciales y chat, requireMemberCaller/resolveOrgId
-//    (membresía + cookie de org leídas del Supabase en memoria), el preset
-//    «operador», generateApiKey/hashApiKey, findForeignRef y el dispatcher.
-//  - Simulado: Supabase (en memoria), auth.getUser() y cookies(). Las rutas v1
-//    se prueban con el handler ya autorizado (el wrapper devuelve la config) y
-//    el PATCH de interacciones con authenticateAgentRequest simulado.
-//    Nada sale a la red: ni Stripe, ni FacturAPI, ni WhatsApp, ni la BD de prod.
+//  - Real: rutas de credenciales, chat y Discord, requireMemberCaller /
+//    resolveOrgId (membresía + cookie de org leídas del Supabase en memoria),
+//    generateApiKey/hashApiKey, los guards de org-refs y el dispatcher.
+//  - Simulado: Supabase (en memoria), auth.getUser(), cookies() y la firma de
+//    Discord. Las rutas v1 se prueban con el handler ya autorizado (el wrapper
+//    devuelve la config) y el PATCH de interacciones con authenticateAgentRequest
+//    simulado. Nada sale a la red: fetch está stubbeado; ni Stripe, ni FacturAPI,
+//    ni WhatsApp, ni la BD de prod.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import path from 'node:path'
 import { NextRequest } from 'next/server'
 import { makeFakeSupabase, type Row } from '../helpers/fake-supabase'
 
@@ -53,14 +55,8 @@ vi.mock('@/lib/agents/auth', async (importOriginal) => ({
       : { ok: false, status: 401, code: 'invalid_credential', message: 'no' },
 }))
 
-import {
-  ISSUABLE_SCOPES,
-  OPERATOR_AGENT_ID,
-  OPERATOR_SCOPES,
-  SCOPE_PRESETS,
-  isRetiredAgent,
-  noResponseMessage,
-} from '@/lib/agents/roster'
+import { ISSUABLE_SCOPES, unknownScopes } from '@/lib/agents/issuable-scopes'
+import { noResponseMessage } from '@/lib/agents/chat-status'
 import * as credentialsRoute from '@/app/api/admin/agents/[id]/credentials/route'
 import * as conversationsRoute from '@/app/api/chat/conversations/route'
 import * as messagesRoute from '@/app/api/chat/conversations/[id]/messages/route'
@@ -74,30 +70,6 @@ import { dispatchApprovedAction } from '@/lib/agents/v1/dispatcher'
 
 const ORG_A = '00000000-0000-0000-0000-00000000000a'
 const ORG_B = '00000000-0000-0000-0000-00000000000b'
-
-const EXPECTED_OPERATOR_SCOPES = [
-  'units:read',
-  'reservations:read',
-  'payments:read',
-  'contracts:read',
-  'occupants:read',
-  'incidents:read',
-  'tasks:read',
-  'runs:read',
-  'insights:read',
-  'approvals:read',
-  'agents:read',
-  'units:write',
-  'payments:write',
-  'contracts:write',
-  'occupants:write',
-  'incidents:write',
-  'tasks:write',
-  'messages:send',
-  'lifecycle:archive',
-  'interactions:read',
-  'interactions:write',
-]
 
 let tables: Record<string, Row[]>
 
@@ -128,22 +100,22 @@ beforeEach(() => {
       { user_id: 'u-owner-b', org_id: ORG_B, role: 'pm_owner', created_at: '2026-01-01', is_active: true },
     ],
     agents: [
-      { id: 'hugo-cos', display_name: 'Hugo-COS', full_name: 'Agente Hugo-COS', role_label: 'Agente operador del 809', domain: 'ops', status: 'beta' },
-      // Sin la migración aplicada Alicia sigue 'beta': la lista en código la retira igual.
       { id: 'alicia-ops', display_name: 'Alicia-Ops', full_name: 'Agente Alicia-Ops', role_label: 'Operadora · Mateos 809P', domain: 'ops', status: 'beta' },
+      { id: 'hugo-cos', display_name: 'Hugo-COS', full_name: 'Agente Hugo-COS', role_label: 'Supervisor de Alicia · solo lectura', domain: 'ops', status: 'beta' },
     ],
     agent_credentials: [
-      { id: 'cred-hugo-a', org_id: ORG_A, agent_id: 'hugo-cos', status: 'active' },
       { id: 'cred-alicia-a', org_id: ORG_A, agent_id: 'alicia-ops', status: 'active' },
+      { id: 'cred-hugo-a', org_id: ORG_A, agent_id: 'hugo-cos', status: 'revoked' },
     ],
     agent_conversations: [
       { id: 'conv-alicia-a', org_id: ORG_A, agent_id: 'alicia-ops', title: null, created_at: '2026-06-23', last_message_at: '2026-06-23' },
-      { id: 'conv-hugo-b', org_id: ORG_B, agent_id: 'hugo-cos', title: null, created_at: '2026-06-23', last_message_at: '2026-06-23' },
+      { id: 'conv-hugo-a', org_id: ORG_A, agent_id: 'hugo-cos', title: null, created_at: '2026-06-23', last_message_at: '2026-06-22' },
+      { id: 'conv-alicia-b', org_id: ORG_B, agent_id: 'alicia-ops', title: null, created_at: '2026-06-23', last_message_at: '2026-06-23' },
     ],
     agent_interactions: [
-      { id: 'int-a', agent_id: 'hugo-cos', org_id: ORG_A, channel: 'app', status: 'deferred', payload: { text: 'A' }, created_at: '2026-10-16T10:00:00Z' },
-      { id: 'int-b', agent_id: 'hugo-cos', org_id: ORG_B, channel: 'app', status: 'deferred', payload: { text: 'B secreto' }, created_at: '2026-10-16T10:00:01Z' },
-      { id: 'int-null', agent_id: 'hugo-cos', org_id: null, channel: 'discord', status: 'deferred', payload: {}, created_at: '2026-10-16T10:00:02Z' },
+      { id: 'int-a', agent_id: 'alicia-ops', org_id: ORG_A, channel: 'app', status: 'deferred', payload: { text: 'A' }, created_at: '2026-10-16T10:00:00Z' },
+      { id: 'int-b', agent_id: 'alicia-ops', org_id: ORG_B, channel: 'app', status: 'deferred', payload: { text: 'B secreto' }, created_at: '2026-10-16T10:00:01Z' },
+      { id: 'int-null', agent_id: 'alicia-ops', org_id: null, channel: 'discord', status: 'deferred', payload: {}, created_at: '2026-10-16T10:00:02Z' },
     ],
     units: [
       { id: 'unit-a', org_id: ORG_A },
@@ -160,98 +132,43 @@ beforeEach(() => {
   h.db = makeFakeSupabase(tables)
 })
 
-// ── 1. Preset «operador» ─────────────────────────────────────────────────────
+// ── 1. Emisión de credenciales ───────────────────────────────────────────────
 
-describe('preset operador', () => {
-  it('son exactamente los scopes acordados', () => {
-    expect([...OPERATOR_SCOPES].sort()).toEqual([...EXPECTED_OPERATOR_SCOPES].sort())
-    expect(new Set(OPERATOR_SCOPES).size).toBe(OPERATOR_SCOPES.length)
-    expect(SCOPE_PRESETS.operador.scopes).toBe(OPERATOR_SCOPES)
-  })
-
-  it('nunca incluye approvals:resolve, comodín ni disparadores sin aprobación', () => {
-    for (const s of ['approvals:resolve', '*', 'agents:run', 'payments:trigger']) {
-      expect(OPERATOR_SCOPES).not.toContain(s)
-    }
+describe('emisión de credenciales', () => {
+  it('la lista emitible no incluye approvals:resolve ni comodín', () => {
     expect(ISSUABLE_SCOPES).not.toContain('approvals:resolve')
     expect(ISSUABLE_SCOPES).not.toContain('*')
+    expect(unknownScopes(['units:read', 'approvals:resolve', '*'])).toEqual(['approvals:resolve', '*'])
   })
 
-  it('cada scope del preset lo usa algún endpoint /v1 real (no hay permisos sin uso)', () => {
-    const files: string[] = []
-    const walk = (dir: string) => {
-      for (const f of readdirSync(dir)) {
-        const p = path.join(dir, f)
-        if (statSync(p).isDirectory()) walk(p)
-        else if (f === 'route.ts') files.push(readFileSync(p, 'utf8'))
-      }
-    }
-    walk(path.resolve(__dirname, '../../src/app/api/v1'))
-    const src = files.join('\n')
-    for (const scope of OPERATOR_SCOPES) expect(src, scope).toContain(`'${scope}'`)
-  })
-
-  it('POST credencial con preset emite exactamente esos scopes para hugo-cos', async () => {
+  it('emite scopes de la lista tal cual, en la org activa', async () => {
     const res = await credentialsRoute.POST(
-      jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: 'prod', preset: 'operador' }),
-      params('hugo-cos')
+      jsonReq('http://x/api/admin/agents/alicia-ops/credentials', { label: 'prod', scopes: ['incidents:read', 'incidents:write'] }),
+      params('alicia-ops')
     )
     const json = await res.json()
     expect(res.status).toBe(200)
     expect(json.data.api_key).toMatch(/^sk_live_/)
     const row = tables.agent_credentials.find((c) => c.label === 'prod')!
-    expect(row.org_id).toBe(ORG_A)
-    expect(row.agent_id).toBe('hugo-cos')
-    expect([...(row.scopes as string[])].sort()).toEqual([...EXPECTED_OPERATOR_SCOPES].sort())
+    expect(row).toMatchObject({ org_id: ORG_A, agent_id: 'alicia-ops', scopes: ['incidents:read', 'incidents:write'] })
   })
 
-  it('rechaza approvals:resolve y * aunque se pidan a mano', async () => {
-    for (const bad of ['approvals:resolve', '*']) {
+  it('rechaza approvals:resolve, * y scopes inventados aunque se pidan a mano', async () => {
+    for (const bad of ['approvals:resolve', '*', 'root:all']) {
       const res = await credentialsRoute.POST(
-        jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: `x-${bad}`, scopes: ['units:read', bad] }),
-        params('hugo-cos')
+        jsonReq('http://x/api/admin/agents/alicia-ops/credentials', { label: `x-${bad}`, scopes: ['units:read', bad] }),
+        params('alicia-ops')
       )
       expect(res.status).toBe(400)
     }
     expect(tables.agent_credentials).toHaveLength(2)
   })
 
-  it('rechaza preset + scopes juntos y presets desconocidos', async () => {
-    const both = await credentialsRoute.POST(
-      jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: 'p', preset: 'operador', scopes: ['agents:run'] }),
-      params('hugo-cos')
-    )
-    expect(both.status).toBe(400)
-    const unknown = await credentialsRoute.POST(
-      jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: 'p', preset: 'root' }),
-      params('hugo-cos')
-    )
-    expect(unknown.status).toBe(400)
-  })
-
-  it('nombres heredados de Object no son presets (400, no 500)', async () => {
-    for (const preset of ['constructor', 'toString', '__proto__']) {
-      const res = await credentialsRoute.POST(
-        jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: `p-${preset}`, preset }),
-        params('hugo-cos')
-      )
-      expect(res.status).toBe(400)
-    }
-  })
-
-  it('no emite credenciales nuevas a Alicia (retirada)', async () => {
-    const res = await credentialsRoute.POST(
-      jsonReq('http://x/api/admin/agents/alicia-ops/credentials', { label: 'prod', preset: 'operador' }),
-      params('alicia-ops')
-    )
-    expect(res.status).toBe(409)
-  })
-
   it('un viewer no puede emitir credenciales', async () => {
     loginAs('u-viewer-a')
     const res = await credentialsRoute.POST(
-      jsonReq('http://x/api/admin/agents/hugo-cos/credentials', { label: 'prod', preset: 'operador' }),
-      params('hugo-cos')
+      jsonReq('http://x/api/admin/agents/alicia-ops/credentials', { label: 'prod', scopes: ['units:read'] }),
+      params('alicia-ops')
     )
     expect(res.status).toBe(403)
   })
@@ -260,73 +177,43 @@ describe('preset operador', () => {
 // ── 2. Chat in-app ───────────────────────────────────────────────────────────
 
 describe('chat in-app', () => {
-  it('Alicia está retirada (lista en código) y Hugo es el operador', () => {
-    expect(OPERATOR_AGENT_ID).toBe('hugo-cos')
-    expect(isRetiredAgent('alicia-ops')).toBe(true)
-    expect(isRetiredAgent('hugo-cos')).toBe(false)
-    expect(isRetiredAgent('otro', 'retired')).toBe(true)
-  })
-
-  it('GET ofrece a Hugo y no a Alicia, aunque Alicia conserve credencial activa', async () => {
-    const res = await conversationsRoute.GET()
-    const json = await res.json()
-    expect(json.data.agents.map((a: { id: string }) => a.id)).toEqual(['hugo-cos'])
-    expect(json.data.operator).toMatchObject({ id: 'hugo-cos', short_name: 'Hugo', has_credential: true })
-    // La conversación vieja con Alicia se conserva como historial, marcada.
-    const old = json.data.conversations.find((c: { id: string }) => c.id === 'conv-alicia-a')
-    expect(old.agent_retired).toBe(true)
-    // Nada de la org B.
-    expect(json.data.conversations.map((c: { id: string }) => c.id)).not.toContain('conv-hugo-b')
-  })
-
-  it('GET sin credencial de Hugo: no hay agentes y el operador lo dice (sin "conectado" falso)', async () => {
-    tables.agent_credentials.splice(0, tables.agent_credentials.length)
+  it('selección sin cambios: ofrece los agentes con credencial activa de la org', async () => {
     const json = await (await conversationsRoute.GET()).json()
-    expect(json.data.agents).toEqual([])
-    expect(json.data.operator.has_credential).toBe(false)
-    expect(json.data.operator).not.toHaveProperty('connected')
+    expect(json.data.agents.map((a: { id: string }) => a.id)).toEqual(['alicia-ops'])
+    expect(json.data.can_send).toBe(true)
+    // Nada de la org B.
+    const ids = json.data.conversations.map((c: { id: string }) => c.id)
+    expect(ids).toContain('conv-alicia-a')
+    expect(ids).not.toContain('conv-alicia-b')
+    expect(json.data).not.toHaveProperty('operator')
   })
 
-  it('una conversación nueva sin agent_id va a hugo-cos en la org del usuario', async () => {
-    const res = await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', {}))
-    const json = await res.json()
-    expect(res.status).toBe(200)
-    expect(json.data.agent_id).toBe('hugo-cos')
-    const row = tables.agent_conversations.find((c) => c.id === 'new-agent_conversations')!
-    expect(row).toMatchObject({ org_id: ORG_A, agent_id: 'hugo-cos', created_by: 'u-owner-a' })
-  })
-
-  it('no se puede abrir conversación con Alicia', async () => {
+  it('POST sigue exigiendo agent_id y solo agentes con credencial activa', async () => {
+    expect((await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', {}))).status).toBe(400)
+    expect(
+      (await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', { agent_id: 'hugo-cos' }))).status
+    ).toBe(400)
     const res = await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', { agent_id: 'alicia-ops' }))
-    expect(res.status).toBe(400)
-    expect(tables.agent_conversations).toHaveLength(2)
+    expect(res.status).toBe(200)
+    const row = tables.agent_conversations.find((c) => c.id === 'new-agent_conversations')!
+    expect(row).toMatchObject({ org_id: ORG_A, agent_id: 'alicia-ops', created_by: 'u-owner-a' })
   })
 
-  it('sin credencial de Hugo, el error dice dónde emitirla', async () => {
-    tables.agent_credentials.splice(0, tables.agent_credentials.length)
-    const res = await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', {}))
-    const json = await res.json()
-    expect(res.status).toBe(400)
-    expect(json.error).toContain('/agents/hugo-cos/credentials')
-  })
-
-  it('un mensaje en conversación de Hugo crea la interacción app/deferred para hugo-cos en la org', async () => {
-    const created = await (await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', {}))).json()
-    const convId = created.data.id as string
+  it('un mensaje crea la interacción app/deferred para el agente de la conversación, en la org', async () => {
     const res = await messagesRoute.POST(
-      jsonReq(`http://x/api/chat/conversations/${convId}/messages`, { text: 'registra el pago de D104' }),
-      params(convId)
+      jsonReq('http://x/api/chat/conversations/conv-alicia-a/messages', { text: 'registra el pago de D104' }),
+      params('conv-alicia-a')
     )
     expect(res.status).toBe(200)
-    const it = tables.agent_interactions.find((i) => i.conversation_id === convId)!
-    expect(it).toMatchObject({ agent_id: 'hugo-cos', org_id: ORG_A, channel: 'app', status: 'deferred' })
+    const it = tables.agent_interactions.find((i) => i.conversation_id === 'conv-alicia-a')!
+    expect(it).toMatchObject({ agent_id: 'alicia-ops', org_id: ORG_A, channel: 'app', status: 'deferred' })
   })
 
-  it('no se puede escribir en la conversación vieja de Alicia', async () => {
+  it('sin credencial activa del agente, el mensaje se rechaza en vez de quedar esperando', async () => {
     const before = tables.agent_interactions.length
     const res = await messagesRoute.POST(
-      jsonReq('http://x/api/chat/conversations/conv-alicia-a/messages', { text: 'hola' }),
-      params('conv-alicia-a')
+      jsonReq('http://x/api/chat/conversations/conv-hugo-a/messages', { text: 'hola' }),
+      params('conv-hugo-a')
     )
     expect(res.status).toBe(409)
     expect(tables.agent_interactions).toHaveLength(before)
@@ -334,43 +221,43 @@ describe('chat in-app', () => {
 
   it('no se puede escribir en una conversación de otra org', async () => {
     const res = await messagesRoute.POST(
-      jsonReq('http://x/api/chat/conversations/conv-hugo-b/messages', { text: 'hola' }),
-      params('conv-hugo-b')
+      jsonReq('http://x/api/chat/conversations/conv-alicia-b/messages', { text: 'hola' }),
+      params('conv-alicia-b')
     )
     expect(res.status).toBe(404)
   })
 
-  it('un pm_viewer ve el historial pero no puede darle órdenes a Hugo', async () => {
+  it('un pm_viewer ve el historial pero no puede darle órdenes a un agente', async () => {
     loginAs('u-viewer-a')
     const list = await (await conversationsRoute.GET()).json()
     expect(list.data.can_send).toBe(false)
-    const conv = await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', {}))
+    expect(list.data.conversations.length).toBeGreaterThan(0)
+    const conv = await conversationsRoute.POST(jsonReq('http://x/api/chat/conversations', { agent_id: 'alicia-ops' }))
     expect(conv.status).toBe(403)
-    tables.agent_conversations.push({ id: 'conv-hugo-a', org_id: ORG_A, agent_id: 'hugo-cos', title: null })
     const before = tables.agent_interactions.length
     const msg = await messagesRoute.POST(
-      jsonReq('http://x/api/chat/conversations/conv-hugo-a/messages', { text: 'registra un pago' }),
-      params('conv-hugo-a')
+      jsonReq('http://x/api/chat/conversations/conv-alicia-a/messages', { text: 'registra un pago' }),
+      params('conv-alicia-a')
     )
     expect(msg.status).toBe(403)
     expect(tables.agent_interactions).toHaveLength(before)
   })
 
-  it('mensaje sin respuesta: texto exacto pedido', () => {
-    expect(noResponseMessage('Hugo')).toBe(
-      'Hugo no ha respondido; revisa que su conector en OpenClaw esté encendido.'
+  it('estado honesto: texto cuando el agente no responde', () => {
+    expect(noResponseMessage('Alicia')).toBe(
+      'Alicia no ha respondido; revisa que su conector en OpenClaw esté encendido.'
     )
   })
 })
 
-// ── 3. Fugas entre orgs en los rieles de Hugo ────────────────────────────────
+// ── 3. Fugas entre orgs ──────────────────────────────────────────────────────
 
 describe('long-poll y PATCH de /v1/interactions acotados a la org de la credencial', () => {
   type ReadOpts = { handler: (a: { auth: unknown; req: NextRequest }) => Promise<Response> }
 
   it('GET solo devuelve interacciones de la org de la credencial', async () => {
     const res = await (interactionsRoute.GET as unknown as ReadOpts).handler({
-      auth: { orgId: ORG_A, agentId: 'hugo-cos' },
+      auth: { orgId: ORG_A, agentId: 'alicia-ops' },
       req: new NextRequest('http://x/api/v1/interactions'),
     })
     const json = await res.json()
@@ -378,7 +265,7 @@ describe('long-poll y PATCH de /v1/interactions acotados a la org de la credenci
   })
 
   it('PATCH no puede cerrar la interacción de otra org', async () => {
-    h.agentAuth = { orgId: ORG_A, agentId: 'hugo-cos' }
+    h.agentAuth = { orgId: ORG_A, agentId: 'alicia-ops' }
     const res = await interactionRoute.PATCH(
       jsonReq('http://x/api/v1/interactions/int-b', { status: 'completed', response: { text: 'x' } }, 'PATCH')
     )
@@ -393,9 +280,9 @@ describe('long-poll y PATCH de /v1/interactions acotados a la org de la credenci
   })
 })
 
-describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
+describe('escrituras v1 no ligan unidades/inquilinos/entidades de otra org', () => {
   type WriteOpts<B> = { handler: (a: { auth: unknown; body: B; recordAction: () => Promise<void> }) => Promise<Response> }
-  const auth = { orgId: ORG_A, agentId: 'hugo-cos' }
+  const auth = { orgId: ORG_A, agentId: 'alicia-ops' }
   const recordAction = async () => {}
   const contractBody = (unit: string, occ: string) => ({
     unit_id: unit,
@@ -417,10 +304,10 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
     expect(tables.contracts[0]).toMatchObject({ org_id: ORG_A, unit_id: 'unit-a', occupant_id: 'occ-a' })
   })
 
-  it('POST /v1/incidents con unidad de B → 404', async () => {
-    const route = v1IncidentsRoute.POST as unknown as WriteOpts<{ title: string; unit_id?: string }>
-    const res = await route.handler({ auth, body: { title: 'Fuga', unit_id: 'unit-b' }, recordAction })
-    expect(res.status).toBe(404)
+  it('POST /v1/incidents con unidad o reportante de B → 404', async () => {
+    const route = v1IncidentsRoute.POST as unknown as WriteOpts<{ title: string; unit_id?: string; reported_by?: string }>
+    expect((await route.handler({ auth, body: { title: 'Fuga', unit_id: 'unit-b' }, recordAction })).status).toBe(404)
+    expect((await route.handler({ auth, body: { title: 'Fuga', reported_by: 'occ-b' }, recordAction })).status).toBe(404)
     expect(tables.incidents).toHaveLength(0)
   })
 
@@ -439,7 +326,7 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
       approvalId: 'ap-3',
       resolvedBy: 'u-owner-a',
       orgId: ORG_A,
-      agentId: 'hugo-cos',
+      agentId: 'alicia-ops',
       actionType: 'task.create',
       payload: { title: 't', entity_type: 'occupant', entity_id: 'occ-b' },
     })
@@ -452,7 +339,7 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
       approvalId: 'ap-1',
       resolvedBy: 'u-owner-a',
       orgId: ORG_A,
-      agentId: 'hugo-cos',
+      agentId: 'alicia-ops',
       actionType: 'contract.create',
       payload: contractBody('unit-b', 'occ-b'),
     })
@@ -461,7 +348,7 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
       approvalId: 'ap-2',
       resolvedBy: 'u-owner-a',
       orgId: ORG_A,
-      agentId: 'hugo-cos',
+      agentId: 'alicia-ops',
       actionType: 'incident.create',
       payload: { title: 'x', unit_id: 'unit-b' },
     })
@@ -471,8 +358,8 @@ describe('escrituras v1 no ligan unidades/inquilinos de otra org', () => {
   })
 })
 
-describe('Discord → Hugo', () => {
-  it('la interacción se guarda con su org ANTES del dispatch y va a hugo-cos', async () => {
+describe('Discord', () => {
+  it('la interacción se guarda con su org ANTES del dispatch; el agente por defecto no cambia', async () => {
     process.env.DISCORD_PUBLIC_KEY = 'aa'
     process.env.DISCORD_DEFAULT_ORG_ID = ORG_A
     let rowAtDispatch: Row | undefined
@@ -490,7 +377,7 @@ describe('Discord → Hugo', () => {
       )
       expect(res.status).toBe(200)
       expect(fetchSpy).toHaveBeenCalledTimes(1)
-      expect(rowAtDispatch).toMatchObject({ agent_id: 'hugo-cos', org_id: ORG_A, channel: 'discord', status: 'deferred' })
+      expect(rowAtDispatch).toMatchObject({ agent_id: 'alicia-ops', org_id: ORG_A, channel: 'discord', status: 'deferred' })
     } finally {
       vi.unstubAllGlobals()
       delete process.env.DISCORD_PUBLIC_KEY

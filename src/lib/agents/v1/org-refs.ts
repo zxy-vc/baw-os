@@ -1,13 +1,36 @@
-// BaW OS v1 — Validación de referencias foráneas por org (BAW-26).
+// BaW OS v1 — Referencias foráneas acotadas a la org del agente (BAW-11 / BAW-26)
 //
 // Las escrituras de agentes insertan con org_id = org de la credencial, pero los
-// ids que vienen en el body (unit_id, occupant_id…) también tienen que ser de
-// esa org: si no, un agente podría ligar un contrato o una incidencia a la
-// unidad/inquilino de otro tenant y la UI de su org mostraría datos ajenos.
+// ids que vienen en el body (unit_id, occupant_id, entity_id…) solo los valida
+// la FK (que la fila exista), no que sea de la misma org. Sin estos guards un
+// agente de la org A podía colgar una incidencia, un contrato o una tarea de una
+// unidad/inquilino de la org B (y la UI o el portal de B la verían). Los usan
+// las rutas POST /v1/* y el dispatcher de aprobaciones, igual que el guard de
+// contrato de payment.record (BAW-2).
+//
+// `incidentRefsOutsideOrg` conserva la firma y el mensaje del PR #172 (BAW-11)
+// para que ambas ramas compartan el mismo helper.
 
 import type { createServiceClient } from '@/lib/supabase'
 
 type DB = ReturnType<typeof createServiceClient>
+
+export async function incidentRefsOutsideOrg(
+  supabase: DB,
+  orgId: string,
+  refs: { unit_id?: string | null; reported_by?: string | null }
+): Promise<string | null> {
+  const checks: [string, 'units' | 'occupants', string | null | undefined][] = [
+    ['unit', 'units', refs.unit_id],
+    ['occupant', 'occupants', refs.reported_by],
+  ]
+  for (const [label, table, id] of checks) {
+    if (!id) continue
+    const { data } = await supabase.from(table).select('id').eq('id', id).eq('org_id', orgId).maybeSingle()
+    if (!data) return `${label} ${id} not found`
+  }
+  return null
+}
 
 type OrgTable = 'units' | 'occupants' | 'contracts' | 'incidents' | 'payments'
 

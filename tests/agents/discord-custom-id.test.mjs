@@ -28,20 +28,12 @@ function parseApprovalCustomId(customId) {
   return { action, approvalId }
 }
 
-// BAW-26: el default es el operador (Hugo) y los agentes retirados (Alicia) se
-// enrutan al operador. Espejo de OPERATOR_AGENT_ID / RETIRED_AGENT_IDS en
-// src/lib/agents/roster.ts.
-const OPERATOR_AGENT_ID = 'hugo-cos'
-const RETIRED_AGENT_IDS = new Set(['alicia-ops'])
-
 function resolveAgentId(customId) {
   if (customId.startsWith('baw:')) {
     const parts = customId.split(':')
-    if (parts[1] && parts[1] !== 'approval') {
-      return RETIRED_AGENT_IDS.has(parts[1]) ? OPERATOR_AGENT_ID : parts[1]
-    }
+    if (parts[1] && parts[1] !== 'approval') return parts[1]
   }
-  return OPERATOR_AGENT_ID
+  return 'alicia-ops'
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -103,15 +95,11 @@ test('resolveAgentId: canónico devuelve el agent_id', () => {
 })
 
 test('resolveAgentId: legacy NO devuelve "approval" como agent_id', () => {
-  assert.equal(resolveAgentId(`baw:approval:grant:${APPROVAL_ID}`), 'hugo-cos')
+  assert.equal(resolveAgentId(`baw:approval:grant:${APPROVAL_ID}`), 'alicia-ops')
 })
 
-test('resolveAgentId: custom_id vacío → default hugo-cos (operador)', () => {
-  assert.equal(resolveAgentId(''), 'hugo-cos')
-})
-
-test('resolveAgentId: botón viejo de Alicia (retirada) → hugo-cos', () => {
-  assert.equal(resolveAgentId('baw:alicia-ops:task:view:123'), 'hugo-cos')
+test('resolveAgentId: custom_id vacío → default alicia-ops', () => {
+  assert.equal(resolveAgentId(''), 'alicia-ops')
 })
 
 console.log('')

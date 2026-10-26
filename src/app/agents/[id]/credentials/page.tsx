@@ -8,7 +8,6 @@ import { resolveOrgId, OrgContextError } from '@/lib/org-context'
 import { createSupabaseServer } from '@/lib/supabase-server'
 import CredentialsManager from './CredentialsManager'
 import { ORG_ADMIN_ROLES } from '@/lib/admin-auth'
-import { isRetiredAgent } from '@/lib/agents/roster'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +23,6 @@ interface AgentRow {
   domain: string
   description: string | null
   is_shared_zxy: boolean
-  status: string
 }
 
 interface CredentialRow {
@@ -89,7 +87,7 @@ async function loadAgent(id: string): Promise<AgentRow | null> {
   const service = createServiceClient()
   const { data } = await service
     .from('agents')
-    .select('id, display_name, full_name, family, domain, description, is_shared_zxy, status')
+    .select('id, display_name, full_name, family, domain, description, is_shared_zxy')
     .eq('id', id)
     .maybeSingle()
   return (data as AgentRow) || null
@@ -153,15 +151,8 @@ export default async function AgentCredentialsPage({ params }: PageProps) {
         </div>
       </header>
 
-      {isRetiredAgent(agent.id, agent.status) && (
-        <p className="mb-6 rounded border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
-          Agente retirado: no se emiten credenciales nuevas. Revoca las que sigan activas.
-        </p>
-      )}
-
       <CredentialsManager
         agentId={agentId}
-        retired={isRetiredAgent(agent.id, agent.status)}
         agentName={agent.full_name}
         initialCredentials={credentials}
       />

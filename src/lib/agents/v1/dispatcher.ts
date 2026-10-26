@@ -7,6 +7,7 @@
 // Mantener este dispatcher en sync con los handlers de cada endpoint write.
 
 import { createServiceClient } from '@/lib/supabase'
+import { incidentRefsOutsideOrg } from './org-refs'
 import { archiveEntity, ENTITY_TABLE, type LifecycleEntity } from '@/lib/lifecycle'
 import { checkTaskEntity, findForeignRef } from './org-refs'
 
@@ -40,11 +41,9 @@ export async function dispatchApprovedAction(ctx: DispatchContext): Promise<Disp
         estimated_cost?: number
         reported_by?: string
       }
-      const foreign = await findForeignRef(supabase, ctx.orgId, [
-        { table: 'units', id: p.unit_id, field: 'unit_id' },
-        { table: 'occupants', id: p.reported_by, field: 'reported_by' },
-      ])
-      if (foreign) return { ok: false, error: `${foreign} no pertenece a esta organización` }
+      // BAW-11: mismo guard que POST /v1/incidents — refs de la org o nada.
+      const foreign = await incidentRefsOutsideOrg(supabase, ctx.orgId, p)
+      if (foreign) return { ok: false, error: foreign }
       const { data, error } = await supabase
         .from('incidents')
         .insert({

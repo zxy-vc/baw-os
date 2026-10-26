@@ -1,12 +1,5 @@
 # Runbook — Conectar Alicia (operadora) con BaW OS
 
-> ## ⚠️ LEGACY — Alicia retirada (BAW-26, 2026-10-16)
-> Alicia (`alicia-ops`) está **apagada** y en el catálogo queda `status='retired'`
-> (migración `20261016010000`): sus credenciales activas se revocan y ya no se le emiten
-> nuevas; su historial (runs, approvals, interacciones) se conserva. El estado «conectada y
-> operando» de abajo es histórico. El agente operador es **Hugo** — ver
-> [`docs/specs/hugo-openclaw-mk2.md`](../specs/hugo-openclaw-mk2.md).
-
 **Audience:** Fran / `hugosanchez`
 **Host actual:** Mac Studio M4 Max · `MS-M4Max-HS`
 **Plataforma:** ZXY Agent OS **MK2** sobre OpenClaw 2026.5.28

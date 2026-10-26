@@ -8,16 +8,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Send, Loader2, MessageSquare, ChevronLeft, X } from 'lucide-react'
 import { useToast } from '@/components/Toast'
 import { ActorAvatar } from '@/components/ui/status'
-import { noResponseMessage } from '@/lib/agents/roster'
+import { noResponseMessage } from '@/lib/agents/chat-status'
 
 const STALE_MS = 45000 // si el agente no responde en 45s, lo marcamos como sin respuesta
 // No hay indicador de "conectado": que exista credencial no dice si el conector
 // está encendido. Solo reportamos lo observable: esperando / respondió / no respondió.
 
 interface AgentLite { id: string; display_name: string; full_name: string; role_label?: string | null; domain?: string | null }
-interface Conversation { id: string; agent_id: string; agent_name?: string; agent_short_name?: string; agent_role?: string | null; agent_retired?: boolean; title: string | null; last_message_at: string }
+interface Conversation { id: string; agent_id: string; agent_name?: string; agent_short_name?: string; agent_role?: string | null; title: string | null; last_message_at: string }
 interface Message { id: string; user_text: string; agent_text: string | null; status: string; error?: string | null; created_at: string }
-interface OperatorInfo { id: string; name: string; short_name: string; has_credential: boolean }
 
 function palette(dark: boolean) {
   return dark
@@ -46,7 +45,6 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
   const c = palette(dark)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [agents, setAgents] = useState<AgentLite[]>([])
-  const [operator, setOperator] = useState<OperatorInfo | null>(null)
   const [canSend, setCanSend] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -63,7 +61,6 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
       if (json.success) {
         setConversations(json.data.conversations)
         setAgents(json.data.agents)
-        setOperator(json.data.operator ?? null)
         setCanSend(json.data.can_send !== false)
       }
     } catch {
@@ -144,12 +141,6 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
   const noAgents = !loadingList && agents.length === 0
   const agentShort = selectedConv?.agent_short_name || selectedConv?.agent_name || 'El agente'
 
-  // Con un solo agente chateable (Hugo), "+" abre la conversación directo.
-  function onNew() {
-    if (agents.length === 1) startConversation(agents[0].id)
-    else setPicking((p) => !p)
-  }
-
   return (
     <div className="flex flex-col h-full min-h-0" style={{ backgroundColor: c.bg, color: c.text }}>
       {/* Header */}
@@ -169,7 +160,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
           <>
             <MessageSquare className="w-4 h-4" style={{ color: c.muted }} />
             <span className="text-[13px] font-semibold flex-1">Conversaciones</span>
-            <button onClick={onNew} disabled={noAgents || !canSend} className="p-1 rounded disabled:opacity-40 hover:opacity-70" style={{ color: 'var(--baw-accent)' }} title="Nueva conversación">
+            <button onClick={() => setPicking((p) => !p)} disabled={noAgents || !canSend} className="p-1 rounded disabled:opacity-40 hover:opacity-70" style={{ color: 'var(--baw-accent)' }} title="Nueva conversación">
               <Plus className="w-4 h-4" />
             </button>
           </>
@@ -202,11 +193,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
             <div className="p-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline" /></div>
           ) : conversations.length === 0 ? (
             <p className="p-4 text-[12px] text-center" style={{ color: c.muted }}>
-              {noAgents
-                ? operator && !operator.has_credential
-                  ? `${operator.short_name} no tiene una credencial activa en esta organización. Un admin puede emitirla en /agents/${operator.id}/credentials.`
-                  : 'No hay agentes disponibles para chat. Revisa /agents.'
-                : `Sin conversaciones. Empieza una con ${operator?.short_name ?? 'tu agente'} con +.`}
+              {noAgents ? 'No hay agentes con credencial activa. Emite una en /agents.' : 'Sin conversaciones. Empieza una con +.'}
             </p>
           ) : (
             conversations.map((cv) => (
@@ -214,9 +201,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
                 <ActorAvatar type="agent" name={cv.agent_name || cv.agent_id} size={30} />
                 <span className="min-w-0">
                   <span className="block text-[13px] font-medium truncate">{cv.agent_name || cv.agent_id}</span>
-                  {cv.agent_retired ? (
-                    <span className="block text-[11px] truncate" style={{ color: c.muted }}>Retirado · solo historial</span>
-                  ) : (cv.agent_role || cv.title) && <span className="block text-[11px] truncate" style={{ color: c.muted }}>{cv.agent_role || cv.title}</span>}
+                  {(cv.agent_role || cv.title) && <span className="block text-[11px] truncate" style={{ color: c.muted }}>{cv.agent_role || cv.title}</span>}
                 </span>
               </button>
             ))
@@ -255,11 +240,7 @@ export default function ChatPanel({ dark = false, onClose }: { dark?: boolean; o
           </div>
           {!canSend ? (
             <p className="shrink-0 p-3 text-[12px]" style={{ borderTop: `1px solid ${c.border}`, color: c.muted }}>
-              Solo owners y admins de la organización pueden pedirle cosas a {operator?.short_name ?? 'Hugo'}.
-            </p>
-          ) : selectedConv?.agent_retired ? (
-            <p className="shrink-0 p-3 text-[12px]" style={{ borderTop: `1px solid ${c.border}`, color: c.muted }}>
-              Este agente ya no está activo; su historial se conserva. Para pedir algo, inicia una conversación con {operator?.short_name ?? 'Hugo'}.
+              Solo owners y admins de la organización pueden pedirle cosas a los agentes.
             </p>
           ) : (
           <div className="shrink-0 p-2.5 flex items-end gap-2" style={{ borderTop: `1px solid ${c.border}` }}>

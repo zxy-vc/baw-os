@@ -8,7 +8,6 @@ import { getViewMode } from '@/lib/agents/view-mode'
 import AgentRunButton from './AgentRunButton'
 import ViewModeSwitch from '@/components/ViewModeSwitch'
 import AgentModeView from './AgentModeView'
-import { isRetiredAgent } from '@/lib/agents/roster'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,13 +102,10 @@ async function loadData() {
 
   // Merge autonomy_level efectivo en cada agent
   const policyMap = new Map(policies.map((p) => [p.agent_id, p]))
-  // Retirados (Alicia) fuera del catálogo; su historial de runs/approvals sigue abajo.
-  const agents = ((agentsData || []) as AgentRow[])
-    .filter((a) => !isRetiredAgent(a.id, a.status))
-    .map((a) => ({
-      ...a,
-      autonomy_level: policyMap.get(a.id)?.autonomy_level ?? 1,
-    }))
+  const agents = ((agentsData || []) as AgentRow[]).map((a) => ({
+    ...a,
+    autonomy_level: policyMap.get(a.id)?.autonomy_level ?? 1,
+  }))
 
   return { agents, runs, approvals, orgId, connectedIds }
 }
@@ -196,7 +192,6 @@ function StatusBadge({ status }: { status: string }) {
     planned: { bg: 'var(--baw-neutral-bg-soft)', fg: 'var(--baw-neutral-fg)' },
     paused: { bg: 'var(--baw-warning-bg-soft)', fg: 'var(--baw-warning-fg)' },
     deprecated: { bg: 'var(--baw-danger-bg-soft)', fg: 'var(--baw-danger-fg)' },
-    retired: { bg: 'var(--baw-neutral-bg-soft)', fg: 'var(--baw-neutral-fg)' },
   }
   const s = styles[status] || styles.planned
   return (

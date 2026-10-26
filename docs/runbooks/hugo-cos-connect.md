@@ -1,12 +1,5 @@
 # Runbook — Conectar a Hugo (hugo-cos) como supervisor read-only
 
-> ## ⚠️ SUPERSEDED — Hugo es ahora el agente operador (BAW-26, 2026-10-16)
-> Hugo ya **no** es supervisor de solo lectura: reemplaza a Alicia como **agente operador del
-> 809**. Su credencial se emite con el **preset «Operador»** (lectura amplia + escrituras v1 +
-> `interactions:read/write`, nunca `approvals:resolve`) y su conector se especifica en
-> [`docs/specs/hugo-openclaw-mk2.md`](../specs/hugo-openclaw-mk2.md). Los scopes read-only y
-> la verificación negativa de escrituras de abajo **ya no aplican**.
-
 > ## ⚠️ LEGACY — no aplica en MK2 (2026-06-21)
 > **Hugo NO está conectado a BaW OS** (decisión 2026-06-17). En MK2 (Mac Studio M4 Max),
 > Hugo corre con workspace propio (`~/.openclaw-hugo`, puerto `19000`, label
