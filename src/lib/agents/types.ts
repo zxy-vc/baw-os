@@ -13,6 +13,7 @@ export type AgentId =
   | 'maribel-law'
   | 'luis-growth'
   | 'andres-tech'
+  | 'grok-bot'
 
 export type AgentRunStatus = 'running' | 'succeeded' | 'failed' | 'partial' | 'canceled'
 export type AgentTrigger = 'manual' | 'cron' | 'webhook' | 'agent'

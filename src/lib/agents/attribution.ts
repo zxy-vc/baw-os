@@ -47,6 +47,7 @@ const AGENT_DISPLAY_NAMES: Partial<Record<AgentId, string>> = {
   'maribel-law': 'Maribel',
   'luis-growth': 'Luis',
   'andres-tech': 'Andrés',
+  'grok-bot': 'Grok Bot',
 }
 
 export function getAgentDisplayName(agentId: AgentId): string {
