@@ -6,7 +6,13 @@
 **Prerequisite**:
 - PR de BAW-11 mergeado y deployado en `https://baw-os.vercel.app`
 - Migración `supabase/migrations/20261016020000_agents_grok_bot.sql` aplicada en Supabase
-  (da de alta `grok-bot` en el catálogo; sin ella no se le pueden emitir credenciales)
+  (da de alta `grok-bot` en el catálogo; sin ella no se le pueden emitir credenciales).
+  Solo depende de `20260620020000_agents_catalog_fields.sql` (columnas `is_connectable`,
+  `role_label`), ya aplicada. Si `20261016010000` (BAW-26) se mergea antes, aplicarlas en
+  orden de versión.
+- Tras aplicarla, agregar su línea al manifiesto de BAW-3
+  (`supabase/ci/applied-migrations.sha256`) en un commit aparte:
+  `1e300649e80994162672d1f93768cca9251d9b0bac7febafe3f05d53702ef162  20261016020000_agents_grok_bot.sql`
 
 ## Cómo funciona
 
@@ -96,7 +102,8 @@ Pregúntale a Grok Bot:
 
 > ¿cuánto me deben en el 809?
 
-Debe llamar `resumen_operativo` y/o `listar_pagos` (status `overdue`/`pending`/`partial`)
+Debe llamar `resumen_operativo` y/o `listar_pagos` (status `overdue`/`pending`/`partial`,
+sumando `amount − amount_paid`; los cargos `void` del corte de BAW-18 están anulados y no cuentan)
 y contestar con montos reales. Luego prueba una escritura:
 
 > Crea una incidencia: fuga en el baño del 809-3

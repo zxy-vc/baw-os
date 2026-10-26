@@ -153,7 +153,7 @@ export const MCP_TOOLS: McpToolDef[] = [
     name: 'listar_pagos',
     title: 'Listar pagos y cargos',
     description:
-      'Lista los cargos de renta con monto, monto pagado, vencimiento y estado. Úsala para saber cuánto se debe: filtra por status (pending, overdue, partial) o por contrato.',
+      'Lista los cargos de renta con monto, monto pagado, vencimiento y estado. Úsala para saber cuánto se debe: filtra por status (pending, overdue, partial) o por contrato; lo debido de cada cargo es amount − amount_paid. Los cargos void están anulados y NO se deben.',
     scope: 'payments:read',
     kind: 'read',
     inputShape: {
@@ -161,7 +161,7 @@ export const MCP_TOOLS: McpToolDef[] = [
         .string()
         .max(40)
         .optional()
-        .describe('Filtra por estado (p.ej. pending, overdue, partial, paid).'),
+        .describe('Filtra por estado (p.ej. pending, overdue, partial, paid; void = anulado).'),
       contract_id: uuid('el contrato').optional(),
       due_from: fecha('Vence desde').optional(),
       due_to: fecha('Vence hasta').optional(),
@@ -207,7 +207,7 @@ export const MCP_TOOLS: McpToolDef[] = [
     name: 'resumen_operativo',
     title: 'Resumen operativo',
     description:
-      'Foto rápida de la organización: unidades por estado, contratos activos, pagos por estado con totales, incidencias abiertas por prioridad y tareas por estado. Buen primer paso para «¿cuánto me deben?».',
+      'Foto rápida de la organización: unidades por estado, contratos activos, pagos por estado con totales, incidencias abiertas por prioridad y tareas por estado. Buen primer paso para «¿cuánto me deben?»: lo pendiente está en pending, overdue y partial (en partial resta amount_paid con listar_pagos); paid ya se cobró y void está anulado.',
     scope: 'insights:read',
     kind: 'read',
     inputShape: {},

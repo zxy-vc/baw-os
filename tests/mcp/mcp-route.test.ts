@@ -267,6 +267,25 @@ describe('escrituras pasan por el clasificador', () => {
     expect(h.tables.agent_actions).toHaveLength(0)
   })
 
+  it('crear_tarea ligada a una entidad de otra org (o de tipo no soportado) → error y nada escrito', async () => {
+    const client = await connect({ authorization: `Bearer ${KEYS.full}` })
+    for (const args of [
+      { title: 'x', entity_type: 'unit', entity_id: UNIT_B },
+      { title: 'x', entity_type: 'reservation', entity_id: UNIT_A },
+    ]) {
+      const r = await client.callTool({ name: 'crear_tarea', arguments: args })
+      expect(r.isError).toBe(true)
+      expect(text(r)).toMatch(/404 not_found/)
+    }
+    expect(h.tables.tasks).toHaveLength(0)
+    const ok = await client.callTool({
+      name: 'crear_tarea',
+      arguments: { title: 'Revisar fuga', entity_type: 'unit', entity_id: UNIT_A },
+    })
+    expect(text(ok)).toMatch(/^Tarea creada/)
+    expect(h.tables.tasks).toHaveLength(1)
+  })
+
   it('aprobar una incidencia con refs de otra org tampoco la crea (dispatcher)', async () => {
     for (const payload of [{ title: 'x', unit_id: UNIT_B }, { title: 'x', reported_by: OCC_B }]) {
       const res = await dispatchApprovedAction({
