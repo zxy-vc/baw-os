@@ -16,7 +16,7 @@
 --     refund (refunds are irreversible and require a human, AGENTS.md §9).
 --   · Holds and promotions of the same unit serialize on an advisory lock so a
 --     new hold can never be placed on nights that are being promoted.
---   · no_overlap_per_unit (declared in 20260523, possibly missing in prod) is
+--   · no_overlap_per_unit (declared in 20260523231651, possibly missing in prod) is
 --     ensured so no writer can double-book a paid night.
 --   · Paid sessions the old webhook marked processed without a reservation are
 --     backfilled into the reconciliation queue.
@@ -25,7 +25,7 @@
 --
 -- Prerequisites: public.reservation_holds, public.stripe_processed_events and
 -- public.reservations must exist (both public-booking tables exist in prod;
--- see 20260523_public_booking.sql + 20260703_02_reservation_holds_now_fix.sql),
+-- see 20260523231651_public_booking.sql + 20260703020000_reservation_holds_now_fix.sql),
 -- plus public.user_org_ids(uuid) from BAW-1. The DO block aborts the whole
 -- transaction before any change if one is missing.
 --
@@ -52,15 +52,15 @@ DO $$
 BEGIN
   IF to_regclass('public.reservation_holds') IS NULL THEN
     RAISE EXCEPTION
-      'Missing public.reservation_holds. Repair the public-booking baseline (20260523 + 20260703_02) before applying 20261014010000_public_booking_payment_integrity.sql';
+      'Missing public.reservation_holds. Repair the public-booking baseline (20260523231651 + 20260703020000) before applying 20261014010000_public_booking_payment_integrity.sql';
   END IF;
   IF to_regclass('public.stripe_processed_events') IS NULL THEN
     RAISE EXCEPTION
-      'Missing public.stripe_processed_events. Repair the public-booking baseline (20260523) before applying 20261014010000_public_booking_payment_integrity.sql';
+      'Missing public.stripe_processed_events. Repair the public-booking baseline (20260523231651) before applying 20261014010000_public_booking_payment_integrity.sql';
   END IF;
   IF to_regclass('public.reservations') IS NULL THEN
     RAISE EXCEPTION
-      'Missing public.reservations. Apply 20260329_reservations.sql before 20261014010000_public_booking_payment_integrity.sql';
+      'Missing public.reservations. Apply 20260329010000_reservations.sql before 20261014010000_public_booking_payment_integrity.sql';
   END IF;
   IF to_regprocedure('public.user_org_ids(uuid)') IS NULL THEN
     RAISE EXCEPTION
@@ -138,7 +138,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS reservations_stripe_checkout_session_id_key
   WHERE stripe_checkout_session_id IS NOT NULL;
 
 -- Anti double-booking for EVERY writer (Channex, manual, this webhook). It was
--- declared in 20260523, which never applied fully in prod, so it may be
+-- declared in 20260523231651, which never applied fully in prod, so it may be
 -- missing there. If existing rows already overlap, this aborts the whole
 -- migration (nothing applied) and the overlap must be resolved by hand first.
 CREATE EXTENSION IF NOT EXISTS btree_gist;

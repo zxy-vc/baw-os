@@ -4,11 +4,11 @@
 // It implements only the query-builder calls those two routes make, plus the
 // DB-side behaviour they rely on, mirrored from the migrations:
 //   · reservation_holds: purge of expired holds before insert
-//     (20260703_02 trg_purge_expired_holds), availability guard
+//     (20260703020000 trg_purge_expired_holds), availability guard
 //     (20261014010000 trg_guard_hold_availability), EXCLUDE no_overlap_per_hold,
 //     UNIQUE idempotency_key, checkout snapshot CHECK on stripe_session_id.
-//   · fn_unit_is_available (20260704_quote_flow_crm).
-//   · checkout_idempotency.expires_at default (20260523, 24 h).
+//   · fn_unit_is_available (20260704010000_quote_flow_crm).
+//   · checkout_idempotency.expires_at default (20260523231651, 24 h).
 //   · fn_promote_paid_reservation and fn_record_public_booking_payment_failure
 //     (20261014010000), step by step. JS runs each synchronously, which stands
 //     in for the SQL transaction + advisory locks; real lock waits, snapshots
