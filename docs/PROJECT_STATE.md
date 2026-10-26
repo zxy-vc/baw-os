@@ -11,7 +11,7 @@ Por decisión del CPO, #173 se recortó a infraestructura de seguridad **sin cam
 
 **Qué entra:**
 - **Long-poll por org:** `/v1/interactions` GET/PATCH acotados a la org de la credencial. Antes, una credencial leía y cerraba el chat de otra org.
-- **Referencias de la misma org:** contratos, incidencias y tasks (ruta y dispatcher) rechazan unidades, inquilinos o entidades de otra org (`org-refs.ts`; `incidentRefsOutsideOrg` comparte firma con #172).
+- **Referencias de la misma org:** contratos, incidencias y tasks (ruta y dispatcher) rechazan unidades, inquilinos o entidades de otra org (`org-refs.ts`, mismo helper que la rama de #172).
 - **Emisión de credenciales:** solo los scopes de `ISSUABLE_SCOPES`; ya no se emiten `approvals:resolve` ni `*`.
 - **Órdenes por chat:** solo owners/admins pueden darle órdenes a un agente; un `pm_viewer` lee el historial pero recibe 403.
 - **Estado honesto en el chat:**
