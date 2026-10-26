@@ -8,11 +8,15 @@
 - Migración `supabase/migrations/20261016020000_agents_grok_bot.sql` aplicada en Supabase
   (da de alta `grok-bot` en el catálogo; sin ella no se le pueden emitir credenciales).
   Solo depende de `20260620020000_agents_catalog_fields.sql` (columnas `is_connectable`,
-  `role_label`), ya aplicada. Si `20261016010000` (BAW-26) se mergea antes, aplicarlas en
-  orden de versión.
+  `role_label`), ya aplicada (está en el manifiesto). No depende de
+  `20261014010000_public_booking_payment_integrity.sql` (BAW-15), que sigue pendiente en
+  prod; si se usa `supabase db push`, aplicar esa primero (orden de versión) o usar
+  `--include-all`. Desde el SQL editor se puede aplicar sola.
 - Tras aplicarla, agregar su línea al manifiesto de BAW-3
   (`supabase/ci/applied-migrations.sha256`) en un commit aparte:
   `1e300649e80994162672d1f93768cca9251d9b0bac7febafe3f05d53702ef162  20261016020000_agents_grok_bot.sql`
+- `GET /v1/payments` (y la tool `listar_pagos`) ahora lee `payments.late_fee_amount`, de
+  `20260615030000_payments_late_fee.sql` (en el manifiesto; Cobros ya la usa en prod).
 
 ## Cómo funciona
 
