@@ -153,7 +153,9 @@ export const MCP_TOOLS: McpToolDef[] = [
     name: 'listar_pagos',
     title: 'Listar pagos y cargos',
     description:
-      'Lista los cargos de renta con monto, monto pagado, vencimiento y estado. Úsala para saber cuánto se debe: filtra por status (pending, overdue, partial) o por contrato; lo debido de cada cargo es amount − amount_paid. Los cargos void están anulados y NO se deben.',
+      'Lista los cargos de renta con monto, monto pagado, mora (late_fee_amount), vencimiento y estado. Úsala para saber cuánto se debe; por cargo, igual que Cobros: ' +
+      'paid o partial → amount + late_fee_amount − amount_paid; pending o late con due_date ya vencido → amount + late_fee_amount; pending que aún no vence → nada todavía; void → anulado, no se debe. ' +
+      'La cifra oficial es la de Cobros en BaW OS.',
     scope: 'payments:read',
     kind: 'read',
     inputShape: {
@@ -161,7 +163,7 @@ export const MCP_TOOLS: McpToolDef[] = [
         .string()
         .max(40)
         .optional()
-        .describe('Filtra por estado (p.ej. pending, overdue, partial, paid; void = anulado).'),
+        .describe('Filtra por estado: pending, late, partial, paid, waived o void (void = anulado).'),
       contract_id: uuid('el contrato').optional(),
       due_from: fecha('Vence desde').optional(),
       due_to: fecha('Vence hasta').optional(),
@@ -207,7 +209,7 @@ export const MCP_TOOLS: McpToolDef[] = [
     name: 'resumen_operativo',
     title: 'Resumen operativo',
     description:
-      'Foto rápida de la organización: unidades por estado, contratos activos, pagos por estado con totales, incidencias abiertas por prioridad y tareas por estado. Buen primer paso para «¿cuánto me deben?»: lo pendiente está en pending, overdue y partial (en partial resta amount_paid con listar_pagos); paid ya se cobró y void está anulado.',
+      'Foto rápida de la organización: unidades por estado, contratos activos, pagos por estado con totales, incidencias abiertas por prioridad y tareas por estado. Para «¿cuánto me deben?» no sumes estos totales (no incluyen mora ni abonos ni vencimiento): usa listar_pagos con status late, partial y pending.',
     scope: 'insights:read',
     kind: 'read',
     inputShape: {},

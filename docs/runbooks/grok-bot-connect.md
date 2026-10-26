@@ -43,7 +43,7 @@ POST https://baw-os.vercel.app/api/mcp      (Streamable HTTP, stateless)
 | `listar_unidades` | Unidades y su estado | `units:read` |
 | `listar_contratos` | Contratos de renta | `contracts:read` |
 | `listar_ocupantes` | Inquilinos/huéspedes/contactos | `occupants:read` |
-| `listar_pagos` | Cargos y pagos (filtra `pending`/`overdue`/`partial`) | `payments:read` |
+| `listar_pagos` | Cargos y pagos con mora (filtra `pending`/`late`/`partial`) | `payments:read` |
 | `listar_incidencias` | Incidencias de mantenimiento | `incidents:read` |
 | `listar_tareas` | Tareas operativas | `tasks:read` |
 | `listar_ejecuciones` | Runs de agentes | `runs:read` |
@@ -102,8 +102,10 @@ Pregúntale a Grok Bot:
 
 > ¿cuánto me deben en el 809?
 
-Debe llamar `resumen_operativo` y/o `listar_pagos` (status `overdue`/`pending`/`partial`,
-sumando `amount − amount_paid`; los cargos `void` del corte de BAW-18 están anulados y no cuentan)
+Debe llamar `listar_pagos` (status `late`, `partial` y `pending`) y sumar como Cobros:
+`amount + late_fee_amount − amount_paid` en `partial`, `amount + late_fee_amount` en `late`/`pending`
+ya vencidos; los `pending` que aún no vencen y los `void` del corte de BAW-18 no cuentan. Compara
+el total con `/cobros`
 y contestar con montos reales. Luego prueba una escritura:
 
 > Crea una incidencia: fuga en el baño del 809-3

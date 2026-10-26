@@ -299,6 +299,16 @@ describe('escrituras pasan por el clasificador', () => {
       expect(res.ok).toBe(false)
     }
     expect(h.tables.incidents).toHaveLength(0)
+    const task = await dispatchApprovedAction({
+      approvalId: 'ap-3',
+      orgId: ORG_A,
+      agentId: 'grok-bot',
+      actionType: 'task.create',
+      payload: { title: 'x', entity_type: 'unit', entity_id: UNIT_B },
+      resolvedBy: null,
+    })
+    expect(task.ok).toBe(false)
+    expect(h.tables.tasks).toHaveLength(0)
     const ok = await dispatchApprovedAction({
       approvalId: 'ap-2',
       orgId: ORG_A,
@@ -412,6 +422,20 @@ describe('scopes filtran tools', () => {
 })
 
 describe('catálogo', () => {
+  it('las tools de pagos solo nombran estados reales del enum payment_status', () => {
+    const PAYMENT_STATUSES = ['pending', 'paid', 'late', 'partial', 'waived', 'void']
+    for (const name of ['listar_pagos', 'resumen_operativo']) {
+      const def = MCP_TOOLS.find((t) => t.name === name)!
+      const shape = def.inputShape as Record<string, { description?: string }>
+      const text = [def.description, shape.status?.description ?? ''].join(' ')
+      expect(text).not.toMatch(/overdue/)
+      if (name === 'listar_pagos') {
+        for (const s of PAYMENT_STATUSES) expect(text).toContain(s)
+        expect(text).toContain('late_fee_amount')
+      }
+    }
+  })
+
   it('no expone candados duros, resolución de aprobaciones ni rutas fuera de la lista', () => {
     const paths = MCP_TOOLS.map((t) => `${t.method} ${t.path({ approval_id: 'ID' })}`).sort()
     expect(paths).toEqual(
