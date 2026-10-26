@@ -26,7 +26,7 @@ Por decisión del CPO, #173 se recortó a infraestructura de seguridad **sin cam
 - **Hugo como operador:** `OPERATOR_AGENT_ID` como default del chat y de Discord, `HUGO_WEBHOOK_URL`, y un preset «operador» de 21 scopes.
 - **Retiro de Alicia:** status `retired`, revocación de sus credenciales y cierre de sus interacciones pendientes. Incluía la migración `20261016010000_baw26_hugo_operador_alicia_retired.sql`.
 - **Spec del conector** `docs/specs/hugo-openclaw-mk2.md` y las marcas LEGACY en los runbooks de Alicia.
-- **Dónde recuperarlo:** commit `ede5080` (historial de la rama de #173), si se decide retomarlo.
+- **Dónde recuperarlo:** commit «BAW-26: review r2 — own-property lookup for task entity types» (`e1c5fdb`) en el historial de la rama de #173, si se decide retomarlo.
 - **Follow-ups preexistentes abiertos:** #174 (`x-baw-trigger: human` autodeclarado; relevante antes de dar escrituras a cualquier bot), #175, #176 y #177.
 
 ---
