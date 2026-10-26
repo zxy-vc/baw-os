@@ -14,6 +14,10 @@ import {
   hashConnectorKey,
 } from '@/lib/connectors/keys'
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const MAX_EXPIRES_DAYS = 3650
+const MAX_BUILDINGS = 500
+
 const fail = (error: string, status: number) => NextResponse.json({ success: false, error }, { status })
 
 export async function GET() {
@@ -65,26 +69,45 @@ export async function POST(req: NextRequest) {
     return fail(`datasets debe ser un subconjunto de ${CONNECTOR_DATASETS.join(', ')}`, 400)
   }
 
+  // Vencimiento: omitido o null = sin vencimiento; si viene, entero de días.
+  // Un valor inválido NUNCA se convierte en llave permanente.
+  let expiresAt: string | null = null
+  if (body.expires_in_days !== undefined && body.expires_in_days !== null) {
+    const d = body.expires_in_days
+    if (typeof d !== 'number' || !Number.isInteger(d) || d < 1 || d > MAX_EXPIRES_DAYS) {
+      return fail(`expires_in_days debe ser un entero entre 1 y ${MAX_EXPIRES_DAYS} (u omitirse)`, 400)
+    }
+    expiresAt = new Date(Date.now() + d * 86_400_000).toISOString()
+  }
+
   const service = createServiceClient()
 
   // Alcance por edificio: null = toda la org; si viene, cada edificio debe ser
-  // de la org activa (nunca se acepta un edificio ajeno).
+  // de la org activa (nunca se acepta un edificio ajeno). Se consultan los ids
+  // pedidos por bloques — no "todos los edificios de la org", que PostgREST
+  // cortaría a 1000 filas.
   let buildingIds: string[] | null = null
   if (body.building_ids !== undefined && body.building_ids !== null) {
     if (!Array.isArray(body.building_ids) || body.building_ids.length === 0) {
       return fail('building_ids debe ser null (toda la org) o una lista no vacía', 400)
     }
     buildingIds = Array.from(new Set(body.building_ids))
-    const { data: owned, error } = await service.from('buildings').select('id').eq('org_id', auth.orgId)
-    if (error) return fail(error.message, 500)
-    const ownedIds = new Set((owned ?? []).map((b) => b.id as string))
-    if (buildingIds.some((id) => !ownedIds.has(id))) return fail('Algún edificio no pertenece a la org', 400)
+    if (buildingIds.length > MAX_BUILDINGS) return fail(`building_ids admite hasta ${MAX_BUILDINGS} edificios`, 400)
+    if (buildingIds.some((id) => typeof id !== 'string' || !UUID.test(id))) {
+      return fail('building_ids debe contener uuids', 400)
+    }
+    const owned = new Set<string>()
+    for (let i = 0; i < buildingIds.length; i += 100) {
+      const { data, error } = await service
+        .from('buildings')
+        .select('id')
+        .eq('org_id', auth.orgId)
+        .in('id', buildingIds.slice(i, i + 100))
+      if (error) return fail(error.message, 500)
+      for (const b of data ?? []) owned.add(b.id as string)
+    }
+    if (buildingIds.some((id) => !owned.has(id))) return fail('Algún edificio no pertenece a la org', 400)
   }
-
-  const expiresAt =
-    typeof body.expires_in_days === 'number' && body.expires_in_days > 0
-      ? new Date(Date.now() + body.expires_in_days * 86_400_000).toISOString()
-      : null
 
   const { plainKey, prefix } = generateConnectorKey()
   const { data: created, error: insertErr } = await service

@@ -425,3 +425,128 @@ describe('solo lectura e idempotencia', () => {
     expect(log().at(-1)).toMatchObject({ outcome: 'bad_request', http_status: 400 })
   })
 })
+
+describe('hallazgos de la revisión independiente (e71dd90)', () => {
+  const post = (body: unknown) =>
+    adminKeysRoute.POST(
+      new NextRequest('http://localhost/api/admin/connectors/keys', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+  it('#3 parámetro repetido → 400 y la bitácora guarda TODOS los valores', async () => {
+    const url = new URL('http://localhost/api/connectors/v1/occupancy')
+    url.searchParams.append('from', OCT.from)
+    url.searchParams.append('to', OCT.to)
+    url.searchParams.append('unit_id', U1)
+    url.searchParams.append('unit_id', U3)
+    const res = await occupancyRoute.GET(new NextRequest(url, { headers: { authorization: `Bearer ${KEYS.fullA}` } }))
+    const body = await res.json()
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('duplicate_param')
+    expect(body).not.toHaveProperty('data')
+    expect(log().at(-1)).toMatchObject({
+      outcome: 'bad_request',
+      http_status: 400,
+      query: { from: OCT.from, to: OCT.to, unit_id: [U1, U3] },
+    })
+  })
+
+  it('#4 expires_in_days inválido → 400 (nunca una llave permanente por error)', async () => {
+    h.user = { id: 'user-admin-a' }
+    for (const bad of ['1', -1, 0, 1.5, 99999, true]) {
+      const res = await post({ consumer_ref: `exp-${String(bad)}`, label: 'x', expires_in_days: bad })
+      expect(res.status, String(bad)).toBe(400)
+    }
+    expect(tables.connector_keys.some((k) => String(k.consumer_ref).startsWith('exp-'))).toBe(false)
+  })
+
+  it('#4 expires_in_days válido fija el vencimiento; omitido o null = sin vencimiento', async () => {
+    h.user = { id: 'user-admin-a' }
+    const ok = await (await post({ consumer_ref: 'exp-30', label: 'x', expires_in_days: 30 })).json()
+    const days = (new Date(ok.data.expires_at).getTime() - Date.now()) / 86_400_000
+    expect(days).toBeGreaterThan(29.9)
+    expect(days).toBeLessThanOrEqual(30)
+    expect((await (await post({ consumer_ref: 'exp-null', label: 'x', expires_in_days: null })).json()).data.expires_at).toBeNull()
+    expect((await (await post({ consumer_ref: 'exp-none', label: 'x' })).json()).data.expires_at).toBeNull()
+  })
+
+  it('#5 valida edificios propios aunque la org tenga más de 1000 (corte de PostgREST)', async () => {
+    const uuid = (n: number) => `50000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
+    tables.buildings.push(...Array.from({ length: 1001 }, (_, i) => ({ id: uuid(i), org_id: ORG_A, name: `b${i}` })))
+    const inner = makeFakeDb(tables)
+    // Simula max-rows = 1000 en toda consulta a buildings
+    h.db = {
+      from(table: string) {
+        const b = inner.from(table)
+        const sel = b.select
+        b.select = (...a: unknown[]) => {
+          const out = sel(...a)
+          return table === 'buildings' ? out.limit(1000) : out
+        }
+        return b
+      },
+    }
+    h.user = { id: 'user-admin-a' }
+    const last = uuid(1000)
+    const res = await post({ consumer_ref: 'big-org', label: 'x', building_ids: [last, B1] })
+    expect(res.status).toBe(200)
+    expect((await post({ consumer_ref: 'big-org-2', label: 'x', building_ids: [last, B3] })).status).toBe(400)
+    expect((await post({ consumer_ref: 'big-org-3', label: 'x', building_ids: ['no-uuid'] })).status).toBe(400)
+  })
+})
+
+describe('deploy inerte: tablas connector_* aún sin aplicar', () => {
+  beforeEach(() => {
+    h.db = makeFakeDb(tables, { missingTables: new Set(['connector_keys', 'connector_access_log']) })
+  })
+
+  it('las 5 rutas de lectura responden 503 sin datos (fail closed); sin llave, 401', async () => {
+    for (const ds of Object.keys(ROUTES) as (keyof typeof ROUTES)[]) {
+      const r = await read(ds, KEYS.fullA, OCT)
+      expect(r.status, ds).toBe(503)
+      expect(r.body.error.code, ds).toBe('auth_unavailable')
+      expect(r.body, ds).not.toHaveProperty('data')
+      expect((await read(ds, null, OCT)).status, ds).toBe(401)
+    }
+  })
+
+  it('las 4 rutas admin exigen sesión de admin y, con sesión, fallan sin emitir llave', async () => {
+    const del = () =>
+      adminKeyRoute.DELETE(new NextRequest(`http://localhost/api/admin/connectors/keys/${KEY_IDS.fullA}`, { method: 'DELETE' }), {
+        params: { id: KEY_IDS.fullA },
+      })
+    const logGet = () =>
+      adminLogRoute.GET(new NextRequest(`http://localhost/api/admin/connectors/keys/${KEY_IDS.fullA}/access-log`), {
+        params: { id: KEY_IDS.fullA },
+      })
+    const create = () =>
+      adminKeysRoute.POST(
+        new NextRequest('http://localhost/api/admin/connectors/keys', {
+          method: 'POST',
+          body: JSON.stringify({ consumer_ref: 'pre-ddl', label: 'x' }),
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+
+    // Sin sesión: 401 en todas
+    for (const res of [await adminKeysRoute.GET(), await create(), await del(), await logGet()]) {
+      expect(res.status).toBe(401)
+    }
+    // pm_viewer: 403 en todas
+    h.user = { id: 'user-viewer-a' }
+    for (const res of [await adminKeysRoute.GET(), await create(), await del(), await logGet()]) {
+      expect(res.status).toBe(403)
+    }
+    // Admin: 500 y nunca un api_key en la respuesta
+    h.user = { id: 'user-admin-a' }
+    for (const res of [await adminKeysRoute.GET(), await create(), await del(), await logGet()]) {
+      expect(res.status).toBe(500)
+      const body = await res.json()
+      expect(body.success).toBe(false)
+      expect(JSON.stringify(body)).not.toMatch(/ck_live_/)
+    }
+  })
+})

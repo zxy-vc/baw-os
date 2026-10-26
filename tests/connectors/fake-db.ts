@@ -10,6 +10,9 @@ type Filter = (r: Row) => boolean
 export interface FakeDbOptions {
   /** Hace fallar cualquier INSERT a estas tablas (p.ej. la bitácora). */
   failInsert?: Set<string>
+  /** Tablas que "no existen" (migración sin aplicar): toda operación falla
+   *  como PostgREST (PGRST205). */
+  missingTables?: Set<string>
   /** Restricción tipo UNIQUE: devuelve mensaje de error si el insert choca. */
   checkInsert?: (table: string, row: Row, tables: Record<string, Row[]>) => string | null
 }
@@ -38,6 +41,12 @@ export function makeFakeDb(tables: Record<string, Row[]>, opts: FakeDbOptions = 
     }
 
     const exec = () => {
+      if (opts.missingTables?.has(table)) {
+        return {
+          data: null,
+          error: { code: 'PGRST205', message: `Could not find the table 'public.${table}' in the schema cache` },
+        }
+      }
       const all = tables[table] ?? (tables[table] = [])
       let rows: Row[]
       if (st.op === 'insert') {

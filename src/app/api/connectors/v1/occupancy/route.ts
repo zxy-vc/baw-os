@@ -14,6 +14,7 @@ import {
   FIRM_RESERVATION_STATUSES,
   blockInterval,
   contractInterval,
+  localDateOf,
   rate,
   reservationInterval,
   unitOccupancy,
@@ -54,7 +55,8 @@ export const GET = connectorRead('occupancy', async (ctx) => {
       reservations: (resByUnit.get(u.id) ?? []).map(reservationInterval).filter(notNull),
       contracts: (conByUnit.get(u.id) ?? []).map(contractInterval).filter(notNull),
       blocks: (blkByUnit.get(u.id) ?? []).map(blockInterval).filter(notNull),
-      activeUntil: u.archived_at ? u.archived_at.slice(0, 10) : null,
+      // Deja de contar desde el día LOCAL de archivo (no la fecha UTC).
+      activeUntil: u.archived_at ? localDateOf(u.archived_at) : null,
     })
     totals.nights_in_period += occ.nights_in_period
     totals.blocked_nights += occ.blocked_nights

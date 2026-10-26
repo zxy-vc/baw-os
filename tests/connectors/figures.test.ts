@@ -9,6 +9,7 @@ import { buildFixture, KEYS, B1, U1, U2, U3, U5, R } from './fixture'
 import {
   allocateCents,
   allocateReservation,
+  localDateOf,
   nightlyRateMxn,
   normalizeChannel,
   toCents,
@@ -54,6 +55,29 @@ describe('reglas puras', () => {
     expect(toCents(5000)).toBe(500000)
     expect(toCents(null)).toBe(0)
     expect(toCents('abc')).toBe(0)
+  })
+
+  it('toCents: un solo redondeo, igual para número y string (hallazgo de revisión #1)', () => {
+    // Antes: toFixed(6) redondeaba 1.0049999 → 1.005000 → 101 centavos.
+    for (const [num, str, cents] of [
+      [1.0049999, '1.0049999', 100],
+      [1.005, '1.005', 101],
+      [0.145, '0.145', 15],
+      [1234.565, '1234.565', 123457],
+      [-1.005, '-1.005', -101],
+      [-1.0049999, '-1.0049999', -100],
+      [3999.99, '3999.99', 399999],
+    ] as const) {
+      expect(toCents(num), String(num)).toBe(cents)
+      expect(toCents(str), str).toBe(cents)
+    }
+    expect(toCents(1e-7)).toBe(0)
+    expect(toCents(5e-3)).toBe(1)
+    expect(toCents(1e21)).toBe(1e23)
+    expect(toCents(Number.NaN)).toBe(0)
+    expect(toCents(Infinity)).toBe(0)
+    expect(toCents('.5')).toBe(50)
+    expect(toCents('-')).toBe(0)
   })
 
   it('allocateCents reparte sin perder ni inventar centavos', () => {
@@ -114,6 +138,14 @@ describe('reglas puras', () => {
   })
 })
 
+describe('base temporal (hallazgo de revisión #2)', () => {
+  it('un timestamp se lee en hora de CDMX, no en UTC', () => {
+    expect(localDateOf('2026-10-21T02:00:00Z')).toBe('2026-10-20') // 20:00 del 20 en CDMX
+    expect(localDateOf('2026-10-21T06:00:00Z')).toBe('2026-10-21') // 00:00 del 21 en CDMX
+    expect(localDateOf('2026-10-21T05:59:59Z')).toBe('2026-10-20')
+  })
+})
+
 describe('OCUPACIÓN contra el fixture (octubre 2026)', () => {
   it('por unidad', async () => {
     const body = await read('occupancy', OCT)
@@ -142,6 +174,23 @@ describe('OCUPACIÓN contra el fixture (octubre 2026)', () => {
     expect(byUnit[U5]).toMatchObject({ nights_in_period: 20, available_nights: 20, occupied_nights: 0, occupancy_rate: 0 })
     // U4 (área común) no entra
     expect(Object.keys(byUnit).sort()).toEqual([U1, U2, U3, U5].sort())
+  })
+
+  it('un contrato terminated que se solapa con el periodo no ocupa', async () => {
+    const { data } = await read('occupancy', OCT)
+    const u3 = data.by_unit.find((u: Row) => u.unit_id === U3)
+    // c-terminated-oct cubre 1-20 oct en U3; si contara, U3 tendría ≥20 ocupadas
+    expect(u3.occupied_nights_by_instrument).toEqual({ reservation: 4, contract: 0 })
+    expect(u3.occupied_nights).toBe(4)
+  })
+
+  it('unidad archivada: corta en el día LOCAL de archivo (UTC 21-oct 02:00 = 20-oct CDMX)', async () => {
+    const tables = await buildFixture()
+    tables.units.find((u) => u.id === U5)!.archived_at = '2026-10-21T02:00:00Z'
+    h.db = makeFakeDb(tables)
+    const { data } = await read('occupancy', OCT)
+    const u5 = data.by_unit.find((u: Row) => u.unit_id === U5)
+    expect(u5.nights_in_period).toBe(19) // 1-19 oct; con la fecha UTC habrían sido 20
   })
 
   it('total = Σ ocupadas ÷ Σ disponibles (no promedio de porcentajes)', async () => {

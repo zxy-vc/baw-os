@@ -13,10 +13,11 @@
 //     U2 LTR  contrato activo 01-jun … 15-oct (inclusivo → 15 noches en oct)
 //             contrato pending desde 20-oct (no ocupa) · terminado en 2025 (no ocupa)
 //             bloqueo 10-oct … 12-oct encima del contrato (cuenta ocupada, no bloqueada)
-//     U5 STR  archivada el 21-oct → solo 20 noches en oct
+//     U5 STR  archivada el 21-oct 06:00 hora CDMX → solo 20 noches en oct
 //   B2 Torre 2020
 //     U3 STR  R6 Lodgify     05-oct → 08-oct  $2,400.00  pagado $2,400  (3 noches)
 //             R7 sin fuente  01-oct → 02-oct  $1,000.005 (→ $1,000.01) sin org_id (checkout público)
+//             contrato terminated 01-sep … 20-oct (se solapa con oct; no ocupa)
 //     U4 COMMON (no entra a ocupación)
 // Org B · ajena
 //   B3 · U9  R9 10-oct → 12-oct $10,000 — nunca debe aparecer
@@ -132,7 +133,7 @@ export async function buildFixture(): Promise<Record<string, Row[]>> {
     units: [
       { id: U1, org_id: ORG_A, building_id: B1, number: '101', type: 'STR', status: 'occupied', bedrooms: 1, bathrooms: 1, max_guests: 2, archived_at: null, base_rate_mxn: 1200 },
       { id: U2, org_id: ORG_A, building_id: B1, number: '102', type: 'LTR', status: 'available', bedrooms: 2, bathrooms: 1, max_guests: 4, archived_at: null, base_rate_mxn: null },
-      { id: U5, org_id: ORG_A, building_id: B1, number: '105', type: 'STR', status: 'inactive', bedrooms: 1, bathrooms: 1, max_guests: 2, archived_at: '2026-10-21T00:00:00Z', base_rate_mxn: 900 },
+      { id: U5, org_id: ORG_A, building_id: B1, number: '105', type: 'STR', status: 'inactive', bedrooms: 1, bathrooms: 1, max_guests: 2, archived_at: '2026-10-21T12:00:00Z', base_rate_mxn: 900 },
       { id: U3, org_id: ORG_A, building_id: B2, number: '201', type: 'STR', status: 'available', bedrooms: 1, bathrooms: 1, max_guests: 3, archived_at: null, base_rate_mxn: 800 },
       { id: U4, org_id: ORG_A, building_id: B2, number: 'Lobby', type: 'COMMON', status: 'available', bedrooms: null, bathrooms: null, max_guests: null, archived_at: null, base_rate_mxn: null },
       { id: U9, org_id: ORG_B, building_id: B3, number: '901', type: 'STR', status: 'available', bedrooms: 1, bathrooms: 1, max_guests: 2, archived_at: null, base_rate_mxn: 5000 },
@@ -152,6 +153,7 @@ export async function buildFixture(): Promise<Record<string, Row[]>> {
       { id: 'c-active', org_id: ORG_A, unit_id: U2, status: 'active', start_date: '2026-06-01', end_date: '2026-10-15', monthly_amount: 15000 },
       { id: 'c-pending', org_id: ORG_A, unit_id: U2, status: 'pending', start_date: '2026-10-20', end_date: '2027-10-19', monthly_amount: 16000 },
       { id: 'c-terminated', org_id: ORG_A, unit_id: U2, status: 'terminated', start_date: '2025-01-01', end_date: '2025-12-31', monthly_amount: 14000 },
+      { id: 'c-terminated-oct', org_id: ORG_A, unit_id: U3, status: 'terminated', start_date: '2026-09-01', end_date: '2026-10-20', monthly_amount: 9000 },
       { id: 'c-orgB', org_id: ORG_B, unit_id: U9, status: 'active', start_date: '2026-01-01', end_date: null, monthly_amount: 9000 },
     ],
     unit_blocks: [

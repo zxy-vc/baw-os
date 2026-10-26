@@ -14,7 +14,7 @@
 
 import { addDaysISO, diffDaysISO } from '@/lib/calendar-occupancy'
 
-export const RULES_VERSION = 'connectors-v1.2026-10-21'
+export const RULES_VERSION = 'connectors-v1.2026-10-26'
 
 /* ------------------------------- Fuentes ------------------------------- */
 
@@ -57,16 +57,26 @@ export function isFirmReservation(status: string | null | undefined): boolean {
 
 /* ------------------------------- Dinero -------------------------------- */
 
-/** numeric de Postgres (número o string) → centavos enteros, redondeo
- *  half-up exacto (sin pasar por float × 100). null/basura → 0. */
+/** numeric de Postgres (número o string) → centavos enteros. Un solo redondeo,
+ *  half-up (mitades lejos de cero), sobre la representación decimal exacta del
+ *  dato: un número usa su representación más corta (la misma que el string de
+ *  PostgREST), así 1.0049999 y '1.0049999' dan lo mismo. null/basura → 0. */
 export function toCents(v: unknown): number {
   if (v === null || v === undefined || v === '') return 0
-  const s = typeof v === 'number' ? v.toFixed(6) : String(v).trim()
-  const m = /^(-?)(\d+)(?:\.(\d*))?$/.exec(s)
-  if (!m) return 0
+  let s: string
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return 0
+    s = String(v)
+    // Notación científica (|v| < 1e-6 o ≥ 1e21): a decimal plano.
+    if (/e/i.test(s)) s = Math.abs(v) >= 1e21 ? BigInt(Math.trunc(v)).toString() : v.toFixed(20)
+  } else {
+    s = String(v).trim()
+  }
+  const m = /^([-+]?)(\d*)(?:\.(\d*))?$/.exec(s)
+  if (!m || (m[2] === '' && (m[3] ?? '') === '')) return 0
   const sign = m[1] === '-' ? -1 : 1
   const frac = (m[3] ?? '').padEnd(3, '0')
-  let cents = Number(m[2]) * 100 + Number(frac.slice(0, 2))
+  let cents = Number(m[2] || '0') * 100 + Number(frac.slice(0, 2))
   if (Number(frac[2]) >= 5) cents += 1
   return sign * cents
 }
@@ -85,6 +95,25 @@ export function allocateCents(totalCents: number, nights: number): number[] {
 }
 
 /* ------------------------------ Periodos ------------------------------- */
+
+/**
+ * Base temporal del conector. BaW OS no guarda zona por inmueble; la
+ * convención del producto es America/Mexico_City (default de
+ * user_preferences.timezone en 20260430010640_platform_admin.sql y "hoy en
+ * CDMX" de los scripts BAW-18). Las fechas de negocio (check_in, end_date…)
+ * ya son fechas locales; solo los timestamps (archived_at) se convierten.
+ */
+export const CONNECTOR_TIME_ZONE = 'America/Mexico_City'
+
+/** Timestamp → fecha local `yyyy-mm-dd` en la base temporal del conector. */
+export function localDateOf(timestamp: string, timeZone: string = CONNECTOR_TIME_ZONE): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(timestamp))
+}
 
 export interface Period {
   from: string

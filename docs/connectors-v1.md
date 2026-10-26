@@ -1,7 +1,7 @@
 # Conector v1 para Engrane — `/api/connectors/v1/`
 
 > ENG-624 · Decisión de Fran (2026-10-18): **BaW OS es el sistema especializado y Engrane se conecta encima, de solo lectura. Cada dato vive en un solo lugar.**
-> Reglas versionadas como `connectors-v1.2026-10-21` (campo `source.rules` de cada respuesta). Si una regla cambia, cambia la versión y este documento en el mismo PR.
+> Reglas versionadas como `connectors-v1.2026-10-26` (campo `source.rules` de cada respuesta; la versión cambió de `2026-10-21` a `2026-10-26` por el redondeo único de centavos y el corte local de unidades archivadas). Si una regla cambia, cambia la versión y este documento en el mismo PR.
 
 ---
 
@@ -32,7 +32,8 @@
 curl -X POST https://baw-os.vercel.app/api/admin/connectors/keys \
   -H 'content-type: application/json' --cookie '<sesión>' \
   -d '{"consumer_ref":"<id del espacio en Engrane>","label":"Engrane · Mateos 809","building_ids":["<uuid edificio>"]}'
-# Opcionales: "datasets":["units","occupancy"], "expires_in_days":365
+# Opcionales: "datasets":["units","occupancy"], "expires_in_days":365  (entero 1–3650; omitido o null = sin vencimiento;
+#             cualquier otro valor → 400, nunca una llave permanente por error). building_ids: hasta 500 uuids de la org.
 
 GET    /api/admin/connectors/keys                    # listar (sin hash)
 DELETE /api/admin/connectors/keys/<id>               # revocar
@@ -45,7 +46,7 @@ Cada petición con una llave **reconocida** (también las rechazadas: revocada, 
 
 - **quién:** `key_id`, `consumer`, `consumer_ref`, `ip`, `user_agent`
 - **cuándo:** `created_at`
-- **qué:** `dataset`, `endpoint`, `query` (parámetros tal cual), `outcome`, `http_status`, `row_count`
+- **qué:** `dataset`, `endpoint`, `query` (parámetros tal cual; uno repetido se guarda como lista), `outcome`, `http_status`, `row_count`
 
 Es *append-only* (trigger bloquea `UPDATE`) y **fail closed**: si la fila no se pudo escribir, la respuesta es `503 audit_unavailable` y no se entregan datos. Una llave no reconocida no deja rastro (no hay org a quién atribuirla).
 
@@ -66,7 +67,7 @@ Authorization: Bearer ck_live_<48 hex>
   "as_of": "2026-10-21T15:04:05.123Z",                      // momento de la lectura (UTC)
   "source": {
     "system": "baw-os", "api": "connectors/v1", "dataset": "occupancy",
-    "rules": "connectors-v1.2026-10-21",
+    "rules": "connectors-v1.2026-10-26",
     "rules_doc": "https://github.com/zxy-vc/baw-os/blob/main/docs/connectors-v1.md"
   },
   "scope": { "org_id": "…", "building_ids": "all" }        // o la lista de edificios de la llave
@@ -81,7 +82,7 @@ Errores: `{ "error": { "code", "message" }, "as_of", "source" }`. Todas las resp
 | 401 | `key_revoked` / `key_expired` | Llave revocada o vencida |
 | 403 | `dataset_not_allowed` | La llave no incluye ese dataset |
 | 403 | `out_of_scope` | `building_id` / `unit_id` fuera del alcance (no distingue "no existe" de "no es tuyo") |
-| 400 | `invalid_period`, `period_too_long`, `invalid_limit`, `invalid_cursor`, `invalid_building_id`, `invalid_unit_id` | Parámetros |
+| 400 | `invalid_period`, `period_too_long`, `invalid_limit`, `invalid_cursor`, `invalid_building_id`, `invalid_unit_id`, `duplicate_param` | Parámetros (un parámetro repetido se rechaza: lo leído y lo registrado deben coincidir) |
 | 503 | `audit_unavailable` | No se pudo escribir la bitácora |
 
 ### 3.2 Parámetros comunes
@@ -89,7 +90,7 @@ Errores: `{ "error": { "code", "message" }, "as_of", "source" }`. Todas las resp
 - `from` (incluido) y `to` (**excluido**), `yyyy-mm-dd`, máximo 366 noches. Obligatorios salvo en `units`. Octubre completo = `from=2026-10-01&to=2026-11-01`.
 - `building_id`, `unit_id` (uuid, opcionales): filtran dentro del alcance de la llave.
 - Listas (`units`, `reservations`, `guests`): `limit` (100 por defecto, máx 500) y `cursor` (el `next_cursor` de la página anterior). Orden estable por `id`.
-- Las fechas de los datos (`check_in`, `check_out`, meses) son **fechas locales del inmueble**; `as_of` es UTC.
+- **Base temporal:** las fechas de los datos (`check_in`, `check_out`, `end_date`, meses) son fechas locales tal como las guarda BaW OS; `as_of` es UTC. BaW OS no guarda zona horaria por inmueble: cuando el conector convierte un timestamp a fecha (hoy solo `archived_at`), usa la convención del producto, **`America/Mexico_City`** (default de `timezone` en `20260430010640_platform_admin.sql`; "hoy en CDMX" de los scripts BAW-18). Un inmueble en otra zona (p.ej. Tijuana o Cancún) puede diferir un día en esa conversión.
 - Leer es idempotente: la misma consulta devuelve los mismos datos mientras BaW OS no cambie (solo cambia `as_of`).
 
 ### 3.3 Datasets
@@ -122,7 +123,7 @@ Las reglas viven en código en un único archivo, `src/lib/connectors/rules.ts`,
 3. `available_nights = nights_in_period − blocked_nights`.
 4. `occupancy_rate = occupied_nights ÷ available_nights` (4 decimales; `null` si no hubo noches disponibles). El total es Σ ocupadas ÷ Σ disponibles — **no** el promedio de los porcentajes por unidad.
 
-No cuentan para nada: cotizaciones `tentative`, holds del checkout público, reservas `cancelled`, contratos `pending` (aún no arrancan con certeza) y `terminated` (BaW OS no guarda la fecha real de terminación). Las áreas comunes (`type='COMMON'`) no entran al denominador. Una unidad archivada deja de contar desde la fecha de `archived_at`.
+No cuentan para nada: cotizaciones `tentative`, holds del checkout público, reservas `cancelled`, contratos `pending` (aún no arrancan con certeza) y `terminated` (BaW OS no guarda la fecha real de terminación). Las áreas comunes (`type='COMMON'`) no entran al denominador. Una unidad archivada deja de contar desde el **día local** (America/Mexico_City) de `archived_at`.
 
 **Por qué.**
 - Ocupación es un **hecho** (alguien estuvo o estará con certeza), no disponibilidad. Tentativas y holds son intención; si contaran, la cifra subiría y bajaría sola cuando los apartados vencen.
@@ -150,6 +151,7 @@ El conector **no** calcula tarifa de lista (base × temporada, ni precio fijo po
 
 **Regla.** Solo **reservas firmes** (`confirmed`, `checked_in`, `checked_out`):
 
+- **Centavos:** todo monto se convierte a centavos enteros con **un solo** redondeo half-up (mitades lejos de cero) sobre su valor decimal; un número y su string equivalente dan lo mismo.
 - **Devengado** (`revenue_mxn`): `total_price` de la reserva repartido por noche en centavos (misma cuota por noche; los centavos sobrantes a las primeras noches). Al periodo le toca la suma de sus noches; una reserva que cruza meses se parte. La suma de periodos contiguos es exactamente la suma de los totales, sin doble conteo.
 - **Cobrado** (`collected_mxn`): `amount_paid` de la reserva, repartido por noche igual que el devengado.
 - **Pendiente** (`outstanding_mxn`) = devengado − cobrado.
@@ -195,6 +197,8 @@ Ingreso de octubre: 5 reservas, 12 noches, devengado **$11,400.00** (2,000 + 3,9
 
 ## 7 · Activación
 
+**Deploy antes de la migración es inerte.** Si el código se despliega sin `connector_keys`/`connector_access_log`: las 5 rutas de lectura responden `401` sin llave y `503 auth_unavailable` con cualquier llave `ck_live_` (no se sirven datos); las 4 rutas de admin exigen sesión `pm_owner`/`pm_admin` (`401`/`403`) y con sesión fallan con `500` sin generar ni devolver ninguna llave (el valor solo se devuelve tras un INSERT exitoso). No hay UI ni navegación nueva, ni crons. Cubierto en `tests/connectors/keys-and-scope.test.ts` («deploy inerte»).
+
 1. Aplicar `supabase/migrations/20261021010000_connector_keys.sql` en Supabase (crea `connector_keys` y `connector_access_log`; no toca tablas existentes) y agregar su sha256 a `supabase/ci/applied-migrations.sha256`.
 2. Deploy.
 3. Crear la llave del espacio de Engrane (§2.2) y entregarla por un canal seguro.
@@ -203,7 +207,7 @@ Ingreso de octubre: 5 reservas, 12 noches, devengado **$11,400.00** (2,000 + 3,9
 
 - Sin rate limit propio (el rastro permite detectar abuso; se puede agregar por llave).
 - Sin UI para gestionar llaves (solo API de admin).
-- El checkout público (`/api/public/v1/webhooks/stripe`) inserta reservas sin `organization_id` ni `channel`: el conector las encuentra por su unidad pero su fuente sale `unknown`. El PR #167 (abierto) las inserta con `organization_id` y `platform='direct'`; con él, salen `direct` sin cambios aquí.
+- Reservas del checkout público creadas **antes** de #167 (mergeado, 659aef0) no traen `organization_id` ni fuente: el conector las encuentra por su unidad y su fuente sale `unknown`. Desde #167 se insertan con `organization_id` y `platform='direct'`, y salen `direct` sin cambios aquí.
 
 ### 8.1 · Interacción con BAW-18 Fase B (#171) — decisión pendiente de Fran
 

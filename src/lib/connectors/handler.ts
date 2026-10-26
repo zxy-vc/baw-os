@@ -91,6 +91,16 @@ function errorBody(dataset: ConnectorDataset, asOf: string, code: string, messag
   return { error: { code, message }, as_of: asOf, source: sourceOf(dataset) }
 }
 
+/** Query tal cual llegó: un parámetro repetido se guarda como lista. */
+export function auditQuery(params: URLSearchParams): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {}
+  for (const k of Array.from(new Set(Array.from(params.keys())))) {
+    const all = params.getAll(k)
+    out[k] = all.length === 1 ? all[0] : all
+  }
+  return out
+}
+
 type KeyLookup =
   | { ok: true; key: ConnectorKeyRow }
   | { ok: false; status: number; code: string; message: string }
@@ -131,6 +141,8 @@ export function connectorRead(
     if (!lookup.ok) return json(errorBody(dataset, asOf, lookup.code, lookup.message), lookup.status)
     const key = lookup.key
 
+    const audited = auditQuery(req.nextUrl.searchParams)
+    const query = Object.entries(audited)
     let status = 200
     let outcome: AccessOutcome = 'ok'
     let rowCount: number | null = null
@@ -148,6 +160,10 @@ export function connectorRead(
       deny(401, 'denied_expired', 'key_expired', 'La llave venció')
     } else if (!key.datasets.includes(dataset)) {
       deny(403, 'denied_dataset', 'dataset_not_allowed', `La llave no incluye el dataset "${dataset}"`)
+    } else if (query.some(([, v]) => Array.isArray(v))) {
+      // Sin ambigüedad: lo que se lee y lo que se registra deben ser lo mismo.
+      const dup = query.filter(([, v]) => Array.isArray(v)).map(([k]) => k).join(', ')
+      deny(400, 'bad_request', 'duplicate_param', `Parámetro repetido: ${dup}`)
     } else {
       try {
         const out = await handler({ req, params: req.nextUrl.searchParams, key, db })
@@ -177,7 +193,7 @@ export function connectorRead(
       consumer_ref: key.consumer_ref,
       dataset,
       endpoint: req.nextUrl.pathname,
-      query: Object.fromEntries(req.nextUrl.searchParams),
+      query: audited,
       outcome,
       http_status: status,
       row_count: rowCount,
