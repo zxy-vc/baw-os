@@ -28,6 +28,7 @@ export interface CreateCheckoutSessionParams {
   totalMxn: number           // pesos, not cents
   metadata: Record<string, string>
   idempotencyKey: string
+  expiresAt: number          // unix seconds; must end before the hold does
 }
 
 export async function createCheckoutSession(
@@ -51,6 +52,10 @@ export async function createCheckoutSession(
     {
       mode: 'payment',
       currency: 'mxn',
+      // Card only: delayed methods (e.g. OXXO) complete with payment_status
+      // 'unpaid' and settle days later, long after the hold is released.
+      payment_method_types: ['card'],
+      expires_at: params.expiresAt,
       line_items: [
         {
           price_data: {
