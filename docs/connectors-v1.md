@@ -203,5 +203,14 @@ Ingreso de octubre: 5 reservas, 12 noches, devengado **$11,400.00** (2,000 + 3,9
 
 - Sin rate limit propio (el rastro permite detectar abuso; se puede agregar por llave).
 - Sin UI para gestionar llaves (solo API de admin).
-- El checkout público (`/api/public/v1/webhooks/stripe`) inserta reservas sin `organization_id` ni `channel`: el conector las encuentra por su unidad pero su fuente sale `unknown`.
+- El checkout público (`/api/public/v1/webhooks/stripe`) inserta reservas sin `organization_id` ni `channel`: el conector las encuentra por su unidad pero su fuente sale `unknown`. El PR #167 (abierto) las inserta con `organization_id` y `platform='direct'`; con él, salen `direct` sin cambios aquí.
+
+### 8.1 · Interacción con BAW-18 Fase B (#171) — decisión pendiente de Fran
+
+La Fase B del 809 (`docs/audits/BAW-18-fase-b.sql`) deja dos situaciones que la regla de ocupación v1 (§4.1) cuenta de forma conservadora:
+
+- **D102 y D202 pasan a `terminated` con `end_date` = fecha real de entrega** (2026-10-11 y 2026-09-30). La regla v1 excluye todo contrato `terminated` porque antes no se guardaba la fecha real; con esas dos filas, el conector **no** cuenta como ocupadas sus noches previas a la entrega (p.ej. D102 del 1 al 11 de octubre). Opción: contar `terminated` hasta `end_date` cuando `end_date` sea la fecha real — exige saber qué `terminated` históricos tienen la fecha contractual y no la real.
+- **D203, D204 y D302 siguen `active` con `end_date` vencida** hasta la Fase B2. La regla v1 respeta `end_date`, así que el conector los muestra **vacantes** después de esa fecha aunque el inquilino siga (igual que el calendario). Opción: tratar un `active` vencido como ocupado hasta hoy (regla de "sobreestadía").
+
+Ninguna de las dos se cambia en v1 sin decisión de Fran; si se adopta, sube `RULES_VERSION` y se ajusta §4.1 y el fixture.
 - Rentas de contratos en `/revenue` (regla propuesta en §4.3).
